@@ -14,4 +14,12 @@ class HarvesterSettingsTest {
         assertEquals(0, HarvesterSettings.sanitizeRadius(9));
         assertEquals(0, HarvesterSettings.sanitizeRadius(-3));
     }
+
+    @Test
+    void sanitizesInterval() {
+        assertEquals(0f, HarvesterSettings.sanitizeInterval(0f));
+        assertEquals(0f, HarvesterSettings.sanitizeInterval(-1f));
+        assertEquals(0.5f, HarvesterSettings.sanitizeInterval(0.5f));
+        assertEquals(3f, HarvesterSettings.sanitizeInterval(3f));
+    }
 }

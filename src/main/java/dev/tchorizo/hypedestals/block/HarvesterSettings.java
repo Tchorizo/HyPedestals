@@ -14,4 +14,9 @@ public final class HarvesterSettings {
     public static int sanitizeRadius(int r) {
         return r >= 1 && r <= MAX_RADIUS ? r : 0;
     }
+
+    /** Positive intervals pass through; zero, negative or NaN become {@code 0} (inactive harvester). */
+    public static float sanitizeInterval(float seconds) {
+        return seconds > 0f ? seconds : 0f;
+    }
 }

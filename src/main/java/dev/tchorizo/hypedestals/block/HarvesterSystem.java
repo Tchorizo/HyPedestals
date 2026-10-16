@@ -32,22 +32,26 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
     public void tick(float dt, int index, ArchetypeChunk<ChunkStore> chunk,
                      Store<ChunkStore> store, CommandBuffer<ChunkStore> cb) {
         HarvesterComponent harvester = chunk.getComponent(index, HarvesterComponent.TYPE);
+        BlockModule.BlockStateInfo info = chunk.getComponent(index, BlockModule.BlockStateInfo.getComponentType());
+
+        // Both sanitizers map invalid settings to 0; checked before the timer because a 0 interval
+        // would otherwise fire every tick.
+        if (harvester.radius == 0 || harvester.intervalSeconds == 0) {
+            if (!harvester.inactiveWarned) {
+                harvester.inactiveWarned = true;
+                Vector3i pos = new Vector3i();
+                HyPedestalsPlugin.warn("Harvester tier %d em %s inativo: Radius fora de 1..%d ou IntervalSeconds <= 0",
+                        harvester.tier, info.fillWorldPos(cb, pos) ? pos : "?", HarvesterSettings.MAX_RADIUS);
+            }
+            return;
+        }
+
         harvester.elapsed += dt;
         if (harvester.elapsed < harvester.intervalSeconds) {
             return;
         }
         harvester.elapsed = 0;
 
-        if (harvester.radius == 0) {
-            if (!harvester.inactiveWarned) {
-                harvester.inactiveWarned = true;
-                HyPedestalsPlugin.warn("Harvester tier %d inativo: Radius fora de 1..%d",
-                        harvester.tier, HarvesterSettings.MAX_RADIUS);
-            }
-            return;
-        }
-
-        BlockModule.BlockStateInfo info = chunk.getComponent(index, BlockModule.BlockStateInfo.getComponentType());
         Vector3i pos = new Vector3i();
         if (!info.fillWorldPos(cb, pos)) {
             return;
@@ -68,7 +72,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 new BlockPos(pos.x, pos.y, pos.z), harvester.radius, harvester.warnedTypes);
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {
-            HyPedestalsPlugin.warn("tipo %s ignorado neste bloco", type);
+            HyPedestalsPlugin.warn("harvest falhou para %s em %s; tipo ignorado", type, pos);
         }
     }
 }

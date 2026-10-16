@@ -9,6 +9,7 @@ import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
+import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -90,10 +91,16 @@ final class HytaleCycleWorld implements CycleWorld {
             }
             ItemComponent item = entityStore.getComponent(ref, ItemComponent.getComponentType());
             ItemStack stack = item == null ? null : item.getItemStack();
-            if (stack == null || stack.isEmpty() || !container.canAddItemStack(stack)) {
-                continue; // stays in the world
+            if (stack == null || stack.isEmpty()) {
+                continue;
             }
-            container.addItemStack(stack);
+            // All-or-nothing (the container default is partial): a partial insert would leave the
+            // full stack on the ground too and duplicate the difference.
+            ItemStackTransaction tx = container.addItemStack(stack, true, false, true);
+            ItemStack remainder = tx.getRemainder();
+            if (remainder != null && !remainder.isEmpty()) {
+                continue; // nothing was added; stays in the world for a later cycle
+            }
             entityStore.removeEntity(ref, RemoveReason.REMOVE);
             inserted += stack.getQuantity();
         }

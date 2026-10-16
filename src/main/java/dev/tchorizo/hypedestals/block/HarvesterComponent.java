@@ -29,7 +29,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
                             (c, v) -> c.radius = HarvesterSettings.sanitizeRadius(v), c -> c.radius)
                     .add()
                     .append(new KeyedCodec<>("IntervalSeconds", Codec.FLOAT),
-                            (c, v) -> c.intervalSeconds = v, c -> c.intervalSeconds)
+                            (c, v) -> c.intervalSeconds = HarvesterSettings.sanitizeInterval(v), c -> c.intervalSeconds)
                     .add()
                     .build();
 
@@ -37,6 +37,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int tier;
     /** Always within {@code 1..HarvesterSettings.MAX_RADIUS}, or {@code 0} when the configured radius was invalid (inactive). */
     int radius;
+    /** Always positive, or {@code 0} when the configured interval was not (inactive). */
     float intervalSeconds;
 
     // Transient.
@@ -82,7 +83,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         HarvesterComponent copy = new HarvesterComponent();
         copy.tier = tier;
         copy.radius = HarvesterSettings.sanitizeRadius(radius);
-        copy.intervalSeconds = intervalSeconds;
+        copy.intervalSeconds = HarvesterSettings.sanitizeInterval(intervalSeconds);
         return copy;
     }
 }
