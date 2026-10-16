@@ -1,0 +1,70 @@
+{
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Upgrade_Watering.name",
+    "Description": "hypedestals.items.Upgrade_Watering.description"
+  },
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Upgrade_Watering.png",
+  "Quality": "Uncommon",
+  "MaxStack": 16,
+  "Categories": [
+    "Items.Tools"
+  ],
+  "Model": "Resources/Ingredients/Essence.blockymodel",
+  "Texture": "Resources/Ingredients/Essence_Textures/Water_Essence_Texture.png",
+  "PlayerAnimationsId": "Item",
+  "IconProperties": {
+    "Scale": 0.6,
+    "Rotation": [
+      0,
+      0,
+      0
+    ],
+    "Translation": [
+      0,
+      -13
+    ]
+  },
+  "Scale": 0.8,
+  "Interactions": {
+    "Secondary": "HyPedestals_Upgrade_Install"
+  },
+  "Tags": {
+    "Type": [
+      "Upgrade"
+    ],
+    "Family": [
+      "HyPedestals"
+    ]
+  },
+  "Recipe": {
+    "TimeSeconds": 4,
+    "Input": [
+      {
+        "ItemId": "Tool_Watering_Can",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Iron",
+        "Quantity": 4
+      },
+      {
+        "ItemId": "Ingredient_Tree_Sap",
+        "Quantity": 3
+      },
+      {
+        "ItemId": "Ingredient_Life_Essence",
+        "Quantity": 25
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Type": "Crafting",
+        "Categories": [
+          "Farming"
+        ],
+        "Id": "Farmingbench",
+        "RequiredTierLevel": 2
+      }
+    ]
+  }
+}

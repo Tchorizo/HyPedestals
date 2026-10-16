@@ -5,6 +5,7 @@ public final class HytaleIds {
 
     private static final String STATE_PREFIX = "*";
     private static final String STATE_MARKER = "_State_Definitions_";
+    private static final String MOD_PREFIX = "HyPedestals_";
 
     private HytaleIds() {}
 
@@ -20,5 +21,14 @@ public final class HytaleIds {
         String id = blockId.startsWith(STATE_PREFIX) ? blockId.substring(STATE_PREFIX.length()) : blockId;
         int marker = id.indexOf(STATE_MARKER);
         return marker >= 0 ? id.substring(0, marker) : id;
+    }
+
+    /**
+     * Translation key of one of our items: {@code HyPedestals_Upgrade_Watering} + {@code name} →
+     * {@code hypedestals.items.Upgrade_Watering.name} (the {@code .lang} file name is the key prefix).
+     */
+    public static String itemTranslationKey(String itemId, String field) {
+        String name = itemId.startsWith(MOD_PREFIX) ? itemId.substring(MOD_PREFIX.length()) : itemId;
+        return "hypedestals.items." + name + "." + field;
     }
 }

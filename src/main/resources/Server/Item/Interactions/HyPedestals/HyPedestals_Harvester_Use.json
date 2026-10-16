@@ -1,0 +1,10 @@
+{
+  "Type": "Condition",
+  "Crouching": true,
+  "Next": {
+    "Type": "HyPedestalsRemoveUpgrade"
+  },
+  "Failed": {
+    "Type": "OpenContainer"
+  }
+}

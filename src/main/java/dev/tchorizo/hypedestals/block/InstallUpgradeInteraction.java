@@ -1,0 +1,64 @@
+package dev.tchorizo.hypedestals.block;
+
+import com.hypixel.hytale.codec.builder.BuilderCodec;
+import com.hypixel.hytale.component.CommandBuffer;
+import com.hypixel.hytale.protocol.InteractionState;
+import com.hypixel.hytale.protocol.InteractionType;
+import com.hypixel.hytale.server.core.entity.InteractionContext;
+import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
+import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
+import com.hypixel.hytale.server.core.modules.interaction.interaction.config.client.SimpleBlockInteraction;
+import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.tchorizo.hypedestals.HyPedestalsPlugin;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
+import org.joml.Vector3i;
+
+/**
+ * Interaction type {@code HyPedestalsInstallUpgrade}: the upgrade item's {@code Secondary}. Installs
+ * the held upgrade into the Harvester under the cursor and consumes one item from the hand. Any
+ * other target, or an upgrade the Harvester already has, fails the interaction without side effects.
+ */
+public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
+
+    public static final String TYPE_ID = "HyPedestalsInstallUpgrade";
+
+    public static final BuilderCodec<InstallUpgradeInteraction> CODEC = BuilderCodec
+            .builder(InstallUpgradeInteraction.class, InstallUpgradeInteraction::new, SimpleBlockInteraction.CODEC)
+            .documentation("Installs the held HyPedestals upgrade into the targeted Harvester.")
+            .build();
+
+    @Override
+    protected void interactWithBlock(World world, CommandBuffer<EntityStore> cb, InteractionType type,
+                                     InteractionContext ctx, ItemStack held, Vector3i pos, CooldownHandler cooldown) {
+        UpgradeType upgrade = held == null ? null : UpgradeType.fromItemId(held.getItemId());
+        UpgradeTarget target = upgrade == null ? null : UpgradeTarget.at(world, pos);
+        ItemContainer hand = ctx.getHeldItemContainer();
+        if (target == null || hand == null) {
+            ctx.getState().state = InteractionState.Failed;
+            return;
+        }
+        if (!target.harvester().upgrades().install(upgrade)) {
+            UpgradeTarget.tell(cb, ctx, "alreadyInstalled", upgrade);
+            ctx.getState().state = InteractionState.Failed;
+            return;
+        }
+        if (!hand.removeItemStackFromSlot((short) ctx.getHeldItemSlot(), 1).succeeded()) {
+            // Never install for free: undo when the hand could not pay.
+            target.harvester().upgrades().remove(upgrade);
+            ctx.getState().state = InteractionState.Failed;
+            return;
+        }
+        target.markNeedsSaving();
+        UpgradeTarget.tell(cb, ctx, "installed", upgrade);
+        HyPedestalsPlugin.log("upgrade: %s installed at %d %d %d -> %s",
+                upgrade.displayName(), pos.x, pos.y, pos.z, target.harvester().upgrades());
+    }
+
+    @Override
+    protected void simulateInteractWithBlock(InteractionType type, InteractionContext ctx, ItemStack held,
+                                             World world, Vector3i pos) {
+        // Server-authoritative; nothing to predict.
+    }
+}

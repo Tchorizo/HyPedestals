@@ -37,7 +37,7 @@
     },
     "InteractionHint": "server.interactionHints.openDoor",
     "Interactions": {
-      "Use": "Open_Container"
+      "Use": "HyPedestals_Harvester_Use"
     }
   }
 }

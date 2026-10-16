@@ -1,0 +1,66 @@
+{
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Upgrade_Fertilizer.name",
+    "Description": "hypedestals.items.Upgrade_Fertilizer.description"
+  },
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Upgrade_Fertilizer.png",
+  "Quality": "Uncommon",
+  "MaxStack": 16,
+  "Categories": [
+    "Items.Tools"
+  ],
+  "Model": "Resources/Ingredients/Essence.blockymodel",
+  "Texture": "Resources/Ingredients/Essence_Textures/Life_Essence_Texture.png",
+  "PlayerAnimationsId": "Item",
+  "IconProperties": {
+    "Scale": 0.6,
+    "Rotation": [
+      0,
+      0,
+      0
+    ],
+    "Translation": [
+      0,
+      -13
+    ]
+  },
+  "Scale": 0.8,
+  "Interactions": {
+    "Secondary": "HyPedestals_Upgrade_Install"
+  },
+  "Tags": {
+    "Type": [
+      "Upgrade"
+    ],
+    "Family": [
+      "HyPedestals"
+    ]
+  },
+  "Recipe": {
+    "TimeSeconds": 4,
+    "Input": [
+      {
+        "ItemId": "Tool_Fertilizer",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Iron",
+        "Quantity": 4
+      },
+      {
+        "ItemId": "Ingredient_Life_Essence",
+        "Quantity": 25
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Type": "Crafting",
+        "Categories": [
+          "Farming"
+        ],
+        "Id": "Farmingbench",
+        "RequiredTierLevel": 3
+      }
+    ]
+  }
+}

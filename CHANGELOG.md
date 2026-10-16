@@ -12,7 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - In-game settings window (`/hypedestals config`, operators) to edit the same values, in English and Brazilian Portuguese.
 - Configuration keys `WateringSeconds` (per tier), `SoilSweepSeconds`, `ExportToAdjacent` and `HarvestParticles`, also in `config set` and the settings window.
 - Export to an adjacent container (`ExportToAdjacent`, on by default): after each cycle the Harvester moves its items into a storage block below it or on one of its four sides, first container with room first; Harvesters never export to each other and the last slot is kept. `/hypedestals inspect` shows `exported=<items>`.
-- Watering upgrade (Harvester side): with it installed, every `SoilSweepSeconds` (30 s by default, on its own timer, so also while the storage is full) the Harvester waters the tilled soil in its area for its tier's `WateringSeconds` of game time, rewatering only where less than half of that is left. `/hypedestals inspect` shows `soil: watered=<n>`. The upgrade item that installs it is not in this version yet.
+- Watering upgrade: with it installed, every `SoilSweepSeconds` (30 s by default, on its own timer, so also while the storage is full) the Harvester waters the tilled soil in its area for its tier's `WateringSeconds` of game time, rewatering only where less than half of that is left. `/hypedestals inspect` shows `soil: watered=<n>`.
+- Upgrade items `Watering Upgrade` and `Fertilizer Upgrade`, crafted at the Farming bench (tier 2 and 3). Right-click a Harvester while holding one to install it (one of each per Harvester); crouch + Use (F) on the Harvester takes the last installed upgrade back into your inventory; plain Use still opens the storage. `/hypedestals inspect` lists the installed `upgrades=[…]`.
 
 ### Changed
 

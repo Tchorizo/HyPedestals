@@ -1,10 +1,13 @@
 package dev.tchorizo.hypedestals;
 
+import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Interaction;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.util.Config;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HarvesterSystem;
+import dev.tchorizo.hypedestals.block.InstallUpgradeInteraction;
+import dev.tchorizo.hypedestals.block.RemoveUpgradeInteraction;
 import dev.tchorizo.hypedestals.command.HyPedestalsCommand;
 import dev.tchorizo.hypedestals.config.HyPedestalsConfig;
 import dev.tchorizo.hypedestals.config.ModSettings;
@@ -52,6 +55,10 @@ public final class HyPedestalsPlugin extends JavaPlugin {
         HarvesterComponent.TYPE = getChunkStoreRegistry().registerComponent(
                 HarvesterComponent.class, "HyHarvester", HarvesterComponent.CODEC);
         getChunkStoreRegistry().registerSystem(new HarvesterSystem());
+        // Interaction types referenced by our Server/Item/Interactions JSON (upgrade item, Harvester Use).
+        getCodecRegistry(Interaction.CODEC)
+                .register(InstallUpgradeInteraction.TYPE_ID, InstallUpgradeInteraction.class, InstallUpgradeInteraction.CODEC)
+                .register(RemoveUpgradeInteraction.TYPE_ID, RemoveUpgradeInteraction.class, RemoveUpgradeInteraction.CODEC);
         boolean dev = System.getProperty(HyPedestalsCommand.DEV_PROPERTY) != null;
         getCommandRegistry().registerCommand(new HyPedestalsCommand(dev));
         log("setup (dev commands %s); config %s: %s", dev ? "on" : "off", configFile(), settings().describe());
