@@ -1,16 +1,23 @@
 package dev.tchorizo.hypedestals.command;
 
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncCommand;
+import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
+import dev.tchorizo.hypedestals.config.ConfigPage;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * {@code /hypedestals config}: shows the settings; {@code config show} and
- * {@code config set <Tier|global> <field> <value>} work from chat or the console. Uses the
+ * {@code /hypedestals config}: opens the settings window for a player; {@code config show} and
+ * {@code config set <Tier|global> <field> <value>} do the same from chat or the console. Uses the
  * engine's default command permission (operators).
  */
 final class ConfigCommand extends AbstractAsyncCommand {
@@ -19,16 +26,36 @@ final class ConfigCommand extends AbstractAsyncCommand {
             + " | config set global <CollectAnyItem|CollectMargin> <value>";
 
     ConfigCommand() {
-        super("config", "Show or change the HyPedestals settings");
+        super("config", "Open the HyPedestals settings window");
         addSubCommand(new ShowCommand());
         addSubCommand(new SetCommand());
     }
 
+    /** Players get the window; the console gets the current values and the usage. */
     @Override
     protected CompletableFuture<Void> executeAsync(CommandContext context) {
-        ShowCommand.show(context);
-        HyPedestalsCommand.reply(context, "%s", USAGE);
-        return CompletableFuture.completedFuture(null);
+        if (!(context.sender() instanceof PlayerRef playerRef)) {
+            ShowCommand.show(context);
+            HyPedestalsCommand.reply(context, "%s", USAGE);
+            return CompletableFuture.completedFuture(null);
+        }
+        Ref<EntityStore> ref = playerRef.getReference();
+        if (ref == null || !ref.isValid()) {
+            HyPedestalsCommand.reply(context, "config: you are not in a world");
+            return CompletableFuture.completedFuture(null);
+        }
+        Store<EntityStore> store = ref.getStore();
+        World world = store.getExternalData().getWorld();
+        // Pages are opened on the player's world thread.
+        return CompletableFuture.runAsync(() -> {
+            Player player = store.getComponent(ref, Player.getComponentType());
+            if (player != null) {
+                player.getPageManager().openCustomPage(ref, store, new ConfigPage(playerRef));
+            }
+        }, world).exceptionally(error -> {
+            HyPedestalsCommand.reply(context, "config failed: %s", error);
+            return null;
+        });
     }
 
     /** {@code config show}: {@code config <values> file=<path>}. */

@@ -1,0 +1,189 @@
+$C = "Common.ui";
+
+@HeaderStyle = (...$C.@DefaultLabelStyle, RenderBold: true, VerticalAlignment: Center);
+@RowLabelStyle = (...$C.@DefaultLabelStyle, VerticalAlignment: Center);
+
+$C.@PageOverlay {
+  LayoutMode: Middle;
+
+  $C.@DecoratedContainer {
+    Anchor: (Width: 600);
+
+    #Title {
+      $C.@Title {
+        @Text = %hypedestals.ui.config.title;
+      }
+    }
+
+    #Content {
+      LayoutMode: Top;
+      Padding: (Full: 16);
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 8, Height: 24);
+
+        Label {
+          Text: %hypedestals.ui.config.tier;
+          Anchor: (Width: 180);
+          Style: @HeaderStyle;
+        }
+
+        Label {
+          Text: %hypedestals.ui.config.radius;
+          Anchor: (Width: 160);
+          Style: @HeaderStyle;
+        }
+
+        Label {
+          Text: %hypedestals.ui.config.interval;
+          Anchor: (Width: 160);
+          Style: @HeaderStyle;
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.copper;
+          Anchor: (Width: 180);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #CopperRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 8, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #CopperInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.iron;
+          Anchor: (Width: 180);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #IronRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 8, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #IronInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.thorium;
+          Anchor: (Width: 180);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #ThoriumRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 8, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #ThoriumInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.cobalt;
+          Anchor: (Width: 180);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #CobaltRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 8, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #CobaltInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+      }
+
+      Group {
+        Anchor: (Vertical: 12, Height: 1);
+        Background: #5e512c;
+      }
+
+      $C.@CheckBoxWithLabel #CollectAnyItem {
+        @Text = %hypedestals.ui.config.collectAnyItem;
+        @Checked = true;
+        Anchor: (Bottom: 12);
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.collectMargin;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #CollectMargin {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 4, Step: 1, MaxDecimalPlaces: 0);
+        }
+      }
+
+      Label #Status {
+        Text: "";
+        Anchor: (Top: 4, Height: 40);
+        Style: (...$C.@DefaultLabelStyle, FontSize: 14, Wrap: true, VerticalAlignment: Center);
+      }
+
+      Group {
+        Anchor: (Vertical: 12, Height: 1);
+        Background: #5e512c;
+      }
+
+      Group {
+        LayoutMode: Left;
+
+        $C.@TextButton #SaveButton {
+          @Text = %hypedestals.ui.config.save;
+        }
+
+        Label {
+          FlexWeight: 1;
+        }
+
+        $C.@SecondaryTextButton #ResetButton {
+          @Text = %hypedestals.ui.config.reset;
+          @Anchor = (Right: 8);
+        }
+
+        $C.@CancelTextButton #CloseConfigButton {
+          @Text = %hypedestals.ui.config.close;
+        }
+      }
+    }
+  }
+}
