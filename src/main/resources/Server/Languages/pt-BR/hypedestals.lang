@@ -1,0 +1,9 @@
+# HyPedestals — pt-BR
+items.Harvester_Copper.name = Colheitadeira de Cobre
+items.Harvester_Copper.description = Colhe plantações maduras numa área de 5×5 a cada 12 s e guarda no armazenamento de 9 espaços.
+items.Harvester_Iron.name = Colheitadeira de Ferro
+items.Harvester_Iron.description = Colhe plantações maduras numa área de 7×7 a cada 8 s e guarda no armazenamento de 18 espaços.
+items.Harvester_Thorium.name = Colheitadeira de Tório
+items.Harvester_Thorium.description = Colhe plantações maduras numa área de 9×9 a cada 5 s e guarda no armazenamento de 27 espaços.
+items.Harvester_Cobalt.name = Colheitadeira de Cobalto
+items.Harvester_Cobalt.description = Colhe plantações maduras numa área de 11×11 a cada 3 s e guarda no armazenamento de 36 espaços.

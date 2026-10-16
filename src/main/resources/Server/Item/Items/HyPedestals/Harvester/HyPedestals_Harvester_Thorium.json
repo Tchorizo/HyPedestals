@@ -1,0 +1,58 @@
+{
+  "Parent": "HyPedestals_Harvester_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Harvester_Thorium.name",
+    "Description": "hypedestals.items.Harvester_Thorium.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Thorium.png",
+  "BlockType": {
+    "Textures": [
+      {
+        "Up": "BlockTextures/HyPedestals/Harvester_Thorium_Top.png",
+        "Down": "BlockTextures/HyPedestals/Harvester_Thorium_Bot.png",
+        "Sides": "BlockTextures/HyPedestals/Harvester_Thorium_Side.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Harvester_Thorium"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyHarvester": {
+          "Tier": 3,
+          "Radius": 4,
+          "IntervalSeconds": 5.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 27
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "HyPedestals_Harvester_Iron",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Thorium",
+        "Quantity": 15
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

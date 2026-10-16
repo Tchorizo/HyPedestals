@@ -1,0 +1,58 @@
+{
+  "Parent": "HyPedestals_Harvester_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Harvester_Copper.name",
+    "Description": "hypedestals.items.Harvester_Copper.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Copper.png",
+  "BlockType": {
+    "Textures": [
+      {
+        "Up": "BlockTextures/HyPedestals/Harvester_Copper_Top.png",
+        "Down": "BlockTextures/HyPedestals/Harvester_Copper_Bot.png",
+        "Sides": "BlockTextures/HyPedestals/Harvester_Copper_Side.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Harvester_Copper"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyHarvester": {
+          "Tier": 1,
+          "Radius": 2,
+          "IntervalSeconds": 12.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 9
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "Ingredient_Bar_Copper",
+        "Quantity": 12
+      },
+      {
+        "ResourceTypeId": "Wood_Trunk",
+        "Quantity": 10
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

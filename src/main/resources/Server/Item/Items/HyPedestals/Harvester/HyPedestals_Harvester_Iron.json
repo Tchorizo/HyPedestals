@@ -1,0 +1,58 @@
+{
+  "Parent": "HyPedestals_Harvester_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Harvester_Iron.name",
+    "Description": "hypedestals.items.Harvester_Iron.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Iron.png",
+  "BlockType": {
+    "Textures": [
+      {
+        "Up": "BlockTextures/HyPedestals/Harvester_Iron_Top.png",
+        "Down": "BlockTextures/HyPedestals/Harvester_Iron_Bot.png",
+        "Sides": "BlockTextures/HyPedestals/Harvester_Iron_Side.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Harvester_Iron"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyHarvester": {
+          "Tier": 2,
+          "Radius": 3,
+          "IntervalSeconds": 8.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 18
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "HyPedestals_Harvester_Copper",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Iron",
+        "Quantity": 15
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

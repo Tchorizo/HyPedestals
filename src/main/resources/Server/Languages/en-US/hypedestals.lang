@@ -1,0 +1,9 @@
+# HyPedestals — en-US
+items.Harvester_Copper.name = Copper Harvester
+items.Harvester_Copper.description = Harvests ripe crops within a 5×5 area every 12 s into its 9-slot storage.
+items.Harvester_Iron.name = Iron Harvester
+items.Harvester_Iron.description = Harvests ripe crops within a 7×7 area every 8 s into its 18-slot storage.
+items.Harvester_Thorium.name = Thorium Harvester
+items.Harvester_Thorium.description = Harvests ripe crops within a 9×9 area every 5 s into its 27-slot storage.
+items.Harvester_Cobalt.name = Cobalt Harvester
+items.Harvester_Cobalt.description = Harvests ripe crops within an 11×11 area every 3 s into its 36-slot storage.

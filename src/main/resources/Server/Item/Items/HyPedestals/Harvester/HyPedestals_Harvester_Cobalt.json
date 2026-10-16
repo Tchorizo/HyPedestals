@@ -1,0 +1,58 @@
+{
+  "Parent": "HyPedestals_Harvester_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Harvester_Cobalt.name",
+    "Description": "hypedestals.items.Harvester_Cobalt.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Cobalt.png",
+  "BlockType": {
+    "Textures": [
+      {
+        "Up": "BlockTextures/HyPedestals/Harvester_Cobalt_Top.png",
+        "Down": "BlockTextures/HyPedestals/Harvester_Cobalt_Bot.png",
+        "Sides": "BlockTextures/HyPedestals/Harvester_Cobalt_Side.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Harvester_Cobalt"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyHarvester": {
+          "Tier": 4,
+          "Radius": 5,
+          "IntervalSeconds": 3.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 36
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "HyPedestals_Harvester_Thorium",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Cobalt",
+        "Quantity": 15
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

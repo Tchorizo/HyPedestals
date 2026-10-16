@@ -1,0 +1,42 @@
+{
+  "Parent": "Rock_Stone_Cobble",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Harvester_Copper.name",
+    "Description": "hypedestals.items.Harvester_Copper.description"
+  },
+  "Quality": "Template",
+  "MaxStack": 16,
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Copper.png",
+  "Categories": [
+    "Blocks.Rocks"
+  ],
+  "ResourceTypes": [],
+  "Tags": {
+    "Type": [
+      "Furniture"
+    ],
+    "Family": [
+      "HyPedestals"
+    ]
+  },
+  "BlockType": {
+    "Textures": [
+      {
+        "Up": "BlockTextures/HyPedestals/Harvester_Copper_Top.png",
+        "Down": "BlockTextures/HyPedestals/Harvester_Copper_Bot.png",
+        "Sides": "BlockTextures/HyPedestals/Harvester_Copper_Side.png",
+        "Weight": 1
+      }
+    ],
+    "TransitionToGroups": [],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks"
+      }
+    },
+    "InteractionHint": "server.interactionHints.openDoor",
+    "Interactions": {
+      "Use": "Open_Container"
+    }
+  }
+}
