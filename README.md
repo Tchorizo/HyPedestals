@@ -1,6 +1,6 @@
 # HyPedestals
 
-A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items.
+A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items. Upgrades let a Harvester also water and fertilize its farmland, and it can pass its harvest on to a chest next to it.
 
 Requires **Hytale 0.7.2**. Works in singleplayer and on dedicated servers.
 
@@ -23,18 +23,32 @@ The numbers in the table are the defaults. Radius and interval can be changed pe
 
 1. Craft a Harvester at a Workbench.
 2. Place it next to (or in the middle of) your crops.
-3. Every interval it first collects dropped items around its area into its storage, then harvests ripe crops in its area, one harvest per storage slot that can still take items. When it cannot harvest everything at once, the next cycle continues where the last one stopped, so the whole area gets harvested over a few cycles. Most drops are picked up on the next cycle.
-4. Right-click the Harvester to open its storage.
+3. Every interval it first collects dropped items around its area into its storage, then harvests ripe crops in its area, one harvest per storage slot that can still take items, then collects again. When it cannot harvest everything at once, the next cycle continues where the last one stopped, so the whole area gets harvested over a few cycles. Drops that the game has not registered yet are picked up on the next cycle.
+4. Press **Use** (F) on the Harvester to open its storage.
 
 When no storage slot can take more items, the Harvester stops harvesting (nothing is harvested onto the ground) until space frees up.
 
-Installed upgrades show as particles around the Harvester: blue sparks for watering, green spores for the fertilizer, both when it has both.
+**Tip:** annual crops disappear when harvested, but the game's **Eternal** crops grow back after each harvest. Pair a Harvester with Eternal seeds for a farm that never needs replanting.
 
-### Admin command
+## Upgrades
 
-`/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the result of the last cycle (harvested, collected, paused) and its installed upgrades (`upgrades=[...]`).
+A Harvester holds up to two upgrades, one of each kind. They are stored in the Harvester itself, not in its storage slots, so automation never takes them out.
 
-The command loads the section from disk if it exists and never generates terrain. If there is nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
+| Upgrade | Recipe (Farming Bench) | What it does |
+|---|---|---|
+| **Watering Upgrade** | tier 2: 1× Watering Can + 4× Iron Bar + 3× Tree Sap + 25× Life Essence | Keeps the tilled soil in the Harvester's area watered, like a watering can, with no water source needed and nothing consumed |
+| **Fertilizer Upgrade** | tier 3: 1× Fertilizer + 4× Iron Bar + 25× Life Essence | Fertilizes the planted soil in its area with Fertilizer bags you put in the Harvester's last slot |
+
+- **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
+- **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
+- **Breaking** a Harvester drops its installed upgrades together with the block and its storage contents. Unloading the chunk or restarting the server keeps them installed.
+- **Particles** show what is installed: blue sparks for watering, green spores for the fertilizer, both when it has both. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
+
+Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s by default), separate from the harvest interval and also while the storage is full. The pass covers the same area as the harvest; soil one block below the Harvester's level (under crops on the Harvester's own level) is included.
+
+**Watering.** Each pass waters every tilled soil block in the area that has less than half of its watering time left, for the tier's `WateringSeconds` of game time: about 12 / 24 / 40 / 60 real minutes for Copper / Iron / Thorium / Cobalt. While the Harvester runs the soil never dries; after it is removed (or its chunk unloads) the soil stays watered for that long.
+
+**Fertilizer.** With the upgrade installed, the Harvester's **last storage slot becomes a fertilizer input**: it accepts only the game's Fertilizer bag, the harvest never goes there, and it is never exported. Each pass fertilizes the soil blocks in the area that have a crop on them and are not fertilized yet, one bag use per block (5 uses per bag, like using the bag by hand); an empty bag disappears. Fertilized soil stays fertilized until the soil block is replaced. If the last slot already holds something else when you install the upgrade, nothing is pushed out: fertilizing waits until you empty that slot. Anything that inserts items into containers can also feed bags into that slot.
 
 ## Configuration
 
@@ -75,16 +89,40 @@ In game (operators):
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. The Harvester's **last slot is never exported** (it is the input slot of the Fertilizer upgrade). `/hypedestals inspect` shows `exported=<items>→<x y z>` for the last cycle, with the position of the container that received them (`→none` when nothing moved).
+With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. The Harvester's **last slot is never exported** (it is the Fertilizer upgrade's input slot).
+
+## Compatibility
+
+- **ModernStorage:** an Import Bus placed against a Harvester (front facing it) pulls the harvest into the storage network, with no setup on the Harvester side. An Export Bus filtered to Fertilizer should be able to keep a Fertilizer upgrade's input slot fed (not tested yet).
+- **AutoStorage:** it only pushes items out of its own chest and never pulls from other containers, so place a Harvester right next to an AutoStorage chest and let [export](#export-to-an-adjacent-container) move the harvest into it.
+- **Chests and other containers** that use the game's item storage work as export targets.
+- **Eternal crops** (vanilla) are harvested and grow back on their own; regular annual crops have to be replanted.
+
+## Admin commands
+
+Operators, in chat (with `/`) or from the server console (without it):
+
+| Command | What it does |
+|---|---|
+| `/hypedestals inspect <x y z>` | Shows the Harvester at that position (see below) |
+| `/hypedestals config` | Opens the settings window (from the console: prints the values) |
+| `/hypedestals config show` | Prints the current settings and the file path |
+| `/hypedestals config set …` | Changes one setting, applies it and saves the file (see [Configuration](#configuration)) |
+
+`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag in the input slot (`fertilizer=<uses>/<max>`, `none` when empty, `blocked` when the slot holds something else). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
 ## Known limitations
 
-- **No claim/protection support.** Harvesting goes through the game's farming code, which does not fire a block break event, so claim or protection plugins cannot stop a Harvester from harvesting inside a protected area.
+- **No claim/protection support.** Harvesting goes through the game's farming code, which does not fire a block break event, so claim or protection plugins cannot stop a Harvester from harvesting inside a protected area. Watering, fertilizing and export do not check claims either.
 - **Only works while its chunk section is loaded and ticking**, i.e. near a player. There is no chunk loading.
-- If harvesting a crop type throws an error, that Harvester skips that crop type until its chunk reloads (one warning is logged).
-- **Annual crops are not replanted.** They are removed when harvested; replant them yourself. Bushes that reset after harvest (e.g. berries) regrow by themselves.
-- **One harvest can produce up to 2 stacks** (the crop plus Life Essence). When the storage is nearly full, whatever does not fit stays on the ground and is collected once space frees up.
 - **Vacuums any dropped item** within radius + `CollectMargin` (2 by default), not only crops, unless `CollectAnyItem` is turned off (then tools, weapons and armor stay on the ground).
+- **Overlapping Harvesters compete.** Where areas overlap, whichever Harvester runs first takes the crop, and each dropped item goes to whichever Harvester collects it first.
+- **Annual crops are not replanted.** They are removed when harvested; replant them yourself or use Eternal crops. Bushes that reset after harvest (e.g. berries) regrow by themselves.
+- **One harvest can produce up to 2 stacks** (the crop plus Life Essence). When the storage is nearly full, whatever does not fit stays on the ground and is collected once space frees up.
+- If harvesting a crop type keeps failing with an error, that Harvester skips that crop type until its chunk reloads (one warning is logged). A crop the game is still updating is simply retried on the next cycle.
+- **Creative mode:** installing an upgrade does not use up the item, and removing one still gives an item back, so upgrade items can be multiplied in Creative (like any item there).
+- **No owner checks.** A Harvester belongs to nobody: any player can open its storage, install upgrades, or crouch + Use to take its upgrades out, including on someone else's Harvester.
+- Crops planted one block below the Harvester's level have their soil outside the area, so the upgrades do not reach it.
 - Remove your Harvesters before uninstalling the plugin.
 
 ## Install
