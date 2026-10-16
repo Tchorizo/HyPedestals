@@ -29,7 +29,18 @@ class ModSettingsTest {
         }
         assertTrue(ModSettings.DEFAULTS.collectAnyItem());
         assertEquals(2, ModSettings.DEFAULTS.collectMargin());
+        assertEquals(30, ModSettings.DEFAULTS.soilSweepSeconds());
+        assertTrue(ModSettings.DEFAULTS.exportToAdjacent());
+        assertTrue(ModSettings.DEFAULTS.harvestParticles());
         assertEquals(List.of(), ModSettings.DEFAULTS.problems(), "the defaults are valid");
+    }
+
+    @Test
+    void wateringDefaultsFollowTheDesign() {
+        assertEquals(21_600, Tier.COPPER.defaults().wateringSeconds());
+        assertEquals(43_200, Tier.IRON.defaults().wateringSeconds());
+        assertEquals(72_000, Tier.THORIUM.defaults().wateringSeconds());
+        assertEquals(108_000, Tier.COBALT.defaults().wateringSeconds());
     }
 
     @Test
@@ -45,53 +56,77 @@ class ModSettingsTest {
 
     @Test
     void effectiveUsesTheConfigForKnownTiersAndTheAssetOtherwise() {
-        ModSettings s = ModSettings.DEFAULTS.withTier(Tier.COPPER, new TierSettings(6, 3f));
-        assertEquals(new TierSettings(6, 3f), s.effective(1, 2, 12f), "config wins over the asset");
-        assertEquals(new TierSettings(3, 8f), s.effective(2, 7, 1f), "untouched tiers use their default, not the asset");
-        assertEquals(new TierSettings(7, 1.5f), s.effective(9, 7, 1.5f), "unknown tier falls back to the asset");
-        assertEquals(new TierSettings(0, 0f), s.effective(0, 0, 0f), "a sanitized-invalid asset stays inactive");
+        ModSettings s = ModSettings.DEFAULTS.withTier(Tier.COPPER, new TierSettings(6, 3f, 600));
+        assertEquals(new TierSettings(6, 3f, 600), s.effective(1, 2, 12f), "config wins over the asset");
+        assertEquals(new TierSettings(3, 8f, 43_200), s.effective(2, 7, 1f), "untouched tiers use their default, not the asset");
+        assertEquals(new TierSettings(7, 1.5f, 21_600), s.effective(9, 7, 1.5f),
+                "unknown tier falls back to the asset, watering to the Copper default");
+        assertEquals(new TierSettings(0, 0f, 21_600), s.effective(0, 0, 0f), "a sanitized-invalid asset stays inactive");
     }
 
     @Test
     void withersAreImmutable() {
-        ModSettings changed = ModSettings.DEFAULTS.withCollectAnyItem(false).withCollectMargin(0);
+        ModSettings changed = ModSettings.DEFAULTS.withCollectAnyItem(false).withCollectMargin(0)
+                .withSoilSweepSeconds(5).withExportToAdjacent(false).withHarvestParticles(false);
         assertFalse(changed.collectAnyItem());
         assertEquals(0, changed.collectMargin());
+        assertEquals(5, changed.soilSweepSeconds());
+        assertFalse(changed.exportToAdjacent());
+        assertFalse(changed.harvestParticles());
+        assertEquals(ModSettings.DEFAULTS.tiers(), changed.tiers(), "global withers keep the tiers");
         assertTrue(ModSettings.DEFAULTS.collectAnyItem());
         assertEquals(2, ModSettings.DEFAULTS.collectMargin());
-        assertThrows(UnsupportedOperationException.class, () -> changed.tiers().put(Tier.COPPER, new TierSettings(1, 1f)));
+        assertEquals(30, ModSettings.DEFAULTS.soilSweepSeconds());
+        assertTrue(ModSettings.DEFAULTS.exportToAdjacent());
+        assertTrue(ModSettings.DEFAULTS.harvestParticles());
+        ModSettings tiered = changed.withTier(Tier.IRON, new TierSettings(1, 1f, 60));
+        assertEquals(5, tiered.soilSweepSeconds(), "withTier keeps the globals");
+        assertFalse(tiered.exportToAdjacent());
+        assertFalse(tiered.harvestParticles());
+        assertThrows(UnsupportedOperationException.class, () -> changed.tiers().put(Tier.COPPER, new TierSettings(1, 1f, 60)));
     }
 
     @Test
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true));
     }
 
     @Test
     void sanitizedReplacesOutOfRangeValuesWithDefaults() {
         ModSettings raw = ModSettings.DEFAULTS
-                .withTier(Tier.COPPER, new TierSettings(9, 0.25f))
-                .withTier(Tier.IRON, new TierSettings(0, 601f))
-                .withTier(Tier.THORIUM, new TierSettings(8, Float.NaN))
-                .withTier(Tier.COBALT, new TierSettings(1, 600f))
-                .withCollectMargin(5);
+                .withTier(Tier.COPPER, new TierSettings(9, 0.25f, 59))
+                .withTier(Tier.IRON, new TierSettings(0, 601f, 43_200))
+                .withTier(Tier.THORIUM, new TierSettings(8, Float.NaN, 604_801))
+                .withTier(Tier.COBALT, new TierSettings(1, 600f, 604_800))
+                .withCollectMargin(5)
+                .withSoilSweepSeconds(4)
+                .withExportToAdjacent(false)
+                .withHarvestParticles(false);
 
         assertEquals(List.of(
                 "Copper.Radius=9 (allowed 1..8)",
                 "Copper.IntervalSeconds=0.25 (allowed 0.5..600.0)",
+                "Copper.WateringSeconds=59 (allowed 60..604800)",
                 "Iron.Radius=0 (allowed 1..8)",
                 "Iron.IntervalSeconds=601.0 (allowed 0.5..600.0)",
                 "Thorium.IntervalSeconds=NaN (allowed 0.5..600.0)",
-                "CollectMargin=5 (allowed 0..4)"), raw.problems());
+                "Thorium.WateringSeconds=604801 (allowed 60..604800)",
+                "CollectMargin=5 (allowed 0..4)",
+                "SoilSweepSeconds=4 (allowed 5..600)"), raw.problems());
 
         ModSettings fixed = raw.sanitized();
         assertEquals(Tier.COPPER.defaults(), fixed.tier(Tier.COPPER));
         assertEquals(Tier.IRON.defaults(), fixed.tier(Tier.IRON));
-        assertEquals(new TierSettings(8, 5f), fixed.tier(Tier.THORIUM), "only the invalid value is replaced");
-        assertEquals(new TierSettings(1, 600f), fixed.tier(Tier.COBALT), "the bounds are valid");
+        assertEquals(new TierSettings(8, 5f, 72_000), fixed.tier(Tier.THORIUM), "only the invalid values are replaced");
+        assertEquals(new TierSettings(1, 600f, 604_800), fixed.tier(Tier.COBALT), "the bounds are valid");
         assertEquals(2, fixed.collectMargin());
+        assertEquals(30, fixed.soilSweepSeconds());
+        assertFalse(fixed.exportToAdjacent(), "booleans are kept");
+        assertFalse(fixed.harvestParticles());
+        assertEquals(5, ModSettings.DEFAULTS.withSoilSweepSeconds(5).sanitized().soilSweepSeconds(), "lower bound is valid");
+        assertEquals(600, ModSettings.DEFAULTS.withSoilSweepSeconds(600).sanitized().soilSweepSeconds(), "upper bound is valid");
         assertEquals(List.of(), fixed.problems());
         assertEquals(fixed, fixed.sanitized(), "idempotent");
     }
@@ -99,9 +134,16 @@ class ModSettingsTest {
     @Test
     void setChangesOneField() {
         ModSettings s = ModSettings.DEFAULTS;
-        assertEquals(new TierSettings(2, 3f), s.set("Copper", "IntervalSeconds", "3").tier(Tier.COPPER));
-        assertEquals(new TierSettings(8, 8f), s.set("iron", "radius", "8").tier(Tier.IRON), "names ignore case");
-        assertEquals(new TierSettings(4, 0.5f), s.set("Thorium", "IntervalSeconds", "0.5").tier(Tier.THORIUM));
+        assertEquals(new TierSettings(2, 3f, 21_600), s.set("Copper", "IntervalSeconds", "3").tier(Tier.COPPER));
+        assertEquals(new TierSettings(8, 8f, 43_200), s.set("iron", "radius", "8").tier(Tier.IRON), "names ignore case");
+        assertEquals(new TierSettings(4, 0.5f, 72_000), s.set("Thorium", "IntervalSeconds", "0.5").tier(Tier.THORIUM));
+        assertEquals(new TierSettings(5, 3f, 60), s.set("Cobalt", "WateringSeconds", "60").tier(Tier.COBALT));
+        assertEquals(new TierSettings(2, 12f, 604_800), s.set("copper", "wateringseconds", "604800").tier(Tier.COPPER));
+        assertEquals(5, s.set("global", "SoilSweepSeconds", "5").soilSweepSeconds());
+        assertEquals(600, s.set("global", "soilsweepseconds", "600").soilSweepSeconds());
+        assertFalse(s.set("global", "ExportToAdjacent", "false").exportToAdjacent());
+        assertTrue(s.withExportToAdjacent(false).set("global", "exporttoadjacent", "true").exportToAdjacent());
+        assertFalse(s.set("global", "HarvestParticles", "False").harvestParticles());
         assertFalse(s.set("global", "CollectAnyItem", "false").collectAnyItem());
         assertTrue(s.withCollectAnyItem(false).set("GLOBAL", "collectanyitem", "TRUE").collectAnyItem());
         assertEquals(0, s.set("global", "CollectMargin", "0").collectMargin());
@@ -123,13 +165,24 @@ class ModSettingsTest {
         assertMessage("not a number: fast", () -> s.set("Copper", "IntervalSeconds", "fast"));
         assertMessage("expected true or false, got yes", () -> s.set("global", "CollectAnyItem", "yes"));
         assertMessage("CollectMargin must be 0..4, got 5", () -> s.set("global", "CollectMargin", "5"));
+        assertMessage("unknown tier field SoilSweepSeconds", () -> s.set("Copper", "SoilSweepSeconds", "30"));
+        assertMessage("unknown global field WateringSeconds", () -> s.set("global", "WateringSeconds", "600"));
+        assertMessage("WateringSeconds must be 60..604800, got 59", () -> s.set("Copper", "WateringSeconds", "59"));
+        assertMessage("WateringSeconds must be 60..604800, got 604801", () -> s.set("Copper", "WateringSeconds", "604801"));
+        assertMessage("not a whole number: 1.5", () -> s.set("Copper", "WateringSeconds", "1.5"));
+        assertMessage("SoilSweepSeconds must be 5..600, got 4", () -> s.set("global", "SoilSweepSeconds", "4"));
+        assertMessage("SoilSweepSeconds must be 5..600, got 601", () -> s.set("global", "SoilSweepSeconds", "601"));
+        assertMessage("expected true or false, got on", () -> s.set("global", "ExportToAdjacent", "on"));
+        assertMessage("expected true or false, got 1", () -> s.set("global", "HarvestParticles", "1"));
     }
 
     @Test
     void describeIsOneLine() {
-        assertEquals("Copper Radius=2 IntervalSeconds=12.0 | Iron Radius=3 IntervalSeconds=8.0"
-                        + " | Thorium Radius=4 IntervalSeconds=5.0 | Cobalt Radius=5 IntervalSeconds=3.0"
-                        + " | CollectAnyItem=true CollectMargin=2",
+        assertEquals("Copper Radius=2 IntervalSeconds=12.0 WateringSeconds=21600"
+                        + " | Iron Radius=3 IntervalSeconds=8.0 WateringSeconds=43200"
+                        + " | Thorium Radius=4 IntervalSeconds=5.0 WateringSeconds=72000"
+                        + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
+                        + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true",
                 ModSettings.DEFAULTS.describe());
     }
 

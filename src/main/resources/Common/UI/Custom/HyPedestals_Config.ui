@@ -7,7 +7,7 @@ $C.@PageOverlay {
   LayoutMode: Middle;
 
   $C.@DecoratedContainer {
-    Anchor: (Width: 600);
+    Anchor: (Width: 760);
 
     #Title {
       $C.@Title {
@@ -25,7 +25,7 @@ $C.@PageOverlay {
 
         Label {
           Text: %hypedestals.ui.config.tier;
-          Anchor: (Width: 180);
+          Anchor: (Width: 160);
           Style: @HeaderStyle;
         }
 
@@ -40,6 +40,12 @@ $C.@PageOverlay {
           Anchor: (Width: 160);
           Style: @HeaderStyle;
         }
+
+        Label {
+          Text: %hypedestals.ui.config.watering;
+          Anchor: (Width: 200);
+          Style: @HeaderStyle;
+        }
       }
 
       Group {
@@ -48,7 +54,7 @@ $C.@PageOverlay {
 
         Label {
           Text: %hypedestals.ui.config.copper;
-          Anchor: (Width: 180);
+          Anchor: (Width: 160);
           Style: @RowLabelStyle;
         }
 
@@ -58,8 +64,13 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #CopperInterval {
-          @Anchor = (Width: 120);
+          @Anchor = (Width: 120, Right: 40);
           Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+
+        $C.@NumberField #CopperWatering {
+          @Anchor = (Width: 140);
+          Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
         }
       }
 
@@ -69,7 +80,7 @@ $C.@PageOverlay {
 
         Label {
           Text: %hypedestals.ui.config.iron;
-          Anchor: (Width: 180);
+          Anchor: (Width: 160);
           Style: @RowLabelStyle;
         }
 
@@ -79,8 +90,13 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #IronInterval {
-          @Anchor = (Width: 120);
+          @Anchor = (Width: 120, Right: 40);
           Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+
+        $C.@NumberField #IronWatering {
+          @Anchor = (Width: 140);
+          Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
         }
       }
 
@@ -90,7 +106,7 @@ $C.@PageOverlay {
 
         Label {
           Text: %hypedestals.ui.config.thorium;
-          Anchor: (Width: 180);
+          Anchor: (Width: 160);
           Style: @RowLabelStyle;
         }
 
@@ -100,8 +116,13 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #ThoriumInterval {
-          @Anchor = (Width: 120);
+          @Anchor = (Width: 120, Right: 40);
           Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+
+        $C.@NumberField #ThoriumWatering {
+          @Anchor = (Width: 140);
+          Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
         }
       }
 
@@ -111,7 +132,7 @@ $C.@PageOverlay {
 
         Label {
           Text: %hypedestals.ui.config.cobalt;
-          Anchor: (Width: 180);
+          Anchor: (Width: 160);
           Style: @RowLabelStyle;
         }
 
@@ -121,8 +142,13 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #CobaltInterval {
-          @Anchor = (Width: 120);
+          @Anchor = (Width: 120, Right: 40);
           Format: (MinValue: 0.5, MaxValue: 600, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+
+        $C.@NumberField #CobaltWatering {
+          @Anchor = (Width: 140);
+          Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
         }
       }
 
@@ -151,6 +177,34 @@ $C.@PageOverlay {
           @Anchor = (Width: 120);
           Format: (MinValue: 0, MaxValue: 4, Step: 1, MaxDecimalPlaces: 0);
         }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.soilSweep;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #SoilSweepSeconds {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 5, MaxValue: 600, Step: 5, MaxDecimalPlaces: 0);
+        }
+      }
+
+      $C.@CheckBoxWithLabel #ExportToAdjacent {
+        @Text = %hypedestals.ui.config.exportToAdjacent;
+        @Checked = true;
+        Anchor: (Bottom: 12);
+      }
+
+      $C.@CheckBoxWithLabel #HarvestParticles {
+        @Text = %hypedestals.ui.config.harvestParticles;
+        @Checked = true;
+        Anchor: (Bottom: 12);
       }
 
       Label #Status {

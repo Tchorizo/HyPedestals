@@ -35,6 +35,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
     private static final String ACTION_RESET = "Reset";
     private static final String ACTION_CLOSE = "Close";
     private static final String COLLECT_ANY_ITEM_VALUE = "#CollectAnyItem #CheckBox.Value";
+    private static final String EXPORT_TO_ADJACENT_VALUE = "#ExportToAdjacent #CheckBox.Value";
+    private static final String HARVEST_PARTICLES_VALUE = "#HarvestParticles #CheckBox.Value";
 
     public ConfigPage(PlayerRef playerRef) {
         super(playerRef, CustomPageLifetime.CanDismiss, Event.CODEC);
@@ -49,9 +51,13 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         for (Tier tier : Tier.values()) {
             save.append("@" + radiusId(tier), "#" + radiusId(tier) + ".Value");
             save.append("@" + intervalId(tier), "#" + intervalId(tier) + ".Value");
+            save.append("@" + wateringId(tier), "#" + wateringId(tier) + ".Value");
         }
         save.append(Event.COLLECT_ANY_ITEM, COLLECT_ANY_ITEM_VALUE);
         save.append(Event.COLLECT_MARGIN, "#CollectMargin.Value");
+        save.append(Event.SOIL_SWEEP, "#SoilSweepSeconds.Value");
+        save.append(Event.EXPORT_TO_ADJACENT, EXPORT_TO_ADJACENT_VALUE);
+        save.append(Event.HARVEST_PARTICLES, HARVEST_PARTICLES_VALUE);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#SaveButton", save, false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ResetButton", EventData.of(Event.ACTION, ACTION_RESET), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CloseConfigButton", EventData.of(Event.ACTION, ACTION_CLOSE), false);
@@ -104,9 +110,13 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             TierSettings s = settings.tier(tier);
             commands.set("#" + radiusId(tier) + ".Value", s.radius());
             commands.set("#" + intervalId(tier) + ".Value", s.intervalSeconds());
+            commands.set("#" + wateringId(tier) + ".Value", s.wateringSeconds());
         }
         commands.set(COLLECT_ANY_ITEM_VALUE, settings.collectAnyItem());
         commands.set("#CollectMargin.Value", settings.collectMargin());
+        commands.set("#SoilSweepSeconds.Value", settings.soilSweepSeconds());
+        commands.set(EXPORT_TO_ADJACENT_VALUE, settings.exportToAdjacent());
+        commands.set(HARVEST_PARTICLES_VALUE, settings.harvestParticles());
     }
 
     /** Element id of a tier's radius field, e.g. {@code CopperRadius}; the event key is the same with {@code @}. */
@@ -118,19 +128,30 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         return tier.displayName() + "Interval";
     }
 
+    static String wateringId(Tier tier) {
+        return tier.displayName() + "Watering";
+    }
+
     /** Event sent by the window's buttons; the values are only present on Save. */
     public static final class Event {
         static final String ACTION = "Action";
         static final String COLLECT_ANY_ITEM = "@CollectAnyItem";
         static final String COLLECT_MARGIN = "@CollectMargin";
+        static final String SOIL_SWEEP = "@SoilSweepSeconds";
+        static final String EXPORT_TO_ADJACENT = "@ExportToAdjacent";
+        static final String HARVEST_PARTICLES = "@HarvestParticles";
 
         public static final BuilderCodec<Event> CODEC = codec();
 
         String action;
         final Map<Tier, Double> radius = new EnumMap<>(Tier.class);
         final Map<Tier, Double> interval = new EnumMap<>(Tier.class);
+        final Map<Tier, Double> watering = new EnumMap<>(Tier.class);
         Boolean collectAnyItem;
         Double collectMargin;
+        Double soilSweepSeconds;
+        Boolean exportToAdjacent;
+        Boolean harvestParticles;
 
         private static BuilderCodec<Event> codec() {
             BuilderCodec.Builder<Event> builder = BuilderCodec.builder(Event.class, Event::new)
@@ -139,6 +160,12 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     .append(new KeyedCodec<>(COLLECT_ANY_ITEM, Codec.BOOLEAN), (e, v) -> e.collectAnyItem = v, e -> e.collectAnyItem)
                     .add()
                     .append(new KeyedCodec<>(COLLECT_MARGIN, Codec.DOUBLE), (e, v) -> e.collectMargin = v, e -> e.collectMargin)
+                    .add()
+                    .append(new KeyedCodec<>(SOIL_SWEEP, Codec.DOUBLE), (e, v) -> e.soilSweepSeconds = v, e -> e.soilSweepSeconds)
+                    .add()
+                    .append(new KeyedCodec<>(EXPORT_TO_ADJACENT, Codec.BOOLEAN), (e, v) -> e.exportToAdjacent = v, e -> e.exportToAdjacent)
+                    .add()
+                    .append(new KeyedCodec<>(HARVEST_PARTICLES, Codec.BOOLEAN), (e, v) -> e.harvestParticles = v, e -> e.harvestParticles)
                     .add();
             // Number fields arrive as doubles, whole or not; they are rounded below.
             for (Tier tier : Tier.values()) {
@@ -148,34 +175,42 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                         .add()
                         .append(new KeyedCodec<>("@" + intervalId(tier), Codec.DOUBLE),
                                 (e, v) -> e.interval.put(tier, v), e -> e.interval.get(tier))
+                        .add()
+                        .append(new KeyedCodec<>("@" + wateringId(tier), Codec.DOUBLE),
+                                (e, v) -> e.watering.put(tier, v), e -> e.watering.get(tier))
                         .add();
             }
             return builder.build();
         }
 
         /**
-         * Entered values as settings (radius rounded to a whole number, interval to one decimal),
-         * or {@code null} if any value is missing. Range checks are left to {@link ModSettings#problems()}.
+         * Entered values as settings (radius, watering and sweep rounded to whole numbers,
+         * interval to one decimal), or {@code null} if any value is missing. Range checks are
+         * left to {@link ModSettings#problems()}.
          */
         ModSettings toSettings() {
-            if (collectAnyItem == null || collectMargin == null) {
+            if (collectAnyItem == null || collectMargin == null || soilSweepSeconds == null
+                    || exportToAdjacent == null || harvestParticles == null) {
                 return null;
             }
             Map<Tier, TierSettings> tiers = new EnumMap<>(Tier.class);
             for (Tier tier : Tier.values()) {
-                Double r = radius.get(tier), i = interval.get(tier);
-                if (r == null || i == null) {
+                Double r = radius.get(tier), i = interval.get(tier), w = watering.get(tier);
+                if (r == null || i == null || w == null) {
                     return null;
                 }
-                tiers.put(tier, new TierSettings((int) Math.round(r), Math.round(i * 10) / 10f));
+                tiers.put(tier, new TierSettings((int) Math.round(r), Math.round(i * 10) / 10f, (int) Math.round(w)));
             }
-            return new ModSettings(tiers, collectAnyItem, (int) Math.round(collectMargin));
+            return new ModSettings(tiers, collectAnyItem, (int) Math.round(collectMargin),
+                    (int) Math.round(soilSweepSeconds), exportToAdjacent, harvestParticles);
         }
 
         @Override
         public String toString() {
-            return String.format(Locale.ROOT, "Event[action=%s radius=%s interval=%s collectAnyItem=%s collectMargin=%s]",
-                    action, radius, interval, collectAnyItem, collectMargin);
+            return String.format(Locale.ROOT, "Event[action=%s radius=%s interval=%s watering=%s collectAnyItem=%s"
+                            + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s]",
+                    action, radius, interval, watering, collectAnyItem, collectMargin, soilSweepSeconds,
+                    exportToAdjacent, harvestParticles);
         }
     }
 }

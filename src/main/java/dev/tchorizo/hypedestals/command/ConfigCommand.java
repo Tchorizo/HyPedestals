@@ -22,8 +22,9 @@ import java.util.concurrent.CompletableFuture;
  */
 final class ConfigCommand extends AbstractAsyncCommand {
 
-    private static final String USAGE = "usage: hypedestals config | config show | config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>"
-            + " | config set global <CollectAnyItem|CollectMargin> <value>";
+    private static final String USAGE = "usage: hypedestals config | config show"
+            + " | config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>"
+            + " | config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles> <value>";
 
     ConfigCommand() {
         super("config", "Open the HyPedestals settings window");
@@ -84,7 +85,8 @@ final class ConfigCommand extends AbstractAsyncCommand {
         private final RequiredArg<String> target =
                 withRequiredArg("target", "Copper, Iron, Thorium, Cobalt or global", ArgTypes.STRING);
         private final RequiredArg<String> field =
-                withRequiredArg("field", "Radius or IntervalSeconds (tiers); CollectAnyItem or CollectMargin (global)", ArgTypes.STRING);
+                withRequiredArg("field", "Radius, IntervalSeconds or WateringSeconds (tiers); CollectAnyItem, CollectMargin,"
+                        + " SoilSweepSeconds, ExportToAdjacent or HarvestParticles (global)", ArgTypes.STRING);
         private final RequiredArg<String> value = withRequiredArg("value", "New value", ArgTypes.STRING);
 
         SetCommand() {

@@ -10,12 +10,15 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *
  * <pre>{@code
  * {
- *   "Copper":  { "Radius": 2, "IntervalSeconds": 12.0 },
- *   "Iron":    { "Radius": 3, "IntervalSeconds": 8.0 },
- *   "Thorium": { "Radius": 4, "IntervalSeconds": 5.0 },
- *   "Cobalt":  { "Radius": 5, "IntervalSeconds": 3.0 },
+ *   "Copper":  { "Radius": 2, "IntervalSeconds": 12.0, "WateringSeconds": 21600 },
+ *   "Iron":    { "Radius": 3, "IntervalSeconds": 8.0,  "WateringSeconds": 43200 },
+ *   "Thorium": { "Radius": 4, "IntervalSeconds": 5.0,  "WateringSeconds": 72000 },
+ *   "Cobalt":  { "Radius": 5, "IntervalSeconds": 3.0,  "WateringSeconds": 108000 },
  *   "CollectAnyItem": true,
- *   "CollectMargin": 2
+ *   "CollectMargin": 2,
+ *   "SoilSweepSeconds": 30,
+ *   "ExportToAdjacent": true,
+ *   "HarvestParticles": true
  * }
  * }</pre>
  *
@@ -58,6 +61,18 @@ public final class HyPedestalsConfig {
                         (c, v) -> c.settings = c.settings.withCollectMargin(v),
                         c -> c.settings.collectMargin())
                 .add()
+                .append(new KeyedCodec<>("SoilSweepSeconds", Codec.INTEGER),
+                        (c, v) -> c.settings = c.settings.withSoilSweepSeconds(v),
+                        c -> c.settings.soilSweepSeconds())
+                .add()
+                .append(new KeyedCodec<>("ExportToAdjacent", Codec.BOOLEAN),
+                        (c, v) -> c.settings = c.settings.withExportToAdjacent(v),
+                        c -> c.settings.exportToAdjacent())
+                .add()
+                .append(new KeyedCodec<>("HarvestParticles", Codec.BOOLEAN),
+                        (c, v) -> c.settings = c.settings.withHarvestParticles(v),
+                        c -> c.settings.harvestParticles())
+                .add()
                 .build();
     }
 
@@ -68,21 +83,26 @@ public final class HyPedestalsConfig {
                 .add()
                 .append(new KeyedCodec<>("IntervalSeconds", Codec.FLOAT), (e, v) -> e.intervalSeconds = v, e -> e.intervalSeconds)
                 .add()
+                .append(new KeyedCodec<>("WateringSeconds", Codec.INTEGER), (e, v) -> e.wateringSeconds = v, e -> e.wateringSeconds)
+                .add()
                 .build();
 
         Integer radius;
         Float intervalSeconds;
+        Integer wateringSeconds;
 
         static TierEntry of(TierSettings s) {
             TierEntry e = new TierEntry();
             e.radius = s.radius();
             e.intervalSeconds = s.intervalSeconds();
+            e.wateringSeconds = s.wateringSeconds();
             return e;
         }
 
         TierSettings toSettings(TierSettings current) {
             return new TierSettings(radius != null ? radius : current.radius(),
-                    intervalSeconds != null ? intervalSeconds : current.intervalSeconds());
+                    intervalSeconds != null ? intervalSeconds : current.intervalSeconds(),
+                    wateringSeconds != null ? wateringSeconds : current.wateringSeconds());
         }
     }
 }

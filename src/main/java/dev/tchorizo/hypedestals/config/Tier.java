@@ -4,14 +4,15 @@ import java.util.Locale;
 
 /**
  * The four Harvester tiers. {@link #number()} is the {@code Tier} of the {@code HyHarvester}
- * component; the defaults are the values of the tier's block JSON (pinned by a test), used when
- * the config file does not override them.
+ * component; the radius and interval defaults are the values of the tier's block JSON (pinned by
+ * a test) and the watering default is the design's per-tier duration, used when the config file
+ * does not override them.
  */
 public enum Tier {
-    COPPER(1, "Copper", new TierSettings(2, 12f)),
-    IRON(2, "Iron", new TierSettings(3, 8f)),
-    THORIUM(3, "Thorium", new TierSettings(4, 5f)),
-    COBALT(4, "Cobalt", new TierSettings(5, 3f));
+    COPPER(1, "Copper", new TierSettings(2, 12f, 21_600)),
+    IRON(2, "Iron", new TierSettings(3, 8f, 43_200)),
+    THORIUM(3, "Thorium", new TierSettings(4, 5f, 72_000)),
+    COBALT(4, "Cobalt", new TierSettings(5, 3f, 108_000));
 
     private final int number;
     private final String displayName;
