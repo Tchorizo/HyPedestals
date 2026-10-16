@@ -88,6 +88,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SetBlockCommand());
         addSubCommand(new ContentsCommand());
         addSubCommand(new UpgradeCommand());
+        addSubCommand(new FenceCommand());
     }
 
     @Override
@@ -97,7 +98,7 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
-                        + " | upgrade <x y z> <add|remove> <watering|fertilizer>",
+                        + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -590,8 +591,9 @@ final class DevCommands extends AbstractAsyncCommand {
      * highest block found in the four harvester columns (probed up to {@link #PROBE_ABOVE} blocks
      * above {@code y}, harvesters ignored so re-running the command on a built scene rebuilds it in
      * place) so the scene sits on the terrain surface instead of inside it. Everything
-     * stands on a {@code Soil_Grass} layer one below the ground level with {@link #CLEARANCE}
-     * blocks cleared to air above it; the terrain below is left alone, so parts may float. Each
+     * stands on a {@code Soil_Grass} layer one below the ground level with {@link #AIR_ABOVE}
+     * blocks cleared to air above it (only that low, so builds of the player above the scene
+     * survive a rebuild); the terrain below is left alone, so parts may float. Each
      * area is tilled and filled with ripe Eternal crops ({@link #cropFor}: carrot for Iron, wheat
      * elsewhere; they regrow after a harvest, so the scene never runs out) except its +z edge row
      * (tilled, left for the player), with a chest at x+1 of each harvester and a ripe berry bush in
@@ -621,7 +623,10 @@ final class DevCommands extends AbstractAsyncCommand {
         private static final int FENCE_DISTANCE = 1;
         private static final int GAP = 6;
         private static final int MARGIN = 3;
+        /** Height of the elevated Copper above the ground level, and of the sections loaded for it. */
         private static final int CLEARANCE = 16;
+        /** Blocks cleared to air above the platform's grass: crops, harvester, chest and fence (ground level..+2). */
+        private static final int AIR_ABOVE = 3;
         private static final int ELEVATED_Y = 140;
         private static final int ELEVATED_DZ = -16;
         /** Terrain probe window: each harvester column from y=0 up to this many blocks above {@code y}. */
@@ -630,7 +635,7 @@ final class DevCommands extends AbstractAsyncCommand {
         /** A harvester of the scene and its area radius, read from the tier's block entity template. */
         private record Site(String tier, BlockType type, Vector3i pos, int radius) {}
 
-        /** Platform footprint: grass at {@code y - 1}, air from {@code y} up {@link #CLEARANCE} blocks. */
+        /** Platform footprint: grass at {@code y - 1}, air from {@code y} up {@link #AIR_ABOVE} blocks. */
         private record Platform(int minX, int maxX, int minZ, int maxZ, int y) {}
 
         SceneCommand() {
@@ -785,7 +790,7 @@ final class DevCommands extends AbstractAsyncCommand {
                     // Count what is in place rather than setBlock's result (false on some no-ops).
                     setBlock(world, new Vector3i(x, p.y() - 1, z), GRASS);
                     grass += reader.getBlock(x, p.y() - 1, z) == grassId ? 1 : 0;
-                    for (int y = p.y(); y < p.y() + CLEARANCE; y++) {
+                    for (int y = p.y(); y < p.y() + AIR_ABOVE; y++) {
                         if (reader.getBlock(x, y, z) != BlockType.EMPTY_ID) {
                             setBlock(world, new Vector3i(x, y, z), BlockType.EMPTY_KEY, BlockType.EMPTY);
                         }
@@ -857,6 +862,29 @@ final class DevCommands extends AbstractAsyncCommand {
             return RotationTuple.NONE_INDEX;
         }
 
+        /**
+         * Air at every {@link #FENCE} block (any state) on the square ring at Chebyshev distance
+         * {@code d} around {@code p}, on {@code p}'s layer; other blocks are left alone. Returns how
+         * many were removed.
+         */
+        private static int removeFenceRing(World world, Vector3i p, int d) {
+            SectionReader reader = new SectionReader(world.getChunkStore());
+            int removed = 0;
+            for (int dx = -d; dx <= d; dx++) {
+                for (int dz = -d; dz <= d; dz++) {
+                    if (Math.abs(dx) != d && Math.abs(dz) != d) {
+                        continue;
+                    }
+                    int x = p.x + dx, z = p.z + dz;
+                    if (blockName(reader, x, p.y, z).contains(FENCE)) {
+                        setBlock(world, new Vector3i(x, p.y, z), BlockType.EMPTY_KEY, BlockType.EMPTY);
+                        removed++;
+                    }
+                }
+            }
+            return removed;
+        }
+
         /** Crops, harvester, chest, fence ring and {@code grow} of one site; returns its reply line. */
         private static String build(World world, Site site, Vector3i berry) {
             Vector3i p = site.pos();
@@ -897,6 +925,41 @@ final class DevCommands extends AbstractAsyncCommand {
                     id, HyPedestalsCommand.format(p), r, set, hasHarvester, HyPedestalsCommand.format(chest),
                     chestSet, cropId, planted, cells, ripe, p.z + r, berryResult, FENCE, fence, ring,
                     grow(world, p, r, SCENE_GROW_FACTOR));
+        }
+    }
+
+    /**
+     * {@code fence <x y z> <radius>}: moves the fence ring of an existing scene area to the current
+     * distance. Removes {@code Wood_Greenwood_Fence} blocks on the old ring ({@code radius + 2},
+     * before {@code c63dca6}) and places the ring at {@code radius + 1}, both on the harvester's
+     * layer; nothing else is touched. Replies {@code fence at <x y z> r=<r>: removed=<n> at R+2, fence=<placed>/<ring> at R+1}.
+     */
+    private static final class FenceCommand extends HyPedestalsCommand.PositionCommand {
+        private static final int OLD_DISTANCE = 2;
+        private final RequiredArg<Integer> radius =
+                withRequiredArg("radius", "Harvest radius of the area", ArgTypes.INTEGER);
+
+        FenceCommand() {
+            super("fence", "Move a scene area's fence ring from radius+2 to radius+1");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i p = position(context);
+            int r = context.get(radius);
+            if (r < 1) {
+                HyPedestalsCommand.reply(context, "fence: radius must be at least 1");
+                return CompletableFuture.completedFuture(null);
+            }
+            int far = r + OLD_DISTANCE;
+            return runAt(context, world -> {
+                int removed = SceneCommand.removeFenceRing(world, p, far);
+                int placed = SceneCommand.fence(world, p, r);
+                HyPedestalsCommand.reply(context, "fence at %s r=%d: removed=%d at R+%d, fence=%d/%d at R+%d",
+                        HyPedestalsCommand.format(p), r, removed, OLD_DISTANCE, placed,
+                        8 * (r + SceneCommand.FENCE_DISTANCE), SceneCommand.FENCE_DISTANCE);
+            }, new Vector3i(p.x - far, p.y, p.z - far), new Vector3i(p.x + far, p.y, p.z - far),
+                    new Vector3i(p.x - far, p.y, p.z + far), new Vector3i(p.x + far, p.y, p.z + far));
         }
     }
 
