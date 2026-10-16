@@ -1,5 +1,6 @@
 package dev.tchorizo.hypedestals.command;
 
+import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
@@ -7,9 +8,12 @@ import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncCommand;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import org.joml.Vector3i;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -61,9 +65,19 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
         }
 
         /**
-         * Loads the sections holding {@code positions} (ticking, so a freshly placed harvester runs
-         * without a player nearby), then runs {@code action} on the default world's thread. Failures
-         * are reported to the sender instead of being dropped by the command future.
+         * Flags for loading the sections of the command's positions: ticking (so a freshly placed
+         * harvester runs without a player nearby, and block entities are live rather than parked)
+         * and high priority. Read-only subcommands add {@link GetChunkFlags#NO_GENERATE}.
+         */
+        int loadFlags() {
+            return GetChunkFlags.SET_TICKING | GetChunkFlags.HIGH_PRIORITY;
+        }
+
+        /**
+         * Loads the sections holding {@code positions} with {@link #loadFlags()}, then runs
+         * {@code action} on the default world's thread. A section the flags could not supply (e.g.
+         * never generated, with {@code NO_GENERATE}) is reported as {@code section not loaded at <x y z>}.
+         * Failures are reported to the sender instead of being dropped by the command future.
          */
         CompletableFuture<Void> runAt(CommandContext context, Consumer<World> action, Vector3i... positions) {
             World world = Universe.get().getDefaultWorld();
@@ -71,17 +85,23 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
                 reply(context, "no default world loaded");
                 return CompletableFuture.completedFuture(null);
             }
-            CompletableFuture<?>[] loads = new CompletableFuture<?>[positions.length];
-            for (int i = 0; i < positions.length; i++) {
-                Vector3i p = positions[i];
-                loads[i] = world.getChunkStore().getChunkSectionReferenceAtBlockAsync(
-                        p.x, p.y, p.z, GetChunkFlags.SET_TICKING | GetChunkFlags.HIGH_PRIORITY);
+            int flags = loadFlags();
+            List<CompletableFuture<Ref<ChunkStore>>> loads = new ArrayList<>(positions.length);
+            for (Vector3i p : positions) {
+                loads.add(world.getChunkStore().getChunkSectionReferenceAtBlockAsync(p.x, p.y, p.z, flags));
             }
             CompletableFuture<Void> result = new CompletableFuture<>();
-            CompletableFuture.allOf(loads).whenComplete((ignored, loadError) -> {
+            CompletableFuture.allOf(loads.toArray(CompletableFuture<?>[]::new)).whenComplete((ignored, loadError) -> {
                 if (loadError != null) {
                     result.completeExceptionally(loadError);
                     return;
+                }
+                for (int i = 0; i < positions.length; i++) {
+                    if (loads.get(i).join() == null) {
+                        reply(context, "section not loaded at %s", format(positions[i]));
+                        result.complete(null);
+                        return;
+                    }
                 }
                 try {
                     world.execute(() -> {

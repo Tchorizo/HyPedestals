@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import org.joml.Vector3i;
@@ -18,12 +19,19 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, container
- * usage and last cycle result, or {@code no Harvester at <x y z>}.
+ * usage and last cycle result, {@code no Harvester at <x y z>}, or {@code section not loaded at
+ * <x y z>} when the section was never generated (inspecting never generates terrain).
  */
 final class InspectCommand extends HyPedestalsCommand.PositionCommand {
 
     InspectCommand() {
         super("inspect", "Show the state of the Harvester at a position");
+    }
+
+    /** Inspecting must never generate terrain; a never-generated section is reported instead. */
+    @Override
+    int loadFlags() {
+        return super.loadFlags() | GetChunkFlags.NO_GENERATE;
     }
 
     @Override

@@ -95,10 +95,11 @@ final class HytaleCycleWorld implements CycleWorld {
                 continue;
             }
             // All-or-nothing (the container default is partial): a partial insert would leave the
-            // full stack on the ground too and duplicate the difference.
+            // full stack on the ground too and duplicate the difference. The remainder check backs
+            // up succeeded(): the entity is only removed once the whole stack is in the container.
             ItemStackTransaction tx = container.addItemStack(stack, true, false, true);
             ItemStack remainder = tx.getRemainder();
-            if (remainder != null && !remainder.isEmpty()) {
+            if (!tx.succeeded() || (remainder != null && !remainder.isEmpty())) {
                 continue; // nothing was added; stays in the world for a later cycle
             }
             entityStore.removeEntity(ref, RemoveReason.REMOVE);
