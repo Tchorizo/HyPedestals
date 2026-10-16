@@ -1,11 +1,14 @@
 package dev.tchorizo.hypedestals.command;
 
+import com.hypixel.hytale.builtin.adventure.farming.config.stages.BlockStateFarmingStageData;
 import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.farming.FarmingStageData;
+import com.hypixel.hytale.server.core.command.system.arguments.system.DefaultArg;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
@@ -17,6 +20,7 @@ import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBloc
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
 import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.modules.interaction.BlockHarvestUtils;
+import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
 import com.hypixel.hytale.server.core.universe.world.SetBlockSettings;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.SectionReader;
@@ -25,14 +29,21 @@ import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
+import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleIds;
+import dev.tchorizo.hypedestals.harvest.BlockPos;
+import dev.tchorizo.hypedestals.harvest.HarvestArea;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,9 +59,17 @@ final class DevCommands extends AbstractAsyncCommand {
     private static final String HARVESTER_PREFIX = "HyPedestals_Harvester_";
     private static final String TILLED_SOIL = "Soil_Dirt_Tilled";
     private static final String WHEAT = "Plant_Crop_Wheat_Block";
+    /** Vanilla crops with {@code StageSetAfterHarvest: "Harvested"}: they regrow after {@code harvest}. */
+    private static final String WHEAT_ETERNAL = "Plant_Crop_Wheat_Block_Eternal";
+    private static final String CARROT_ETERNAL = "Plant_Crop_Carrot_Block_Eternal";
     private static final String FINAL_STAGE_STATE = "StageFinal";
     /** Positions pinned by {@link #pin}; one refresh loop each. */
     private static final Set<Vector3i> PINNED = ConcurrentHashMap.newKeySet();
+    /** Active {@code grow} areas by center; a loop runs while its {@link Grow} is the registered one. */
+    private static final Map<Vector3i, Grow> GROWING = new ConcurrentHashMap<>();
+    private static final long GROW_PERIOD_MS = 500;
+    /** Growth factor the scene turns on; wheat goes from planted to ripe in about 15 s with it. */
+    private static final double SCENE_GROW_FACTOR = 200;
 
     DevCommands() {
         super("dev", "HyPedestals development commands");
@@ -59,13 +78,17 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new RipenCommand());
         addSubCommand(new BreakCommand());
         addSubCommand(new CollectCommand());
+        addSubCommand(new SceneCommand());
+        addSubCommand(new GrowCommand());
+        addSubCommand(new CropCommand());
     }
 
     @Override
     protected CompletableFuture<Void> executeAsync(CommandContext context) {
         HyPedestalsCommand.reply(context,
-                "usage: hypedestals dev place <x y z> <%s> | plant <x y z> | ripen <x y z>"
-                        + " | break <x y z> | collect <x y z> <radius>",
+                "usage: hypedestals dev place <x y z> <%s> | plant <x y z> [--block <id>] | ripen <x y z>"
+                        + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
+                        + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -76,6 +99,54 @@ final class DevCommands extends AbstractAsyncCommand {
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x, p.y, p.z);
         return section != null && BlockOperations.setBlock(chunkStore, section, p.x, p.y, p.z,
                 BlockType.getAssetMap().getIndex(blockId), type, 0, 0, SetBlockSettings.NONE);
+    }
+
+    /** {@link #setBlock} by asset id; {@code false} when the asset is not loaded. */
+    private static boolean setBlock(World world, Vector3i p, String blockId) {
+        BlockType type = BlockType.getAssetMap().getAsset(blockId);
+        return type != null && setBlock(world, p, blockId, type);
+    }
+
+    /** Tilled soil below and stage-zero {@code cropId} at the position; both sections must be loaded. */
+    private static boolean plant(World world, Vector3i pos, String cropId) {
+        boolean soil = setBlock(world, new Vector3i(pos.x, pos.y - 1, pos.z), TILLED_SOIL);
+        return setBlock(world, pos, cropId) && soil;
+    }
+
+    /** Forces the crop at the position to its final growth stage; returns the reply line. */
+    private static String ripen(World world, Vector3i pos) {
+        String at = HyPedestalsCommand.format(pos);
+        ChunkStore chunkStore = world.getChunkStore();
+        Store<ChunkStore> store = chunkStore.getStore();
+        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
+        if (section == null) {
+            return "ripen at " + at + ": section not loaded";
+        }
+        BlockType current = BlockType.getAssetMap().getAsset(
+                new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+        String cropId = current == null ? null : HytaleIds.baseBlockId(current.getId());
+        BlockType crop = cropId == null ? null : BlockType.getAssetMap().getAsset(cropId);
+        if (crop == null || crop.getFarming() == null) {
+            return "ripen at " + at + ": no crop (" + (current == null ? "null" : current.getId()) + ")";
+        }
+
+        Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+        FarmingBlock farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
+        String stageSet = farm == null || farm.getCurrentStageSet() == null
+                ? crop.getFarming().getStartingStageSet()
+                : farm.getCurrentStageSet();
+        var stages = crop.getFarming().getStages().get(stageSet);
+        if (stages == null || stages.length == 0) {
+            return "ripen at " + at + ": " + cropId + " has no stages in set " + stageSet;
+        }
+        if (farm != null) {
+            farm.setGrowthProgress(stages.length - 1);
+        }
+        BlockOperations.setBlockInteractionState(chunkStore, section, pos.x, pos.y, pos.z,
+                crop, FINAL_STAGE_STATE, true);
+        BlockType after = BlockType.getAssetMap().getAsset(
+                new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+        return "ripen at " + at + ": " + cropId + " -> " + (after == null ? "null" : after.getId());
     }
 
     /**
@@ -106,6 +177,154 @@ final class DevCommands extends AbstractAsyncCommand {
         world.getChunkStore().getChunkSectionReferenceAtBlockAsync(
                 pos.x, pos.y, pos.z, GetChunkFlags.SET_TICKING | GetChunkFlags.HIGH_PRIORITY);
         world.scheduleAfter(() -> keepTicking(world, pos), 1, TimeUnit.SECONDS);
+    }
+
+    /**
+     * One {@code grow} registration: crops in the {@link HarvestArea} of {@code center} gain
+     * {@code factor - 1} extra seconds of growth per game second, on top of the vanilla tick.
+     * {@code warned} keeps a failing crop from logging every step.
+     */
+    private record Grow(Vector3i center, int radius, double factor, Set<Vector3i> warned) {}
+
+    /**
+     * Turns {@code grow} on for the area (replacing any previous registration of the same center)
+     * or off with {@code factor <= 0}; must run on the world thread. Returns the reply line.
+     */
+    private static String grow(World world, Vector3i center, int radius, double factor) {
+        String at = HyPedestalsCommand.format(center);
+        Vector3i key = new Vector3i(center);
+        if (factor <= 0) {
+            Grow old = GROWING.remove(key);
+            return "grow at " + at + ": off" + (old == null ? " (was not on)" : "");
+        }
+        if (factor < 1 || radius < 0) {
+            return "grow at " + at + ": factor must be 0 (off) or >= 1 and radius >= 0";
+        }
+        Grow grow = new Grow(key, radius, factor, ConcurrentHashMap.newKeySet());
+        GROWING.put(key, grow);
+        growStep(world, grow, null);
+        return String.format(Locale.ROOT, "grow at %s r=%d factor=%.1f: on, every %d ms", at, radius, factor, GROW_PERIOD_MS);
+    }
+
+    /**
+     * One step of a {@code grow} loop, on the world thread: advances the area's crops by the game
+     * time elapsed since the previous step times {@code factor - 1}, then schedules the next step.
+     * Game time (not wall time) so a paused world does not grow. Stops once the registration is
+     * replaced or removed, or the world dies.
+     */
+    private static void growStep(World world, Grow grow, Instant previous) {
+        if (!world.isAlive() || GROWING.get(grow.center()) != grow) {
+            return;
+        }
+        WorldTimeResource time = world.getEntityStore().getStore().getResource(WorldTimeResource.getResourceType());
+        Instant now = time == null ? null : time.getGameTime();
+        if (previous != null && now != null) {
+            double elapsed = Duration.between(previous, now).toNanos() / 1e9;
+            if (elapsed > 0) {
+                growArea(world, grow, elapsed * (grow.factor() - 1));
+            }
+        }
+        world.scheduleAfter(() -> world.execute(() -> growStep(world, grow, now)), GROW_PERIOD_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private static void growArea(World world, Grow grow, double seconds) {
+        ChunkStore chunkStore = world.getChunkStore();
+        SectionReader reader = new SectionReader(chunkStore);
+        Vector3i c = grow.center();
+        for (BlockPos p : HarvestArea.positions(new BlockPos(c.x, c.y, c.z), grow.radius())) {
+            Vector3i pos = new Vector3i(p.x(), p.y(), p.z());
+            try {
+                advance(chunkStore, reader, pos, seconds);
+            } catch (RuntimeException e) {
+                if (grow.warned().add(pos)) {
+                    HyPedestalsPlugin.warn("dev grow: crop at %s failed, skipped from now on: %s", pos, e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Adds {@code seconds} of growth to the crop at {@code pos} (no-op unless it is a growing crop
+     * with a {@link FarmingBlock} in a loaded section). {@code growthProgress} counts stages: its
+     * integer part is the current stage of the stage set and its fraction the part of that stage's
+     * duration already grown. Crossing into a later stage applies it as a block state, which every
+     * vanilla crop uses; a crop whose next stage is of another type is left alone. Growth
+     * modifiers (water, light, fertilizer) are not applied to the extra time. Returns whether the
+     * crop reached a later stage.
+     */
+    private static boolean advance(ChunkStore chunkStore, SectionReader reader, Vector3i pos, double seconds) {
+        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
+        if (section == null) {
+            return false;
+        }
+        int id = reader.getBlock(pos.x, pos.y, pos.z);
+        if (id == BlockType.EMPTY_ID) {
+            return false;
+        }
+        BlockType current = BlockType.getAssetMap().getAsset(id);
+        BlockType crop = current == null ? null : BlockType.getAssetMap().getAsset(HytaleIds.baseBlockId(current.getId()));
+        if (crop == null || crop.getFarming() == null) {
+            return false;
+        }
+        Store<ChunkStore> store = chunkStore.getStore();
+        Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+        FarmingBlock farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
+        if (farm == null) {
+            return false;
+        }
+        String stageSet = farm.getCurrentStageSet() == null
+                ? crop.getFarming().getStartingStageSet() : farm.getCurrentStageSet();
+        FarmingStageData[] stages = crop.getFarming().getStages().get(stageSet);
+        if (stages == null || stages.length == 0) {
+            return false;
+        }
+        int last = stages.length - 1;
+        float progress = farm.getGrowthProgress();
+        int stage = (int) progress;
+        if (stage >= last || stage < 0) {
+            return false;
+        }
+
+        double next = progress;
+        double left = seconds;
+        while (left > 0 && (int) next < last) {
+            int i = (int) next;
+            double duration = duration(stages[i]);
+            double need = (i + 1 - next) * duration;
+            if (duration <= 0 || left >= need) {
+                next = i + 1;
+                left -= Math.max(need, 0);
+            } else {
+                next += left / duration;
+                left = 0;
+            }
+        }
+        int reached = (int) next;
+        if (reached != stage) {
+            if (!(stages[reached] instanceof BlockStateFarmingStageData blockState)) {
+                return false;
+            }
+            BlockOperations.setBlockInteractionState(chunkStore, section, pos.x, pos.y, pos.z,
+                    crop, blockState.getState(), true);
+            // The state change may rebuild the block entity; write the progress on the current one.
+            ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+            farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
+            if (farm == null) {
+                return true;
+            }
+            farm.setCurrentStageSet(stageSet);
+        }
+        farm.setGrowthProgress((float) Math.min(next, last));
+        BlockModule.BlockStateInfo info = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
+        if (info != null) {
+            info.markNeedsSaving(store);
+        }
+        return reached != stage;
+    }
+
+    /** Mean of the stage's duration range in game seconds; 0 when it has none (final stages). */
+    private static double duration(FarmingStageData stage) {
+        return stage.getDuration() == null ? 0 : (stage.getDuration().min + stage.getDuration().max) / 2.0;
     }
 
     private static final class PlaceCommand extends HyPedestalsCommand.PositionCommand {
@@ -143,29 +362,92 @@ final class DevCommands extends AbstractAsyncCommand {
         }
     }
 
-    /** Tilled soil below and stage-zero wheat at the position. */
+    /** Tilled soil below and a stage-zero crop (wheat unless {@code --block} says otherwise) at the position. */
     private static final class PlantCommand extends HyPedestalsCommand.PositionCommand {
+        private final DefaultArg<String> block = withDefaultArg("block",
+                "Crop block id, e.g. " + WHEAT_ETERNAL, ArgTypes.STRING, WHEAT, WHEAT);
+
         PlantCommand() {
-            super("plant", "Place tilled soil and stage-zero wheat");
+            super("plant", "Place tilled soil and a stage-zero crop (default wheat)");
         }
 
         @Override
         protected CompletableFuture<Void> executeAsync(CommandContext context) {
             Vector3i pos = position(context);
             Vector3i below = new Vector3i(pos.x, pos.y - 1, pos.z);
+            String cropId = context.get(block);
             return runAt(context, world -> {
                 BlockType soil = BlockType.getAssetMap().getAsset(TILLED_SOIL);
-                BlockType wheat = BlockType.getAssetMap().getAsset(WHEAT);
-                if (soil == null || wheat == null) {
-                    HyPedestalsCommand.reply(context, "plant: missing asset %s=%b %s=%b",
-                            TILLED_SOIL, soil != null, WHEAT, wheat != null);
+                BlockType crop = BlockType.getAssetMap().getAsset(cropId);
+                if (soil == null || crop == null || crop.getFarming() == null) {
+                    HyPedestalsCommand.reply(context, "plant: missing asset or not a crop: %s=%b %s=%s",
+                            TILLED_SOIL, soil != null, cropId, crop == null ? "missing" : "no Farming");
                     return;
                 }
                 boolean soilSet = setBlock(world, below, TILLED_SOIL, soil);
-                boolean wheatSet = setBlock(world, pos, WHEAT, wheat);
-                HyPedestalsCommand.reply(context, "plant at %s: soil=%b wheat=%b",
-                        HyPedestalsCommand.format(pos), soilSet, wheatSet);
+                boolean cropSet = setBlock(world, pos, cropId, crop);
+                HyPedestalsCommand.reply(context, "plant at %s: soil=%b %s=%b",
+                        HyPedestalsCommand.format(pos), soilSet, cropId, cropSet);
             }, pos, below);
+        }
+    }
+
+    /**
+     * {@code grow <x y z> <radius> <factor>}: crops in the harvest area of radius {@code radius}
+     * around the position grow {@code factor} times as fast (see {@link #advance}); {@code 0}
+     * turns it off. Lasts until turned off or the server stops (not persisted).
+     */
+    private static final class GrowCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<Integer> radius =
+                withRequiredArg("radius", "Area radius on x and z (layers y-1..y+1, like a harvester)", ArgTypes.INTEGER);
+        private final RequiredArg<Double> factor =
+                withRequiredArg("factor", "Growth speed multiplier (>= 1); 0 turns it off", ArgTypes.DOUBLE);
+
+        GrowCommand() {
+            super("grow", "Make crops around a position grow faster (factor 0 = off)");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            int r = context.get(radius);
+            double f = context.get(factor);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", grow(world, pos, r, f)), pos);
+        }
+    }
+
+    /** {@code crop <x y z>}: block id, stage set and growth progress of the crop at the position. */
+    private static final class CropCommand extends HyPedestalsCommand.PositionCommand {
+        CropCommand() {
+            super("crop", "Show the block id, stage set and growth progress at a position");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", describe(world, pos)), pos);
+        }
+
+        private static String describe(World world, Vector3i pos) {
+            ChunkStore chunkStore = world.getChunkStore();
+            Store<ChunkStore> store = chunkStore.getStore();
+            Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
+            if (section == null) {
+                return "crop at " + HyPedestalsCommand.format(pos) + ": section not loaded";
+            }
+            BlockType type = BlockType.getAssetMap().getAsset(new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+            FarmingBlock farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
+            BlockType crop = type == null ? null : BlockType.getAssetMap().getAsset(HytaleIds.baseBlockId(type.getId()));
+            String stages = "";
+            if (farm != null && crop != null && crop.getFarming() != null) {
+                String set = farm.getCurrentStageSet() == null ? crop.getFarming().getStartingStageSet() : farm.getCurrentStageSet();
+                FarmingStageData[] data = crop.getFarming().getStages().get(set);
+                stages = String.format(Locale.ROOT, " stageSet=%s progress=%.2f/%d", set, farm.getGrowthProgress(),
+                        data == null ? -1 : data.length - 1);
+            }
+            return String.format(Locale.ROOT, "crop at %s: %s farmingBlock=%b%s", HyPedestalsCommand.format(pos),
+                    type == null ? "null" : type.getId(), farm != null, stages);
         }
     }
 
@@ -179,41 +461,6 @@ final class DevCommands extends AbstractAsyncCommand {
         protected CompletableFuture<Void> executeAsync(CommandContext context) {
             Vector3i pos = position(context);
             return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", ripen(world, pos)), pos);
-        }
-
-        private static String ripen(World world, Vector3i pos) {
-            String at = HyPedestalsCommand.format(pos);
-            ChunkStore chunkStore = world.getChunkStore();
-            Store<ChunkStore> store = chunkStore.getStore();
-            Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
-            if (section == null) {
-                return "ripen at " + at + ": section not loaded";
-            }
-            BlockType current = BlockType.getAssetMap().getAsset(
-                    new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
-            String cropId = current == null ? null : HytaleIds.baseBlockId(current.getId());
-            BlockType crop = cropId == null ? null : BlockType.getAssetMap().getAsset(cropId);
-            if (crop == null || crop.getFarming() == null) {
-                return "ripen at " + at + ": no crop (" + (current == null ? "null" : current.getId()) + ")";
-            }
-
-            Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
-            FarmingBlock farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
-            String stageSet = farm == null || farm.getCurrentStageSet() == null
-                    ? crop.getFarming().getStartingStageSet()
-                    : farm.getCurrentStageSet();
-            var stages = crop.getFarming().getStages().get(stageSet);
-            if (stages == null || stages.length == 0) {
-                return "ripen at " + at + ": " + cropId + " has no stages in set " + stageSet;
-            }
-            if (farm != null) {
-                farm.setGrowthProgress(stages.length - 1);
-            }
-            BlockOperations.setBlockInteractionState(chunkStore, section, pos.x, pos.y, pos.z,
-                    crop, FINAL_STAGE_STATE, true);
-            BlockType after = BlockType.getAssetMap().getAsset(
-                    new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
-            return "ripen at " + at + ": " + cropId + " -> " + (after == null ? "null" : after.getId());
         }
     }
 
@@ -318,6 +565,249 @@ final class DevCommands extends AbstractAsyncCommand {
             refs.clear();
             return String.format(Locale.ROOT, "collect at %s r=%.1f: %d item entities [%s]",
                     HyPedestalsCommand.format(pos), r, items.size(), String.join(", ", items));
+        }
+    }
+
+    /**
+     * {@code scene <x y z>}: the manual test scene, built in one world task. {@code x z} is the
+     * Copper harvester; Iron, Thorium and Cobalt follow along +x with {@link #GAP} free blocks
+     * between neighbouring harvest areas. The ground level is {@code y}, raised to one above the
+     * highest block found in the four harvester columns (probed up to {@link #PROBE_ABOVE} blocks
+     * above {@code y}, harvesters ignored so re-running the command on a built scene rebuilds it in
+     * place) so the scene sits on the terrain surface instead of inside it. Everything
+     * stands on a {@code Soil_Grass} layer one below the ground level with {@link #CLEARANCE}
+     * blocks cleared to air above it; the terrain below is left alone, so parts may float. Each
+     * area is tilled and filled with ripe Eternal crops ({@link #cropFor}: carrot for Iron, wheat
+     * elsewhere; they regrow after a harvest, so the scene never runs out) except its +z edge row
+     * (tilled, left for the player), with a chest at x+1 of each harvester and a ripe berry bush in
+     * the Copper area's -x/-z corner. Each area also gets {@code grow} at {@link #SCENE_GROW_FACTOR}.
+     * An extra Copper stands at y={@link #ELEVATED_Y} (where the dev-server test saw
+     * harvested crops without drops), or {@link #CLEARANCE} above the ground level if that is
+     * higher, {@link #ELEVATED_DZ} blocks along z on a small platform. Nothing is pinned, unlike
+     * {@code place}: the scene is meant for a player, and pinned harvesters would clear the crops
+     * before anyone joins. Replies with the terrain tops, one line per harvester, the suggested
+     * spawn, and finally {@code scene done}.
+     */
+    private static final class SceneCommand extends HyPedestalsCommand.PositionCommand {
+        private static final String GRASS = "Soil_Grass";
+        private static final String BERRY = "Plant_Crop_Berry_Block";
+        private static final String CHEST = "Furniture_Crude_Chest_Small";
+        private static final int GAP = 6;
+        private static final int MARGIN = 3;
+        private static final int CLEARANCE = 16;
+        private static final int ELEVATED_Y = 140;
+        private static final int ELEVATED_DZ = -16;
+        /** Terrain probe window: each harvester column from y=0 up to this many blocks above {@code y}. */
+        private static final int PROBE_ABOVE = 64;
+
+        /** A harvester of the scene and its area radius, read from the tier's block entity template. */
+        private record Site(String tier, BlockType type, Vector3i pos, int radius) {}
+
+        /** Platform footprint: grass at {@code y - 1}, air from {@code y} up {@link #CLEARANCE} blocks. */
+        private record Platform(int minX, int maxX, int minZ, int maxZ, int y) {}
+
+        SceneCommand() {
+            super("scene", "Build the manual test scene (x z = Copper harvester, y = minimum ground level)");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i origin = position(context);
+            if (origin.y < 1) {
+                HyPedestalsCommand.reply(context, "scene: y must be at least 1");
+                return CompletableFuture.completedFuture(null);
+            }
+            // The row at height origin.y; moved up to the ground level once the terrain is known.
+            List<Site> row = new ArrayList<>(TIERS.size());
+            int x = origin.x;
+            for (String tier : TIERS) {
+                BlockType type = BlockType.getAssetMap().getAsset(HARVESTER_PREFIX + tier);
+                if (type == null) {
+                    HyPedestalsCommand.reply(context, "scene: block %s is not loaded", HARVESTER_PREFIX + tier);
+                    return CompletableFuture.completedFuture(null);
+                }
+                int radius = radiusOf(type);
+                if (!row.isEmpty()) {
+                    x += row.getLast().radius() + GAP + radius + 1;
+                }
+                row.add(new Site(tier, type, new Vector3i(x, origin.y, origin.z), radius));
+            }
+            Platform probe = ground(row, origin.y);
+            Platform probeHigh = elevated(row.getFirst(), origin.y);
+            Set<Vector3i> sections = new LinkedHashSet<>();
+            int topY = Math.max(ELEVATED_Y, origin.y + PROBE_ABOVE + CLEARANCE) + CLEARANCE;
+            for (Platform p : List.of(probe, probeHigh)) {
+                addSections(sections, p.minX(), p.maxX(), 0, topY, p.minZ(), p.maxZ());
+            }
+            Vector3i[] loads = sections.stream()
+                    .map(k -> new Vector3i(k.x * ChunkUtil.SIZE, k.y * ChunkUtil.SIZE, k.z * ChunkUtil.SIZE))
+                    .toArray(Vector3i[]::new);
+
+            return runAt(context, world -> {
+                SectionReader reader = new SectionReader(world.getChunkStore());
+                List<String> tops = new ArrayList<>(row.size());
+                int groundY = origin.y;
+                for (Site s : row) {
+                    int top = terrainTop(reader, s.pos().x, origin.y + PROBE_ABOVE - 1, s.pos().z);
+                    groundY = Math.max(groundY, top + 1);
+                    tops.add(s.tier() + " " + s.pos().x + " " + s.pos().z + " -> y=" + top + " " + blockName(reader, s.pos().x, top, s.pos().z));
+                }
+                HyPedestalsCommand.reply(context, "scene terrain top (probed y<=%d): %s; ground level y=%d",
+                        origin.y + PROBE_ABOVE - 1, String.join("; ", tops), groundY);
+
+                List<Site> sites = new ArrayList<>(row.size() + 1);
+                for (Site s : row) {
+                    sites.add(new Site(s.tier(), s.type(), new Vector3i(s.pos().x, groundY, s.pos().z), s.radius()));
+                }
+                Site copper = sites.getFirst();
+                Platform ground = ground(sites, groundY);
+                Platform elevated = elevated(copper, groundY);
+                sites.add(new Site(copper.tier(), copper.type(), new Vector3i(copper.pos().x, elevated.y(),
+                        copper.pos().z + ELEVATED_DZ), copper.radius()));
+                Vector3i berry = new Vector3i(copper.pos().x - copper.radius(), groundY, copper.pos().z - copper.radius());
+                // Free columns between the Iron and Thorium areas, on the platform.
+                Vector3i spawn = new Vector3i((sites.get(1).pos().x + sites.get(1).radius()
+                        + sites.get(2).pos().x - sites.get(2).radius()) / 2, groundY, origin.z);
+
+                int grass = platform(world, reader, ground) + platform(world, reader, elevated);
+                HyPedestalsCommand.reply(context, "scene platform x %d..%d z %d..%d at y=%d and x %d..%d z %d..%d at y=%d: grass=%d",
+                        ground.minX(), ground.maxX(), ground.minZ(), ground.maxZ(), ground.y() - 1,
+                        elevated.minX(), elevated.maxX(), elevated.minZ(), elevated.maxZ(), elevated.y() - 1, grass);
+                for (Site s : sites) {
+                    HyPedestalsCommand.reply(context, "%s", build(world, s, s == copper ? berry : null));
+                }
+                HyPedestalsCommand.reply(context, "scene spawn %s", HyPedestalsCommand.format(spawn));
+                HyPedestalsCommand.reply(context, "scene done");
+            }, loads);
+        }
+
+        /** Main platform under the row of harvesters, with {@link #MARGIN} free blocks around the areas. */
+        private static Platform ground(List<Site> row, int y) {
+            Site first = row.getFirst();
+            Site last = row.getLast();
+            int maxRadius = row.stream().mapToInt(Site::radius).max().orElse(0);
+            int z = first.pos().z;
+            return new Platform(first.pos().x - first.radius() - MARGIN, last.pos().x + last.radius() + MARGIN,
+                    z - maxRadius - MARGIN, z + maxRadius + MARGIN, y);
+        }
+
+        /** Small platform for the elevated harvester: its area plus a one-block rim. */
+        private static Platform elevated(Site copper, int groundY) {
+            int x = copper.pos().x;
+            int z = copper.pos().z + ELEVATED_DZ;
+            int r = copper.radius() + 1;
+            return new Platform(x - r, x + r, z - r, z + r, Math.max(ELEVATED_Y, groundY + CLEARANCE));
+        }
+
+        private static int radiusOf(BlockType type) {
+            HarvesterComponent template = type.getBlockEntity() == null
+                    ? null : type.getBlockEntity().getComponent(HarvesterComponent.TYPE);
+            return template == null ? 0 : template.radius();
+        }
+
+        /** Adds the section key (coordinates divided by the section size) of every section in the box. */
+        private static void addSections(Set<Vector3i> keys, int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
+            for (int sx = Math.floorDiv(minX, ChunkUtil.SIZE); sx <= Math.floorDiv(maxX, ChunkUtil.SIZE); sx++) {
+                for (int sy = Math.floorDiv(minY, ChunkUtil.SIZE); sy <= Math.floorDiv(maxY, ChunkUtil.SIZE); sy++) {
+                    for (int sz = Math.floorDiv(minZ, ChunkUtil.SIZE); sz <= Math.floorDiv(maxZ, ChunkUtil.SIZE); sz++) {
+                        keys.add(new Vector3i(sx, sy, sz));
+                    }
+                }
+            }
+        }
+
+        /**
+         * Highest non-empty block of the column at or below {@code fromY}, harvesters excluded, or
+         * {@code -1}.
+         */
+        private static int terrainTop(SectionReader reader, int x, int fromY, int z) {
+            for (int y = fromY; y >= 0; y--) {
+                if (!reader.canHoldY(y)) {
+                    continue;
+                }
+                int id = reader.getBlock(x, y, z);
+                if (id == BlockType.EMPTY_ID) {
+                    continue;
+                }
+                BlockType type = BlockType.getAssetMap().getAsset(id);
+                if (type == null || !HytaleIds.baseBlockId(type.getId()).startsWith(HARVESTER_PREFIX)) {
+                    return y;
+                }
+            }
+            return -1;
+        }
+
+        private static String blockName(SectionReader reader, int x, int y, int z) {
+            if (y < 0) {
+                return "none";
+            }
+            int id = reader.getBlock(x, y, z);
+            BlockType type = BlockType.getAssetMap().getAsset(id);
+            return type == null ? "#" + id : type.getId();
+        }
+
+        /** Grass layer and cleared air above it; returns how many columns end with grass in place. */
+        private static int platform(World world, SectionReader reader, Platform p) {
+            int grassId = BlockType.getAssetMap().getIndex(GRASS);
+            int grass = 0;
+            for (int x = p.minX(); x <= p.maxX(); x++) {
+                for (int z = p.minZ(); z <= p.maxZ(); z++) {
+                    // Count what is in place rather than setBlock's result (false on some no-ops).
+                    setBlock(world, new Vector3i(x, p.y() - 1, z), GRASS);
+                    grass += reader.getBlock(x, p.y() - 1, z) == grassId ? 1 : 0;
+                    for (int y = p.y(); y < p.y() + CLEARANCE; y++) {
+                        if (reader.getBlock(x, y, z) != BlockType.EMPTY_ID) {
+                            setBlock(world, new Vector3i(x, y, z), BlockType.EMPTY_KEY, BlockType.EMPTY);
+                        }
+                    }
+                }
+            }
+            return grass;
+        }
+
+        /** Eternal crop planted in a tier's area: carrot for Iron, so the scene has a second crop type. */
+        private static String cropFor(String tier) {
+            return tier.equals("Iron") ? CARROT_ETERNAL : WHEAT_ETERNAL;
+        }
+
+        /** Crops, harvester, chest and {@code grow} of one site; returns its reply line. */
+        private static String build(World world, Site site, Vector3i berry) {
+            Vector3i p = site.pos();
+            int r = site.radius();
+            Vector3i chest = new Vector3i(p.x + 1, p.y, p.z);
+            String cropId = cropFor(site.tier());
+            int cells = 0;
+            int planted = 0;
+            int ripe = 0;
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    Vector3i c = new Vector3i(p.x + dx, p.y, p.z + dz);
+                    if (c.equals(p) || c.equals(chest) || c.equals(berry)) {
+                        continue;
+                    }
+                    if (dz == r) {
+                        setBlock(world, new Vector3i(c.x, c.y - 1, c.z), TILLED_SOIL);
+                        continue;
+                    }
+                    cells++;
+                    planted += plant(world, c, cropId) ? 1 : 0;
+                    ripe += ripen(world, c).contains(FINAL_STAGE_STATE) ? 1 : 0;
+                }
+            }
+            String berryResult = berry == null ? "" : String.format(Locale.ROOT, "; berry %s planted=%b %s",
+                    HyPedestalsCommand.format(berry), plant(world, berry, BERRY), ripen(world, berry));
+            String id = HARVESTER_PREFIX + site.tier();
+            boolean set = setBlock(world, p, id, site.type());
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, p.x, p.y, p.z);
+            boolean hasHarvester = ref != null
+                    && world.getChunkStore().getStore().getComponent(ref, HarvesterComponent.TYPE) != null;
+            boolean chestSet = setBlock(world, chest, CHEST);
+            return String.format(Locale.ROOT,
+                    "scene %s at %s r=%d: setBlock=%b HyHarvester=%b chest %s=%b %s planted=%d/%d ripe=%d"
+                            + " unplanted row z=%d%s; %s",
+                    id, HyPedestalsCommand.format(p), r, set, hasHarvester, HyPedestalsCommand.format(chest),
+                    chestSet, cropId, planted, cells, ripe, p.z + r, berryResult,
+                    grow(world, p, r, SCENE_GROW_FACTOR));
         }
     }
 }
