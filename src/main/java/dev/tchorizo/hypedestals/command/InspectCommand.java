@@ -61,13 +61,13 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         }
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s upgrades=%s soil: %s%s",
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs upgrades=%s soil: %s%s",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
                 last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b exported=%s",
                         last.harvested(), last.collected(), last.pausedFull(), export(harvester.lastExport())),
-                harvester.upgrades(), soil(harvester),
+                harvester.burstSecondsLeft(), harvester.upgrades(), soil(harvester),
                 harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "");
     }
 

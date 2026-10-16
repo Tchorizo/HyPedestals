@@ -32,6 +32,7 @@ class ModSettingsTest {
         assertEquals(30, ModSettings.DEFAULTS.soilSweepSeconds());
         assertTrue(ModSettings.DEFAULTS.exportToAdjacent());
         assertTrue(ModSettings.DEFAULTS.harvestParticles());
+        assertEquals(3f, ModSettings.DEFAULTS.postHarvestCollectSeconds());
         assertEquals(List.of(), ModSettings.DEFAULTS.problems(), "the defaults are valid");
     }
 
@@ -67,22 +68,26 @@ class ModSettingsTest {
     @Test
     void withersAreImmutable() {
         ModSettings changed = ModSettings.DEFAULTS.withCollectAnyItem(false).withCollectMargin(0)
-                .withSoilSweepSeconds(5).withExportToAdjacent(false).withHarvestParticles(false);
+                .withSoilSweepSeconds(5).withExportToAdjacent(false).withHarvestParticles(false)
+                .withPostHarvestCollectSeconds(0f);
         assertFalse(changed.collectAnyItem());
         assertEquals(0, changed.collectMargin());
         assertEquals(5, changed.soilSweepSeconds());
         assertFalse(changed.exportToAdjacent());
         assertFalse(changed.harvestParticles());
+        assertEquals(0f, changed.postHarvestCollectSeconds());
         assertEquals(ModSettings.DEFAULTS.tiers(), changed.tiers(), "global withers keep the tiers");
         assertTrue(ModSettings.DEFAULTS.collectAnyItem());
         assertEquals(2, ModSettings.DEFAULTS.collectMargin());
         assertEquals(30, ModSettings.DEFAULTS.soilSweepSeconds());
         assertTrue(ModSettings.DEFAULTS.exportToAdjacent());
         assertTrue(ModSettings.DEFAULTS.harvestParticles());
+        assertEquals(3f, ModSettings.DEFAULTS.postHarvestCollectSeconds());
         ModSettings tiered = changed.withTier(Tier.IRON, new TierSettings(1, 1f, 60));
         assertEquals(5, tiered.soilSweepSeconds(), "withTier keeps the globals");
         assertFalse(tiered.exportToAdjacent());
         assertFalse(tiered.harvestParticles());
+        assertEquals(0f, tiered.postHarvestCollectSeconds());
         assertThrows(UnsupportedOperationException.class, () -> changed.tiers().put(Tier.COPPER, new TierSettings(1, 1f, 60)));
     }
 
@@ -90,7 +95,7 @@ class ModSettingsTest {
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f));
     }
 
     @Test
@@ -103,7 +108,8 @@ class ModSettingsTest {
                 .withCollectMargin(5)
                 .withSoilSweepSeconds(4)
                 .withExportToAdjacent(false)
-                .withHarvestParticles(false);
+                .withHarvestParticles(false)
+                .withPostHarvestCollectSeconds(10.5f);
 
         assertEquals(List.of(
                 "Copper.Radius=9 (allowed 1..8)",
@@ -114,7 +120,8 @@ class ModSettingsTest {
                 "Thorium.IntervalSeconds=NaN (allowed 0.5..600.0)",
                 "Thorium.WateringSeconds=604801 (allowed 60..604800)",
                 "CollectMargin=5 (allowed 0..4)",
-                "SoilSweepSeconds=4 (allowed 5..600)"), raw.problems());
+                "SoilSweepSeconds=4 (allowed 5..600)",
+                "PostHarvestCollectSeconds=10.5 (allowed 0.0..10.0)"), raw.problems());
 
         ModSettings fixed = raw.sanitized();
         assertEquals(Tier.COPPER.defaults(), fixed.tier(Tier.COPPER));
@@ -125,6 +132,15 @@ class ModSettingsTest {
         assertEquals(30, fixed.soilSweepSeconds());
         assertFalse(fixed.exportToAdjacent(), "booleans are kept");
         assertFalse(fixed.harvestParticles());
+        assertEquals(3f, fixed.postHarvestCollectSeconds());
+        assertEquals(3f, ModSettings.DEFAULTS.withPostHarvestCollectSeconds(Float.NaN).sanitized().postHarvestCollectSeconds(),
+                "NaN is out of range");
+        assertEquals(List.of("PostHarvestCollectSeconds=-1.0 (allowed 0.0..10.0)"),
+                ModSettings.DEFAULTS.withPostHarvestCollectSeconds(-1f).problems(), "negative is out of range");
+        assertEquals(0f, ModSettings.DEFAULTS.withPostHarvestCollectSeconds(0f).sanitized().postHarvestCollectSeconds(),
+                "0 (off) is valid");
+        assertEquals(10f, ModSettings.DEFAULTS.withPostHarvestCollectSeconds(10f).sanitized().postHarvestCollectSeconds(),
+                "upper bound is valid");
         assertEquals(5, ModSettings.DEFAULTS.withSoilSweepSeconds(5).sanitized().soilSweepSeconds(), "lower bound is valid");
         assertEquals(600, ModSettings.DEFAULTS.withSoilSweepSeconds(600).sanitized().soilSweepSeconds(), "upper bound is valid");
         assertEquals(List.of(), fixed.problems());
@@ -148,6 +164,9 @@ class ModSettingsTest {
         assertTrue(s.withCollectAnyItem(false).set("GLOBAL", "collectanyitem", "TRUE").collectAnyItem());
         assertEquals(0, s.set("global", "CollectMargin", "0").collectMargin());
         assertEquals(4, s.set("global", "CollectMargin", "4").collectMargin());
+        assertEquals(0f, s.set("global", "PostHarvestCollectSeconds", "0").postHarvestCollectSeconds(), "0 turns it off");
+        assertEquals(10f, s.set("global", "postharvestcollectseconds", "10").postHarvestCollectSeconds());
+        assertEquals(1.5f, s.set("global", "PostHarvestCollectSeconds", "1.5").postHarvestCollectSeconds());
         assertEquals(ModSettings.DEFAULTS, s, "set returns a copy");
     }
 
@@ -174,6 +193,12 @@ class ModSettingsTest {
         assertMessage("SoilSweepSeconds must be 5..600, got 601", () -> s.set("global", "SoilSweepSeconds", "601"));
         assertMessage("expected true or false, got on", () -> s.set("global", "ExportToAdjacent", "on"));
         assertMessage("expected true or false, got 1", () -> s.set("global", "HarvestParticles", "1"));
+        assertMessage("PostHarvestCollectSeconds must be 0.0..10.0, got 10.5",
+                () -> s.set("global", "PostHarvestCollectSeconds", "10.5"));
+        assertMessage("PostHarvestCollectSeconds must be 0.0..10.0, got -1", () -> s.set("global", "PostHarvestCollectSeconds", "-1"));
+        assertMessage("PostHarvestCollectSeconds must be 0.0..10.0, got NaN", () -> s.set("global", "PostHarvestCollectSeconds", "NaN"));
+        assertMessage("not a number: soon", () -> s.set("global", "PostHarvestCollectSeconds", "soon"));
+        assertMessage("unknown tier field PostHarvestCollectSeconds", () -> s.set("Copper", "PostHarvestCollectSeconds", "3"));
     }
 
     @Test
@@ -212,6 +237,12 @@ class ModSettingsTest {
         ModSettings entered = ModSettings.DEFAULTS.set("Copper", "IntervalSeconds", "0.8");
         assertEquals(0.75f, opened.withChangesFrom(opened, entered).tier(Tier.COPPER).intervalSeconds());
         assertEquals(opened, opened.withChangesFrom(opened, opened), "no changes, same settings");
+        ModSettings openedWindow = ModSettings.DEFAULTS.set("global", "PostHarvestCollectSeconds", "2.25");
+        ModSettings enteredWindow = ModSettings.DEFAULTS.set("global", "PostHarvestCollectSeconds", "2.3");
+        assertEquals(2.25f, openedWindow.withChangesFrom(openedWindow, enteredWindow).postHarvestCollectSeconds(),
+                "the post-harvest window is compared in tenths too");
+        assertEquals(0f, ModSettings.DEFAULTS.withChangesFrom(ModSettings.DEFAULTS,
+                ModSettings.DEFAULTS.withPostHarvestCollectSeconds(0f)).postHarvestCollectSeconds(), "a real change is applied");
     }
 
     @Test
@@ -220,7 +251,8 @@ class ModSettingsTest {
                         + " | Iron Radius=3 IntervalSeconds=8.0 WateringSeconds=43200"
                         + " | Thorium Radius=4 IntervalSeconds=5.0 WateringSeconds=72000"
                         + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
-                        + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true",
+                        + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true"
+                        + " PostHarvestCollectSeconds=3.0",
                 ModSettings.DEFAULTS.describe());
     }
 

@@ -18,7 +18,8 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *   "CollectMargin": 2,
  *   "SoilSweepSeconds": 30,
  *   "ExportToAdjacent": true,
- *   "HarvestParticles": true
+ *   "HarvestParticles": true,
+ *   "PostHarvestCollectSeconds": 3.0
  * }
  * }</pre>
  *
@@ -72,6 +73,10 @@ public final class HyPedestalsConfig {
                 .append(new KeyedCodec<>("HarvestParticles", Codec.BOOLEAN),
                         (c, v) -> c.settings = c.settings.withHarvestParticles(v),
                         c -> c.settings.harvestParticles())
+                .add()
+                .append(new KeyedCodec<>("PostHarvestCollectSeconds", Codec.FLOAT),
+                        (c, v) -> c.settings = c.settings.withPostHarvestCollectSeconds(v),
+                        c -> c.settings.postHarvestCollectSeconds())
                 .add()
                 .build();
     }

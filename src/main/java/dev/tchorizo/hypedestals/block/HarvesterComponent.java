@@ -96,6 +96,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     SimpleItemContainer inputFiltered;
     /** Result of the most recent export to an adjacent container; {@code NONE} before the first one or with export off. */
     ExportPlan.Result lastExport = ExportPlan.Result.NONE;
+    /**
+     * Seconds left of the post-harvest collect burst ({@code CollectBurst}): while positive,
+     * {@code HarvesterSystem} collects drops on every tick between cycles. {@code 0} after a load.
+     */
+    float burstRemaining;
 
     public HarvesterComponent() {}
 
@@ -178,6 +183,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     /** See {@link #lastExport}. */
     public ExportPlan.Result lastExport() {
         return lastExport;
+    }
+
+    /** Seconds left of the post-harvest collect burst; {@code 0} when none is running. */
+    public float burstSecondsLeft() {
+        return burstRemaining;
     }
 
     public float secondsToNextCycle() {

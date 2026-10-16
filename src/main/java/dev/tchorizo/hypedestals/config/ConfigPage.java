@@ -65,6 +65,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         }
         save.append(Event.COLLECT_ANY_ITEM, COLLECT_ANY_ITEM_VALUE);
         save.append(Event.COLLECT_MARGIN, "#CollectMargin.Value");
+        save.append(Event.POST_HARVEST_COLLECT, "#PostHarvestCollectSeconds.Value");
         save.append(Event.SOIL_SWEEP, "#SoilSweepSeconds.Value");
         save.append(Event.EXPORT_TO_ADJACENT, EXPORT_TO_ADJACENT_VALUE);
         save.append(Event.HARVEST_PARTICLES, HARVEST_PARTICLES_VALUE);
@@ -136,6 +137,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         }
         commands.set(COLLECT_ANY_ITEM_VALUE, settings.collectAnyItem());
         commands.set("#CollectMargin.Value", (double) settings.collectMargin());
+        commands.set("#PostHarvestCollectSeconds.Value", (double) settings.postHarvestCollectSeconds());
         commands.set("#SoilSweepSeconds.Value", (double) settings.soilSweepSeconds());
         commands.set(EXPORT_TO_ADJACENT_VALUE, settings.exportToAdjacent());
         commands.set(HARVEST_PARTICLES_VALUE, settings.harvestParticles());
@@ -162,6 +164,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         static final String SOIL_SWEEP = "@SoilSweepSeconds";
         static final String EXPORT_TO_ADJACENT = "@ExportToAdjacent";
         static final String HARVEST_PARTICLES = "@HarvestParticles";
+        static final String POST_HARVEST_COLLECT = "@PostHarvestCollectSeconds";
 
         public static final BuilderCodec<Event> CODEC = codec();
 
@@ -174,6 +177,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         Double soilSweepSeconds;
         Boolean exportToAdjacent;
         Boolean harvestParticles;
+        Double postHarvestCollectSeconds;
 
         private static BuilderCodec<Event> codec() {
             BuilderCodec.Builder<Event> builder = BuilderCodec.builder(Event.class, Event::new)
@@ -188,6 +192,9 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     .append(new KeyedCodec<>(EXPORT_TO_ADJACENT, Codec.BOOLEAN), (e, v) -> e.exportToAdjacent = v, e -> e.exportToAdjacent)
                     .add()
                     .append(new KeyedCodec<>(HARVEST_PARTICLES, Codec.BOOLEAN), (e, v) -> e.harvestParticles = v, e -> e.harvestParticles)
+                    .add()
+                    .append(new KeyedCodec<>(POST_HARVEST_COLLECT, Codec.DOUBLE),
+                            (e, v) -> e.postHarvestCollectSeconds = v, e -> e.postHarvestCollectSeconds)
                     .add();
             // Number fields arrive as doubles, whole or not; they are rounded below.
             for (Tier tier : Tier.values()) {
@@ -207,13 +214,13 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
 
         /**
          * Entered values as settings (radius, watering and sweep rounded to whole numbers,
-         * interval to one decimal), or {@code null} if any value is missing. Non-finite numbers
-         * (NaN, infinity) are added to {@code problems} instead of being rounded to 0; other range
-         * checks are left to {@link ModSettings#problems()}.
+         * interval and post-harvest window to one decimal), or {@code null} if any value is
+         * missing. Non-finite numbers (NaN, infinity) are added to {@code problems} instead of
+         * being rounded to 0; other range checks are left to {@link ModSettings#problems()}.
          */
         ModSettings toSettings(List<String> problems) {
             if (collectAnyItem == null || collectMargin == null || soilSweepSeconds == null
-                    || exportToAdjacent == null || harvestParticles == null) {
+                    || exportToAdjacent == null || harvestParticles == null || postHarvestCollectSeconds == null) {
                 return null;
             }
             Map<Tier, TierSettings> tiers = new EnumMap<>(Tier.class);
@@ -224,11 +231,12 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                 }
                 String name = tier.displayName();
                 tiers.put(tier, new TierSettings(whole(name + ".Radius", r, problems),
-                        Double.isFinite(i) ? Math.round(i * 10) / 10f : nonFinite(name + ".IntervalSeconds", i, problems),
+                        tenths(name + ".IntervalSeconds", i, problems),
                         whole(name + ".WateringSeconds", w, problems)));
             }
             return new ModSettings(tiers, collectAnyItem, whole("CollectMargin", collectMargin, problems),
-                    whole("SoilSweepSeconds", soilSweepSeconds, problems), exportToAdjacent, harvestParticles);
+                    whole("SoilSweepSeconds", soilSweepSeconds, problems), exportToAdjacent, harvestParticles,
+                    tenths("PostHarvestCollectSeconds", postHarvestCollectSeconds, problems));
         }
 
         private static int whole(String field, double value, List<String> problems) {
@@ -239,6 +247,11 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             return 0;
         }
 
+        /** {@code value} rounded to one decimal, the window's precision for seconds. */
+        private static float tenths(String field, double value, List<String> problems) {
+            return Double.isFinite(value) ? Math.round(value * 10) / 10f : nonFinite(field, value, problems);
+        }
+
         private static float nonFinite(String field, double value, List<String> problems) {
             problems.add(field + "=" + value);
             return 0f;
@@ -247,9 +260,10 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         @Override
         public String toString() {
             return String.format(Locale.ROOT, "Event[action=%s radius=%s interval=%s watering=%s collectAnyItem=%s"
-                            + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s]",
+                            + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s"
+                            + " postHarvestCollectSeconds=%s]",
                     action, radius, interval, watering, collectAnyItem, collectMargin, soilSweepSeconds,
-                    exportToAdjacent, harvestParticles);
+                    exportToAdjacent, harvestParticles, postHarvestCollectSeconds);
         }
     }
 }

@@ -181,6 +181,22 @@ $C.@PageOverlay {
 
       Group {
         LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.postHarvestCollect;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #PostHarvestCollectSeconds {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 10, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
         Anchor: (Bottom: 12);
 
         Label {

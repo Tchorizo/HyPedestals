@@ -15,6 +15,7 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.ModSettings;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
+import dev.tchorizo.hypedestals.harvest.CollectBurst;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
@@ -35,9 +36,11 @@ import java.time.Instant;
  * to the fertilizer bag, left out of the harvest budget, and the source of the pass's
  * applications. Each cycle also re-asserts the block state that shows the upgrades
  * ({@link HarvesterVisual}) and, with {@code HarvestParticles}, puffs a short particle burst when
- * something was harvested. Radius, interval, margin, item filter, export and the soil settings are read
- * from the global config on every tick, so changes made with {@code /hypedestals config} (command
- * or window) apply right away; hand edits to the config file are read at server start only.
+ * something was harvested. After a cycle that harvested, a {@link CollectBurst} collects drops on
+ * every tick for {@code PostHarvestCollectSeconds}. Radius, interval, margin, item filter, export,
+ * the burst and the soil settings are read from the global config on every tick, so changes made
+ * with {@code /hypedestals config} (command or window) apply right away; hand edits to the config
+ * file are read at server start only.
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -103,6 +106,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
         harvester.elapsed += dt;
         if (harvester.elapsed < settings.intervalSeconds()) {
+            collectBurst(dt, harvester, info, container, store, cb, global, settings);
             return;
         }
         harvester.elapsed = 0;
@@ -156,6 +160,33 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 ? new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),
                         harvester.inputFiltered != null)
                 : ExportPlan.Result.NONE;
+        harvester.burstRemaining = CollectBurst.afterCycle(harvester.burstRemaining,
+                harvester.lastResult.harvested(), global.postHarvestCollectSeconds());
+    }
+
+    /**
+     * Between cycles, while the post-harvest burst is running: one collect (the cycle's box) per
+     * tick, added to the last cycle's {@code collected}, so drops the item index registers a few
+     * seconds after the harvest reach the container within the same cycle. Nothing runs outside
+     * the burst.
+     */
+    private static void collectBurst(float dt, HarvesterComponent harvester, BlockModule.BlockStateInfo info,
+                                     SimpleItemContainer container, Store<ChunkStore> store,
+                                     CommandBuffer<ChunkStore> cb, ModSettings global, TierSettings settings) {
+        if (!CollectBurst.collects(harvester.burstRemaining, global.postHarvestCollectSeconds())) {
+            harvester.burstRemaining = 0f;
+            return;
+        }
+        harvester.burstRemaining = CollectBurst.afterTick(harvester.burstRemaining, dt);
+        Vector3i pos = new Vector3i();
+        if (container == null || harvester.lastResult == null || !info.fillWorldPos(cb, pos)) {
+            return;
+        }
+        World world = store.getExternalData().getWorld();
+        int collected = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(), harvester.inputFiltered != null)
+                .collectDroppedItems(new BlockPos(pos.x, pos.y, pos.z),
+                        HarvestCycle.collectExtent(settings.radius(), global.collectMargin()));
+        harvester.lastResult = harvester.lastResult.plusCollected(collected);
     }
 
     /**

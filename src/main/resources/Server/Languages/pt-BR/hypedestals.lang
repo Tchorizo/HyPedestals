@@ -18,6 +18,7 @@ ui.config.thorium = Tório
 ui.config.cobalt = Cobalto
 ui.config.collectAnyItem = Coletar qualquer item solto (desligado: ignora ferramentas, armas e armaduras)
 ui.config.collectMargin = Margem de coleta (blocos além da área)
+ui.config.postHarvestCollect = Coletar a cada tick após colher durante (s, 0 = desligado)
 ui.config.soilSweep = Passada no solo a cada (s)
 ui.config.exportToAdjacent = Exportar para um container embaixo ou ao lado da colheitadeira
 ui.config.harvestParticles = Efeito de partículas quando o ciclo colhe

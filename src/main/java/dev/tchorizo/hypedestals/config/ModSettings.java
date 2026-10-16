@@ -22,9 +22,13 @@ import java.util.StringJoiner;
  * @param exportToAdjacent {@code true}: after each cycle the Harvester moves its items into a
  *     container touching it (below or on the four sides)
  * @param harvestParticles {@code true}: a short particle effect when a cycle harvests something
+ * @param postHarvestCollectSeconds real seconds after a cycle that harvested during which the
+ *     Harvester collects drops on every tick ({@code 0} = off; see
+ *     {@link dev.tchorizo.hypedestals.harvest.CollectBurst})
  */
 public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem, int collectMargin,
-                          int soilSweepSeconds, boolean exportToAdjacent, boolean harvestParticles) {
+                          int soilSweepSeconds, boolean exportToAdjacent, boolean harvestParticles,
+                          float postHarvestCollectSeconds) {
 
     public static final int MIN_MARGIN = 0;
     public static final int MAX_MARGIN = 4;
@@ -35,6 +39,9 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     public static final int DEFAULT_SOIL_SWEEP = 30;
     public static final boolean DEFAULT_EXPORT_TO_ADJACENT = true;
     public static final boolean DEFAULT_HARVEST_PARTICLES = true;
+    public static final float MIN_POST_HARVEST_COLLECT = 0f;
+    public static final float MAX_POST_HARVEST_COLLECT = 10f;
+    public static final float DEFAULT_POST_HARVEST_COLLECT = 3f;
     /** {@code config set} target of the fields that are not per tier. */
     public static final String GLOBAL = "global";
 
@@ -57,7 +64,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
             tiers.put(t, t.defaults());
         }
         return new ModSettings(tiers, DEFAULT_COLLECT_ANY_ITEM, DEFAULT_COLLECT_MARGIN,
-                DEFAULT_SOIL_SWEEP, DEFAULT_EXPORT_TO_ADJACENT, DEFAULT_HARVEST_PARTICLES);
+                DEFAULT_SOIL_SWEEP, DEFAULT_EXPORT_TO_ADJACENT, DEFAULT_HARVEST_PARTICLES,
+                DEFAULT_POST_HARVEST_COLLECT);
     }
 
     public static boolean validMargin(int margin) {
@@ -66,6 +74,11 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
 
     public static boolean validSoilSweep(int seconds) {
         return seconds >= MIN_SOIL_SWEEP && seconds <= MAX_SOIL_SWEEP;
+    }
+
+    /** {@code 0..10} seconds; NaN is out of range. */
+    public static boolean validPostHarvestCollect(float seconds) {
+        return seconds >= MIN_POST_HARVEST_COLLECT && seconds <= MAX_POST_HARVEST_COLLECT;
     }
 
     public TierSettings tier(Tier tier) {
@@ -88,35 +101,46 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     public ModSettings withTier(Tier tier, TierSettings settings) {
         EnumMap<Tier, TierSettings> copy = new EnumMap<>(tiers);
         copy.put(tier, settings);
-        return new ModSettings(copy, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles);
+        return new ModSettings(copy, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds);
     }
 
     public ModSettings withCollectAnyItem(boolean value) {
-        return new ModSettings(tiers, value, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles);
+        return new ModSettings(tiers, value, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds);
     }
 
     public ModSettings withCollectMargin(int value) {
-        return new ModSettings(tiers, collectAnyItem, value, soilSweepSeconds, exportToAdjacent, harvestParticles);
+        return new ModSettings(tiers, collectAnyItem, value, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds);
     }
 
     public ModSettings withSoilSweepSeconds(int value) {
-        return new ModSettings(tiers, collectAnyItem, collectMargin, value, exportToAdjacent, harvestParticles);
+        return new ModSettings(tiers, collectAnyItem, collectMargin, value, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds);
     }
 
     public ModSettings withExportToAdjacent(boolean value) {
-        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, value, harvestParticles);
+        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, value, harvestParticles,
+                postHarvestCollectSeconds);
     }
 
     public ModSettings withHarvestParticles(boolean value) {
-        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, value);
+        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, value,
+                postHarvestCollectSeconds);
+    }
+
+    public ModSettings withPostHarvestCollectSeconds(float value) {
+        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                value);
     }
 
     /**
      * Applies to these (current) settings only the fields where {@code entered} differs from
      * {@code opened}, the snapshot the window was filled with. Fields the user did not touch keep
      * their current value, so a {@code config set} made while the window was open survives its Save.
-     * Intervals are compared in tenths of a second, the window's precision: a {@code 0.75} set by
-     * command shows (and comes back) as {@code 0.8} and is not a change.
+     * Intervals and the post-harvest window are compared in tenths of a second, the window's
+     * precision: a {@code 0.75} set by command shows (and comes back) as {@code 0.8} and is not a change.
      */
     public ModSettings withChangesFrom(ModSettings opened, ModSettings entered) {
         EnumMap<Tier, TierSettings> merged = new EnumMap<>(Tier.class);
@@ -132,7 +156,9 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 entered.collectMargin != opened.collectMargin ? entered.collectMargin : collectMargin,
                 entered.soilSweepSeconds != opened.soilSweepSeconds ? entered.soilSweepSeconds : soilSweepSeconds,
                 entered.exportToAdjacent != opened.exportToAdjacent ? entered.exportToAdjacent : exportToAdjacent,
-                entered.harvestParticles != opened.harvestParticles ? entered.harvestParticles : harvestParticles);
+                entered.harvestParticles != opened.harvestParticles ? entered.harvestParticles : harvestParticles,
+                tenths(entered.postHarvestCollectSeconds) != tenths(opened.postHarvestCollectSeconds)
+                        ? entered.postHarvestCollectSeconds : postHarvestCollectSeconds);
     }
 
     private static long tenths(float seconds) {
@@ -164,6 +190,10 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
             problems.add(String.format(Locale.ROOT, "SoilSweepSeconds=%d (allowed %d..%d)",
                     soilSweepSeconds, MIN_SOIL_SWEEP, MAX_SOIL_SWEEP));
         }
+        if (!validPostHarvestCollect(postHarvestCollectSeconds)) {
+            problems.add(String.format(Locale.ROOT, "PostHarvestCollectSeconds=%s (allowed %s..%s)",
+                    postHarvestCollectSeconds, MIN_POST_HARVEST_COLLECT, MAX_POST_HARVEST_COLLECT));
+        }
         return problems;
     }
 
@@ -181,7 +211,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         return new ModSettings(fixed, collectAnyItem,
                 validMargin(collectMargin) ? collectMargin : DEFAULT_COLLECT_MARGIN,
                 validSoilSweep(soilSweepSeconds) ? soilSweepSeconds : DEFAULT_SOIL_SWEEP,
-                exportToAdjacent, harvestParticles);
+                exportToAdjacent, harvestParticles,
+                validPostHarvestCollect(postHarvestCollectSeconds) ? postHarvestCollectSeconds : DEFAULT_POST_HARVEST_COLLECT);
     }
 
     /**
@@ -189,7 +220,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
      * {@code target} is a tier name (fields {@code Radius}, {@code IntervalSeconds},
      * {@code WateringSeconds}) or {@link #GLOBAL} (fields {@code CollectAnyItem},
      * {@code CollectMargin}, {@code SoilSweepSeconds}, {@code ExportToAdjacent},
-     * {@code HarvestParticles}); names ignore case.
+     * {@code HarvestParticles}, {@code PostHarvestCollectSeconds}); names ignore case.
      *
      * @throws IllegalArgumentException with a message for the user when the target, field or
      *     value is unknown, malformed or out of range
@@ -217,8 +248,18 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 }
                 case "exporttoadjacent" -> withExportToAdjacent(parseBoolean(value));
                 case "harvestparticles" -> withHarvestParticles(parseBoolean(value));
+                case "postharvestcollectseconds" -> {
+                    float seconds = parseFloat(value);
+                    if (!validPostHarvestCollect(seconds)) {
+                        throw new IllegalArgumentException(String.format(Locale.ROOT,
+                                "PostHarvestCollectSeconds must be %s..%s, got %s",
+                                MIN_POST_HARVEST_COLLECT, MAX_POST_HARVEST_COLLECT, value));
+                    }
+                    yield withPostHarvestCollectSeconds(seconds);
+                }
                 default -> throw new IllegalArgumentException("unknown global field " + field
-                        + "; expected CollectAnyItem, CollectMargin, SoilSweepSeconds, ExportToAdjacent or HarvestParticles");
+                        + "; expected CollectAnyItem, CollectMargin, SoilSweepSeconds, ExportToAdjacent,"
+                        + " HarvestParticles or PostHarvestCollectSeconds");
             };
         }
         Tier tier = Tier.byName(target);
@@ -258,7 +299,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
 
     /**
      * One line, e.g. {@code Copper Radius=2 IntervalSeconds=12.0 WateringSeconds=21600 | … |
-     * CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true}.
+     * CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true
+     * PostHarvestCollectSeconds=3.0}.
      */
     public String describe() {
         StringJoiner line = new StringJoiner(" | ");
@@ -269,7 +311,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         }
         line.add("CollectAnyItem=" + collectAnyItem + " CollectMargin=" + collectMargin
                 + " SoilSweepSeconds=" + soilSweepSeconds + " ExportToAdjacent=" + exportToAdjacent
-                + " HarvestParticles=" + harvestParticles);
+                + " HarvestParticles=" + harvestParticles + " PostHarvestCollectSeconds=" + postHarvestCollectSeconds);
         return line.toString();
     }
 

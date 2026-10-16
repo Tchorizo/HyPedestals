@@ -36,7 +36,7 @@ public final class HarvestCycle {
      */
     public static CycleResult run(CycleWorld world, BlockPos center, int radius, int collectMargin,
                                   Set<String> warnedTypes, int startIndex) {
-        double collectExtent = radius + collectMargin;
+        double collectExtent = collectExtent(radius, collectMargin);
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
         int start = Math.floorMod(startIndex, size);
@@ -76,6 +76,14 @@ public final class HarvestCycle {
         }
         collected += world.collectDroppedItems(center, collectExtent);
         return new CycleResult(harvested, collected, false, List.copyOf(newWarnings), transientFailures, next);
+    }
+
+    /**
+     * Half-extent of the collect box around the Harvester: the harvest radius plus
+     * {@code collectMargin}. Also used by the post-harvest {@link CollectBurst}.
+     */
+    public static double collectExtent(int radius, int collectMargin) {
+        return radius + collectMargin;
     }
 
     /**

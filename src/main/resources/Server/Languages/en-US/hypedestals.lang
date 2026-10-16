@@ -18,6 +18,7 @@ ui.config.thorium = Thorium
 ui.config.cobalt = Cobalt
 ui.config.collectAnyItem = Collect any dropped item (off: leave tools, weapons and armor)
 ui.config.collectMargin = Collect margin (blocks beyond the area)
+ui.config.postHarvestCollect = Collect every tick after a harvest for (s, 0 = off)
 ui.config.soilSweep = Soil pass every (s)
 ui.config.exportToAdjacent = Export to a container below or beside the Harvester
 ui.config.harvestParticles = Particle effect when a cycle harvests

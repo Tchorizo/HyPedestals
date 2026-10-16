@@ -23,7 +23,7 @@ The numbers in the table are the defaults. Radius and interval can be changed pe
 
 1. Craft a Harvester at a Workbench.
 2. Place it next to (or in the middle of) your crops.
-3. Every interval it first collects dropped items around its area into its storage, then harvests ripe crops in its area, one harvest per storage slot that can still take items, then collects again. When it cannot harvest everything at once, the next cycle continues where the last one stopped, so the whole area gets harvested over a few cycles. Drops that the game has not registered yet are picked up on the next cycle.
+3. Every interval it first collects dropped items around its area into its storage, then harvests ripe crops in its area, one harvest per storage slot that can still take items, then collects again. When it cannot harvest everything at once, the next cycle continues where the last one stopped, so the whole area gets harvested over a few cycles. After a cycle that harvested something it keeps collecting for `PostHarvestCollectSeconds` (3 s by default), so the new drops reach its storage within the same cycle.
 4. Press **Use** (F) on the Harvester to open its storage.
 
 When no storage slot can take more items, the Harvester stops harvesting (nothing is harvested onto the ground) until space frees up.
@@ -64,7 +64,8 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "CollectMargin": 2,
   "SoilSweepSeconds": 30,
   "ExportToAdjacent": true,
-  "HarvestParticles": true
+  "HarvestParticles": true,
+  "PostHarvestCollectSeconds": 3.0
 }
 ```
 
@@ -78,6 +79,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `SoilSweepSeconds` | 5–600 | Real seconds between two soil passes of a Harvester with the Watering or the Fertilizer upgrade |
 | `ExportToAdjacent` | true/false | `true`: after each cycle the Harvester moves its items into a container touching it (see [Export](#export-to-an-adjacent-container)) |
 | `HarvestParticles` | true/false | A short puff of dust above the Harvester when a cycle harvests something |
+| `PostHarvestCollectSeconds` | 0–10 | After a cycle that harvested, the Harvester collects drops on every tick for this many seconds (the game registers new drops with a delay of a few seconds); 0 turns it off, and drops then wait for the next cycle |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
@@ -85,7 +87,7 @@ In game (operators):
 
 - `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds> <value>` — change one value, apply it and save the file. Also works from the server console.
 
 ## Export to an adjacent container
 
@@ -109,7 +111,7 @@ Operators, in chat (with `/`) or from the server console (without it):
 | `/hypedestals config show` | Prints the current settings and the file path |
 | `/hypedestals config set …` | Changes one setting, applies it and saves the file (see [Configuration](#configuration)) |
 
-`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag in the input slot (`fertilizer=<uses>/<max>`, `none` when empty, `blocked` when the slot holds something else). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
+`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the seconds left of the post-harvest collect burst (`burst=<s>`), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag in the input slot (`fertilizer=<uses>/<max>`, `none` when empty, `blocked` when the slot holds something else). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
 ## Known limitations
 

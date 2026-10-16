@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Fertilizer upgrade: the Harvester's last storage slot becomes a fertilizer input that only accepts the vanilla Fertilizer bag, and the harvest never goes there. On the same soil pass the Harvester fertilizes each tilled soil block in its area that has a crop on it and is not fertilized yet, one bag use per block; a used-up bag disappears.
 - Breaking a Harvester drops its installed upgrades where it stood; unloading the chunk or restarting the server keeps them installed.
 - Installed upgrades are visible: blue sparks with the watering upgrade, green spores with the fertilizer, both with both. With `HarvestParticles` on (the default) a short puff of dust rises from the Harvester when a cycle harvests something.
+- Post-harvest collect burst (`PostHarvestCollectSeconds`, 3 s by default, 0–10, 0 = off): after a cycle that harvested something the Harvester collects drops on every tick for that long, so the harvest reaches its storage within the same cycle instead of the next one; `/hypedestals inspect` shows the time left as `burst=<s>`.
 - `/hypedestals inspect` shows where the next harvest scan starts (`scan=<position>/<total>`), the last export (`exported=<items>→<x y z>`, or `→none`), the installed `upgrades=[…]`, the soil passes (`soil: watered=… fertilized=…`) and, with the fertilizer upgrade, the bag in the input slot (`fertilizer=<uses>/<max>`, `none` or `blocked`).
 
 ### Changed
