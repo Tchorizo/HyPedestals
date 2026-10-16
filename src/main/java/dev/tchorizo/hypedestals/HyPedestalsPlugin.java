@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.util.Config;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
+import dev.tchorizo.hypedestals.block.HarvesterRemovalSystem;
 import dev.tchorizo.hypedestals.block.HarvesterSystem;
 import dev.tchorizo.hypedestals.block.InstallUpgradeInteraction;
 import dev.tchorizo.hypedestals.block.RemoveUpgradeInteraction;
@@ -55,6 +56,7 @@ public final class HyPedestalsPlugin extends JavaPlugin {
         HarvesterComponent.TYPE = getChunkStoreRegistry().registerComponent(
                 HarvesterComponent.class, "HyHarvester", HarvesterComponent.CODEC);
         getChunkStoreRegistry().registerSystem(new HarvesterSystem());
+        getChunkStoreRegistry().registerSystem(new HarvesterRemovalSystem());
         // Interaction types referenced by our Server/Item/Interactions JSON (upgrade item, Harvester Use).
         getCodecRegistry(Interaction.CODEC)
                 .register(InstallUpgradeInteraction.TYPE_ID, InstallUpgradeInteraction.class, InstallUpgradeInteraction.CODEC)
