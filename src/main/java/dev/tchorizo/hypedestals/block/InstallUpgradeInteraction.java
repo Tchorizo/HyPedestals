@@ -51,6 +51,7 @@ public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
             return;
         }
         target.markNeedsSaving();
+        HarvesterVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "installed", upgrade);
         HyPedestalsPlugin.log("upgrade: %s installed at %d %d %d -> %s",
                 upgrade.displayName(), pos.x, pos.y, pos.z, target.harvester().upgrades());

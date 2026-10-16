@@ -30,6 +30,34 @@
           "Capacity": 27
         }
       }
+    },
+    "State": {
+      "Definitions": {
+        "Watering": {
+          "Particles": [
+            {
+              "SystemId": "Plant_Mana_Tier1"
+            }
+          ]
+        },
+        "Fertilizer": {
+          "Particles": [
+            {
+              "SystemId": "Dungeon_Goblin_Spores_Green"
+            }
+          ]
+        },
+        "Both": {
+          "Particles": [
+            {
+              "SystemId": "Plant_Mana_Tier1"
+            },
+            {
+              "SystemId": "Dungeon_Goblin_Spores_Green"
+            }
+          ]
+        }
+      }
     }
   },
   "Recipe": {

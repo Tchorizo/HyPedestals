@@ -24,6 +24,18 @@ public final class HytaleIds {
     }
 
     /**
+     * State name of a state-variant id ({@code *Plant_Crop_Wheat_Block_State_Definitions_StageFinal}
+     * → {@code StageFinal}); {@code null} for a base id (the block's default state) and for {@code null}.
+     */
+    public static String stateName(String blockId) {
+        if (blockId == null) {
+            return null;
+        }
+        int marker = blockId.indexOf(STATE_MARKER);
+        return marker >= 0 ? blockId.substring(marker + STATE_MARKER.length()) : null;
+    }
+
+    /**
      * Translation key of one of our items: {@code HyPedestals_Upgrade_Watering} + {@code name} →
      * {@code hypedestals.items.Upgrade_Watering.name} (the {@code .lang} file name is the key prefix).
      */

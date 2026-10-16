@@ -28,6 +28,8 @@ The numbers in the table are the defaults. Radius and interval can be changed pe
 
 When no storage slot can take more items, the Harvester stops harvesting (nothing is harvested onto the ground) until space frees up.
 
+Installed upgrades show as particles around the Harvester: blue sparks for watering, green spores for the fertilizer, both when it has both.
+
 ### Admin command
 
 `/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the result of the last cycle (harvested, collected, paused) and its installed upgrades (`upgrades=[...]`).
@@ -61,7 +63,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `CollectMargin` | 0–4 | Extra blocks beyond the area (horizontally) where drops are still collected |
 | `SoilSweepSeconds` | 5–600 | Real seconds between two soil passes of a Harvester with the Watering upgrade |
 | `ExportToAdjacent` | true/false | `true`: after each cycle the Harvester moves its items into a container touching it (see [Export](#export-to-an-adjacent-container)) |
-| `HarvestParticles` | true/false | Particle effect when a cycle harvests something (the effect itself is not implemented yet) |
+| `HarvestParticles` | true/false | A short puff of dust above the Harvester when a cycle harvests something |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 

@@ -8,6 +8,7 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
+import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
@@ -19,6 +20,8 @@ import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
+import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
+import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 import java.time.Instant;
@@ -30,11 +33,16 @@ import java.time.Instant;
  * when the watering or the fertilizer upgrade is installed. With the fertilizer upgrade, the
  * container's last slot is the fertilizer input slot ({@link HytaleFertilizerInput}): filtered
  * to the fertilizer bag, left out of the harvest budget, and the source of the pass's
- * applications. Radius, interval, margin, item filter, export and the soil settings are read
+ * applications. Each cycle also re-asserts the block state that shows the upgrades
+ * ({@link HarvesterVisual}) and, with {@code HarvestParticles}, puffs a short particle burst when
+ * something was harvested. Radius, interval, margin, item filter, export and the soil settings are read
  * from the global config on every tick, so changes made with {@code /hypedestals config} (command
  * or window) apply right away; hand edits to the config file are read at server start only.
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
+
+    /** Vanilla {@code Server/Particles/Item/Seeds/Seed_Place_Dust.particlesystem}: one burst, then done. */
+    private static final String HARVEST_PARTICLES = "Seed_Place_Dust";
 
     @Override
     public Query<ChunkStore> getQuery() {
@@ -103,6 +111,11 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             return;
         }
         World world = store.getExternalData().getWorld();
+        // Once per cycle, so a state lost to something else (e.g. a state change by another
+        // interaction) comes back; written only when it differs (upgrades spec §5.1).
+        if (!UpgradeVisual.stateFor(harvester.upgrades()).equals(HarvesterVisual.currentState(world, pos))) {
+            HarvesterVisual.request(world, pos);
+        }
 
         if (container == null) {
             if (!harvester.missingContainerWarned) {
@@ -125,6 +138,12 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             // At most one line per cycle; those crops stay eligible and are retried next cycle.
             HyPedestalsPlugin.warn("Harvester at %s: %d crop(s) still being updated by the game, retrying next cycle",
                     pos, harvester.lastResult.transientFailures());
+        }
+        if (global.harvestParticles() && harvester.lastResult.harvested() > 0) {
+            // Finite vanilla burst (5 particles, the seed-planting dust); its spawner sits 1 block up,
+            // so this lands on top of the pedestal. Sent to the players near the position.
+            ParticleUtil.spawnParticleEffect(HARVEST_PARTICLES,
+                    new Vector3d(pos.x + 0.5, pos.y, pos.z + 0.5), world.getEntityStore().getStore());
         }
         // After the cycle's second collect, so this cycle's items leave right away; also when the
         // cycle paused because the container was full, which is when export matters most.

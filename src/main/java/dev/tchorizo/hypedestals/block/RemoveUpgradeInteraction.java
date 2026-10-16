@@ -46,6 +46,7 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
             return;
         }
         target.markNeedsSaving();
+        HarvesterVisual.request(world, pos);
 
         Ref<EntityStore> player = ctx.getEntity();
         ItemStack item = new ItemStack(removed.itemId(), 1);

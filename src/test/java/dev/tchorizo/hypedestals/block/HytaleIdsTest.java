@@ -1,11 +1,13 @@
 package dev.tchorizo.hypedestals.block;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
+import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +41,18 @@ class HytaleIdsTest {
     @Test
     void nullStaysNull() {
         assertNull(HytaleIds.baseBlockId(null));
+    }
+
+    @Test
+    void stateNameOfVariantId() {
+        assertEquals("Watering", HytaleIds.stateName("*HyPedestals_Harvester_Iron_State_Definitions_Watering"));
+        assertEquals("StageFinal", HytaleIds.stateName("*Plant_Crop_Wheat_Block_State_Definitions_StageFinal"));
+    }
+
+    @Test
+    void stateNameOfBaseIdIsNull() {
+        assertNull(HytaleIds.stateName("HyPedestals_Harvester_Iron"));
+        assertNull(HytaleIds.stateName(null));
     }
 
     @Test
@@ -92,6 +106,23 @@ class HytaleIdsTest {
                 .contains("\"HyPedestals_Harvester_Use\""));
         assertTrue(resource(ITEMS + "Harvester/HyPedestals_Harvester_Template.json")
                 .contains("\"Use\": \"HyPedestals_Harvester_Use\""));
+    }
+
+    /**
+     * Every non-default state {@link UpgradeVisual} can ask for is declared by each tier itself. A
+     * {@code State} inherited through {@code Parent} keeps the parent's variant ids: with the states
+     * in the Template, a Copper switched to {@code *HyPedestals_Harvester_Template_State_Definitions_Watering}
+     * (itest 2026-10-16 10:25), i.e. the Template's block, texture and all, so the Template has none.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"Copper", "Iron", "Thorium", "Cobalt"})
+    void eachTierDeclaresUpgradeVisualStates(String tier) throws IOException {
+        String json = resource(ITEMS + "Harvester/HyPedestals_Harvester_" + tier + ".json");
+        for (String state : new String[] {UpgradeVisual.WATERING, UpgradeVisual.FERTILIZER, UpgradeVisual.BOTH}) {
+            assertTrue(json.contains("\"" + state + "\": {"), tier + " misses state " + state);
+        }
+        assertFalse(resource(ITEMS + "Harvester/HyPedestals_Harvester_Template.json").contains("\"State\""),
+                "states in the Template would be inherited with the Template's variant ids");
     }
 
     private static String resource(String path) throws IOException {

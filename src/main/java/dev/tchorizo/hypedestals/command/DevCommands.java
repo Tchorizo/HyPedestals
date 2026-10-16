@@ -42,6 +42,7 @@ import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
+import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -92,6 +93,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SetBlockCommand());
         addSubCommand(new ContentsCommand());
         addSubCommand(new UpgradeCommand());
+        addSubCommand(new StateCommand());
         addSubCommand(new FenceCommand());
         addSubCommand(new WaterCommand());
         addSubCommand(new SoilCommand());
@@ -1141,6 +1143,80 @@ final class DevCommands extends AbstractAsyncCommand {
             }
             return String.format(Locale.ROOT, "upgrade %s %s at %s: changed=%b markedForSave=%b upgrades=%s",
                     add ? "add" : "remove", type.displayName(), at, changed, marked, upgrades);
+        }
+    }
+
+    /**
+     * {@code state <x y z> <Default|Watering|Fertilizer|Both>}: puts the block at the position into
+     * that {@code State.Definitions} entry with {@code setBlockInteractionState}, the call the
+     * Harvester uses for its upgrades (upgrades spike S3). Replies with the id before and after,
+     * whether the block entity and its Harvester component are the same objects afterwards, and the
+     * texture and particles of the block type now in place. On a Harvester the next cycle puts back
+     * the state of its upgrades.
+     */
+    private static final class StateCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<String> state = withRequiredArg("state",
+                "Default, Watering, Fertilizer or Both (any state name of the block)", ArgTypes.STRING);
+
+        StateCommand() {
+            super("state", "Put the block at a position into a named block state (visual test)");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            String name = context.get(state);
+            String key = name.equalsIgnoreCase(UpgradeVisual.DEFAULT) ? UpgradeVisual.DEFAULT : name;
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", apply(world, pos, key)), pos);
+        }
+
+        private static String apply(World world, Vector3i pos, String key) {
+            String at = HyPedestalsCommand.format(pos);
+            ChunkStore chunkStore = world.getChunkStore();
+            Store<ChunkStore> store = chunkStore.getStore();
+            Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
+            if (section == null) {
+                return "state at " + at + ": section not loaded";
+            }
+            BlockType before = BlockType.getAssetMap().getAsset(new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+            if (before == null) {
+                return "state at " + at + ": unknown block";
+            }
+            Ref<ChunkStore> entityBefore = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+            HarvesterComponent harvesterBefore = entityBefore == null ? null : store.getComponent(entityBefore, HarvesterComponent.TYPE);
+
+            BlockOperations.setBlockInteractionState(chunkStore, section, pos.x, pos.y, pos.z, before, key, false);
+
+            BlockType after = BlockType.getAssetMap().getAsset(new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+            Ref<ChunkStore> entityAfter = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+            HarvesterComponent harvesterAfter = entityAfter == null ? null : store.getComponent(entityAfter, HarvesterComponent.TYPE);
+            ItemContainerBlock container = entityAfter == null ? null : store.getComponent(entityAfter, ItemContainerBlock.getComponentType());
+            StringBuilder textures = new StringBuilder();
+            if (after != null && after.getCustomModelTexture() != null) {
+                for (var texture : after.getCustomModelTexture()) {
+                    textures.append(textures.isEmpty() ? "" : ",").append(texture.getTexture());
+                }
+            }
+            StringBuilder particles = new StringBuilder();
+            if (after != null && after.getParticles() != null) {
+                for (var particle : after.getParticles()) {
+                    particles.append(particles.isEmpty() ? "" : ",").append(particle.getSystemId());
+                }
+            }
+            return String.format(Locale.ROOT,
+                    "state %s at %s: %s -> %s sameEntity=%b sameHarvester=%b tier=%s upgrades=%s container=%s texture=[%s] particles=[%s]",
+                    key, at, before.getId(), after == null ? "null" : after.getId(),
+                    entityBefore != null && entityBefore.equals(entityAfter),
+                    harvesterBefore != null && harvesterBefore == harvesterAfter,
+                    harvesterAfter == null ? "-" : harvesterAfter.tier(),
+                    harvesterAfter == null ? "-" : harvesterAfter.upgrades(),
+                    container == null ? "none" : "[" + contents(container.getItemContainer()) + "]",
+                    textures, particles);
         }
     }
 

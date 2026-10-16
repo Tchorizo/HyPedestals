@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Fertilizer upgrade: with it installed, the Harvester's last storage slot becomes a fertilizer input that only accepts the vanilla fertilizer bag, and the harvest never goes there. On the same soil sweep, the Harvester fertilizes each tilled soil block in its area that has a crop on it and is not fertilized yet, one bag use per block (5 per bag); a used-up bag disappears. `/hypedestals inspect` shows `fertilized=<n>` and the bag's `fertilizer=<uses>/<max>` (`none` when empty, `blocked` when the slot still holds something else).
 - Upgrade items `Watering Upgrade` and `Fertilizer Upgrade`, crafted at the Farming bench (tier 2 and 3). Right-click a Harvester while holding one to install it (one of each per Harvester); crouch + Use (F) on the Harvester takes the last installed upgrade back into your inventory; plain Use still opens the storage. `/hypedestals inspect` lists the installed `upgrades=[…]`.
 - Breaking a Harvester drops its installed upgrades as items where it stood; unloading the chunk or restarting the server keeps them installed.
+- Installed upgrades are visible: the Harvester gives off blue sparks with the watering upgrade, green spores with the fertilizer, both with both. With `HarvestParticles` on (the default) a short puff of dust rises from the Harvester when a cycle harvests something.
 
 ### Changed
 
