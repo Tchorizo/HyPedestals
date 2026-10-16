@@ -29,8 +29,10 @@ public final class HarvestCycle {
      *
      * @param collectMargin horizontal margin beyond the harvest area where drops that rolled away
      *     are still collected (the config's {@code CollectMargin})
-     * @param warnedTypes crop types whose harvest already threw; they are skipped, and types that
-     *     throw during this cycle are added to it
+     * @param warnedTypes crop types whose harvest failed with {@link HarvestOutcome#TYPE_ERROR}; they
+     *     are skipped, and types that fail that way during this cycle are added to it. A
+     *     {@link HarvestOutcome#TRANSIENT_ERROR} leaves the type eligible, spends no budget and is
+     *     only counted in {@link CycleResult#transientFailures()}, so the crop is retried next cycle
      */
     public static CycleResult run(CycleWorld world, BlockPos center, int radius, int collectMargin,
                                   Set<String> warnedTypes, int startIndex) {
@@ -41,10 +43,11 @@ public final class HarvestCycle {
         int collected = world.collectDroppedItems(center, collectExtent);
         int budget = world.harvestBudget();
         if (budget <= 0) {
-            return new CycleResult(0, collected, true, List.of(), start);
+            return new CycleResult(0, collected, true, List.of(), 0, start);
         }
 
         int harvested = 0;
+        int transientFailures = 0;
         int next = start;
         List<String> newWarnings = new ArrayList<>();
         for (int i = 0; i < size && harvested < budget; i++) {
@@ -55,17 +58,24 @@ public final class HarvestCycle {
             if (type == null || warnedTypes.contains(type)) {
                 continue;
             }
+            HarvestOutcome outcome;
             try {
-                if (world.harvest(pos)) {
-                    harvested++;
-                }
+                outcome = world.harvest(pos);
             } catch (RuntimeException e) {
-                warnedTypes.add(type);
-                newWarnings.add(type);
+                outcome = HarvestOutcome.TYPE_ERROR;
+            }
+            switch (outcome) {
+                case HARVESTED -> harvested++;
+                case NOT_READY -> { }
+                case TRANSIENT_ERROR -> transientFailures++;
+                case TYPE_ERROR -> {
+                    warnedTypes.add(type);
+                    newWarnings.add(type);
+                }
             }
         }
         collected += world.collectDroppedItems(center, collectExtent);
-        return new CycleResult(harvested, collected, false, List.copyOf(newWarnings), next);
+        return new CycleResult(harvested, collected, false, List.copyOf(newWarnings), transientFailures, next);
     }
 
     /**

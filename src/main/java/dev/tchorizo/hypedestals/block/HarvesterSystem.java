@@ -86,5 +86,10 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         for (String type : harvester.lastResult.newWarnings()) {
             HyPedestalsPlugin.warn("crop type %s at %s skipped until chunk reload", type, pos);
         }
+        if (harvester.lastResult.transientFailures() > 0) {
+            // At most one line per cycle; those crops stay eligible and are retried next cycle.
+            HyPedestalsPlugin.warn("Harvester at %s: %d crop(s) still being updated by the game, retrying next cycle",
+                    pos, harvester.lastResult.transientFailures());
+        }
     }
 }

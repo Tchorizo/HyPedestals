@@ -166,6 +166,38 @@ class HarvestCycleTest {
     }
 
     @Test
+    void transientErrorIsRetriedNextCycle() {
+        BlockPos busy = new BlockPos(-1, 64, 0);
+        BlockPos other = new BlockPos(1, 64, 0);
+        Set<String> warnedTypes = new HashSet<>();
+
+        FakeCycleWorld first = new FakeCycleWorld();
+        first.budget = 1;
+        first.mature(busy, WHEAT);
+        first.mature(other, WHEAT);
+        first.transientPositions.add(busy);
+
+        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0);
+
+        assertEquals(List.of("harvest " + busy, "harvest " + other), first.harvestCalls(),
+                "a transient failure spends no budget and does not skip the type");
+        assertEquals(1, firstResult.harvested());
+        assertEquals(1, firstResult.transientFailures());
+        assertEquals(List.of(), firstResult.newWarnings());
+        assertEquals(Set.of(), warnedTypes);
+
+        FakeCycleWorld second = new FakeCycleWorld();
+        second.budget = 1;
+        second.mature(busy, WHEAT);
+
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0);
+
+        assertEquals(List.of("harvest " + busy), second.harvestCalls());
+        assertEquals(1, secondResult.harvested(), "the crop that was busy is harvested on the next cycle");
+        assertEquals(0, secondResult.transientFailures());
+    }
+
+    @Test
     void rotatesStartAcrossCycles() {
         // Nine crops that stay mature after each harvest (like Eternal crops under `dev grow`),
         // spread over the area including opposite corners, and a budget of two per cycle. Without
@@ -260,6 +292,7 @@ class HarvestCycleTest {
         final Map<BlockPos, String> cropTypes = new HashMap<>();
         final Set<BlockPos> maturePositions = new HashSet<>();
         final Set<String> throwingTypes = new HashSet<>();
+        final Set<BlockPos> transientPositions = new HashSet<>();
         int budget;
         int collectedOnCollect;
         int slotsFilledByCollect;
@@ -283,12 +316,16 @@ class HarvestCycleTest {
         }
 
         @Override
-        public boolean harvest(BlockPos p) {
+        public HarvestOutcome harvest(BlockPos p) {
             calls.add("harvest " + p);
             if (throwingTypes.contains(cropTypes.get(p))) {
+                // An unexpected exception from the adapter counts as a TYPE_ERROR.
                 throw new IllegalArgumentException("Duplicate block components");
             }
-            return maturePositions.contains(p);
+            if (transientPositions.contains(p)) {
+                return HarvestOutcome.TRANSIENT_ERROR;
+            }
+            return maturePositions.contains(p) ? HarvestOutcome.HARVESTED : HarvestOutcome.NOT_READY;
         }
 
         @Override
