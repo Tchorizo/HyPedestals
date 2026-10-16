@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, container
  * usage and last cycle result, {@code no Harvester at <x y z>}, or {@code section not loaded at
  * <x y z>} when the section was never generated (inspecting never generates terrain).
+ * Loads the section from disk if it exists (never generating it) and marks it as ticking.
  */
 final class InspectCommand extends HyPedestalsCommand.PositionCommand {
 

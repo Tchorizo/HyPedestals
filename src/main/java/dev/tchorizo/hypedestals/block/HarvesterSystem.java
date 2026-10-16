@@ -40,7 +40,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             if (!harvester.inactiveWarned) {
                 harvester.inactiveWarned = true;
                 Vector3i pos = new Vector3i();
-                HyPedestalsPlugin.warn("Harvester tier %d em %s inativo: Radius fora de 1..%d ou IntervalSeconds <= 0",
+                HyPedestalsPlugin.warn("Harvester tier %d at %s inactive: invalid Radius/IntervalSeconds in asset (Radius must be 1..%d, IntervalSeconds > 0)",
                         harvester.tier, info.fillWorldPos(cb, pos) ? pos : "?", HarvesterSettings.MAX_RADIUS);
             }
             return;
@@ -62,7 +62,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         if (containerBlock == null) {
             if (!harvester.missingContainerWarned) {
                 harvester.missingContainerWarned = true;
-                HyPedestalsPlugin.warn("Harvester em %s sem ItemContainerBlock; inativo", pos);
+                HyPedestalsPlugin.warn("Harvester at %s has no ItemContainerBlock; inactive", pos);
             }
             return;
         }
@@ -72,7 +72,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 new BlockPos(pos.x, pos.y, pos.z), harvester.radius, harvester.warnedTypes);
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {
-            HyPedestalsPlugin.warn("harvest falhou para %s em %s; tipo ignorado", type, pos);
+            HyPedestalsPlugin.warn("crop type %s at %s skipped until chunk reload", type, pos);
         }
     }
 }

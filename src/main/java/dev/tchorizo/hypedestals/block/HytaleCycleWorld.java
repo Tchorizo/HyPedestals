@@ -68,7 +68,7 @@ final class HytaleCycleWorld implements CycleWorld {
             return FarmingUtil.harvest(chunkBuffer, entityStore, null, new Vector3i(p.x(), p.y(), p.z()));
         } catch (RuntimeException e) {
             // HarvestCycle keeps only the crop type; log the cause here, once per type thanks to warnedTypes.
-            HyPedestalsPlugin.warn("harvest falhou em %s (%s): %s", p, cropTypeAt(p), e.toString());
+            HyPedestalsPlugin.warn("harvest failed at %s (%s): %s", p, cropTypeAt(p), e.toString());
             throw e;
         }
     }

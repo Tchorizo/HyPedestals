@@ -17,7 +17,7 @@ The area is a square centered on the Harvester (side `2R+1`) and 3 blocks tall (
 
 Upgrading is done by crafting: the previous tier is an ingredient of the next one. The contents of the old Harvester do not carry over, so empty it first.
 
-The numbers live in the block's asset JSON (`HyHarvester` and `ItemContainerBlock` components), so server owners can rebalance them with an asset override.
+The numbers live in the block's asset JSON (`HyHarvester` and `ItemContainerBlock` components), so server owners can rebalance them with an asset override. Radius must be 1–8 and IntervalSeconds > 0; invalid values disable that block (one warning in the server log).
 
 ## Usage
 
@@ -32,12 +32,13 @@ When the storage is full, the Harvester stops harvesting (nothing is harvested o
 
 `/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, used/total slots and the result of the last cycle (harvested, collected, paused).
 
-The command never generates terrain. If there is nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
+The command loads the section from disk if it exists and never generates terrain. If there is nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
 ## Known limitations
 
 - **No claim/protection support.** Harvesting goes through the game's farming code, which does not fire a block break event, so claim or protection plugins cannot stop a Harvester from harvesting inside a protected area.
 - **Only works while its chunk section is loaded and ticking**, i.e. near a player. There is no chunk loading.
+- If harvesting a crop type throws an error, that Harvester skips that crop type until its chunk reloads (one warning is logged).
 - **Annual crops are not replanted.** They are removed when harvested; replant them yourself. Bushes that reset after harvest (e.g. berries) regrow by themselves.
 - **One harvest can produce up to 2 stacks** (the crop plus Life Essence). When the storage is nearly full, whatever does not fit stays on the ground and is collected once space frees up.
 - **Vacuums any dropped item** within radius + 1, not only crops.
