@@ -2,6 +2,8 @@ package dev.tchorizo.hypedestals;
 
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import dev.tchorizo.hypedestals.block.HarvesterComponent;
+import dev.tchorizo.hypedestals.block.HarvesterSystem;
 
 import java.util.Locale;
 
@@ -19,6 +21,10 @@ public final class HyPedestalsPlugin extends JavaPlugin {
 
     @Override
     protected void setup() {
+        // TYPE must be assigned before the system is registered: its query references it.
+        HarvesterComponent.TYPE = getChunkStoreRegistry().registerComponent(
+                HarvesterComponent.class, "HyHarvester", HarvesterComponent.CODEC);
+        getChunkStoreRegistry().registerSystem(new HarvesterSystem());
         log("setup");
     }
 
