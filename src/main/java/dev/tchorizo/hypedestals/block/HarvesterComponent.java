@@ -9,15 +9,19 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
+import dev.tchorizo.hypedestals.harvest.UpgradeSet;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
 
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Harvester block state. {@code Tier}, {@code Radius} and {@code IntervalSeconds} come from the
- * tier's block JSON; everything else is runtime-only and resets on load. The radius and interval
- * a Harvester runs with come from the global config for its {@code Tier} ({@link #settings()});
- * the JSON values are only the fallback for a tier the config does not know.
+ * tier's block JSON; {@code Upgrades} (item ids, installation order) is absent there, so a placed
+ * Harvester starts without upgrades, and is persisted with the block. Everything else is
+ * runtime-only and resets on load. The radius and interval a Harvester runs with come from the
+ * global config for its {@code Tier} ({@link #settings()}); the JSON values are only the fallback
+ * for a tier the config does not know.
  */
 public final class HarvesterComponent implements Component<ChunkStore> {
 
@@ -35,6 +39,9 @@ public final class HarvesterComponent implements Component<ChunkStore> {
                     .append(new KeyedCodec<>("IntervalSeconds", Codec.FLOAT),
                             (c, v) -> c.intervalSeconds = HarvesterSettings.sanitizeInterval(v), c -> c.intervalSeconds)
                     .add()
+                    .append(new KeyedCodec<>("Upgrades", Codec.STRING_ARRAY),
+                            HarvesterComponent::readUpgrades, c -> c.upgrades.toArray())
+                    .add()
                     .build();
 
     // Persisted.
@@ -43,6 +50,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int radius;
     /** Asset interval: positive, or {@code 0} when the JSON value was not. */
     float intervalSeconds;
+    /** Installed upgrades; mutate through {@link #upgrades()} and mark the block for saving. */
+    UpgradeSet upgrades = new UpgradeSet();
 
     // Transient.
     float elapsed;
@@ -56,6 +65,14 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     boolean missingContainerWarned;
 
     public HarvesterComponent() {}
+
+    private static void readUpgrades(HarvesterComponent c, String[] ids) {
+        c.upgrades = UpgradeSet.parse(ids);
+        if (!c.upgrades.ignored().isEmpty()) {
+            HyPedestalsPlugin.warn("Harvester: ignored unknown or repeated upgrades %s; they are dropped on the next save",
+                    c.upgrades.ignored());
+        }
+    }
 
     public int tier() {
         return tier;
@@ -95,6 +112,19 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         return scanIndex;
     }
 
+    /**
+     * Installed upgrades, live and mutable. After changing them outside the engine's own flows,
+     * call {@code BlockModule.BlockStateInfo.markNeedsSaving} on the block entity, or the change
+     * may not reach disk.
+     */
+    public UpgradeSet upgrades() {
+        return upgrades;
+    }
+
+    public boolean hasUpgrade(UpgradeType type) {
+        return upgrades.has(type);
+    }
+
     public float secondsToNextCycle() {
         return Math.max(0f, intervalSeconds() - elapsed);
     }
@@ -106,6 +136,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         copy.tier = tier;
         copy.radius = HarvesterSettings.sanitizeRadius(radius);
         copy.intervalSeconds = HarvesterSettings.sanitizeInterval(intervalSeconds);
+        copy.upgrades = upgrades.copy();
         return copy;
     }
 }

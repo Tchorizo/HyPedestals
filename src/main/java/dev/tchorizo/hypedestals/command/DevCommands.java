@@ -36,6 +36,8 @@ import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleIds;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
+import dev.tchorizo.hypedestals.harvest.UpgradeSet;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -85,6 +87,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new CropCommand());
         addSubCommand(new SetBlockCommand());
         addSubCommand(new ContentsCommand());
+        addSubCommand(new UpgradeCommand());
     }
 
     @Override
@@ -93,7 +96,8 @@ final class DevCommands extends AbstractAsyncCommand {
                 "usage: hypedestals dev place <x y z> <%s> | plant <x y z> [--block <id>] | ripen <x y z>"
                         + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
-                        + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>",
+                        + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
+                        + " | upgrade <x y z> <add|remove> <watering|fertilizer>",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -995,6 +999,76 @@ final class DevCommands extends AbstractAsyncCommand {
             }
             return String.format(Locale.ROOT, "contents at %s: %s slots=%d/%d items=%d [%s]",
                     at, id, used, container.getCapacity(), total, contents(container));
+        }
+    }
+
+    /**
+     * {@code upgrade <x y z> <add|remove> <watering|fertilizer> [--save false]}: installs or removes
+     * an upgrade on the Harvester at the position without a client, replying with the upgrades
+     * afterwards. A change marks the block's section for saving, as the install interaction does;
+     * {@code --save false} skips that, to show that without it the change is lost on restart.
+     */
+    private static final class UpgradeCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<String> action =
+                withRequiredArg("action", "add or remove", ArgTypes.STRING);
+        private final RequiredArg<String> upgrade =
+                withRequiredArg("upgrade", "watering or fertilizer", ArgTypes.STRING);
+        private final DefaultArg<Boolean> save = withDefaultArg("save",
+                "Mark the block for saving after a change (false = persistence control)", ArgTypes.BOOLEAN, true, "true");
+
+        UpgradeCommand() {
+            super("upgrade", "Install or remove an upgrade on the Harvester at a position");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            String act = context.get(action).toLowerCase(Locale.ROOT);
+            UpgradeType type = parseType(context.get(upgrade));
+            boolean mark = context.get(save);
+            if (!(act.equals("add") || act.equals("remove")) || type == null) {
+                HyPedestalsCommand.reply(context,
+                        "usage: hypedestals dev upgrade <x y z> <add|remove> <watering|fertilizer> [--save false]");
+                return CompletableFuture.completedFuture(null);
+            }
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s",
+                    apply(world, pos, act.equals("add"), type, mark)), pos);
+        }
+
+        private static UpgradeType parseType(String name) {
+            for (UpgradeType type : UpgradeType.values()) {
+                if (type.name().equalsIgnoreCase(name)) {
+                    return type;
+                }
+            }
+            return null;
+        }
+
+        private static String apply(World world, Vector3i pos, boolean add, UpgradeType type, boolean mark) {
+            String at = HyPedestalsCommand.format(pos);
+            Store<ChunkStore> store = world.getChunkStore().getStore();
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z);
+            HarvesterComponent harvester = ref == null ? null : store.getComponent(ref, HarvesterComponent.TYPE);
+            if (harvester == null) {
+                return "upgrade: no Harvester at " + at;
+            }
+            UpgradeSet upgrades = harvester.upgrades();
+            boolean changed = add ? upgrades.install(type) : upgrades.remove(type);
+            boolean marked = false;
+            if (changed && mark) {
+                BlockModule.BlockStateInfo info = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
+                if (info != null) {
+                    info.markNeedsSaving(store);
+                    marked = true;
+                }
+            }
+            return String.format(Locale.ROOT, "upgrade %s %s at %s: changed=%b markedForSave=%b upgrades=%s",
+                    add ? "add" : "remove", type.displayName(), at, changed, marked, upgrades);
         }
     }
 }

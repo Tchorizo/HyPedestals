@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, scan
- * position, container usage and last cycle result, {@code no Harvester at <x y z>}, or {@code section not loaded at
+ * position, container usage, last cycle result and installed upgrades, {@code no Harvester at <x y z>}, or {@code section not loaded at
  * <x y z>} when the section was never generated (inspecting never generates terrain).
  * Loads the section from disk if it exists (never generating it) and marks it as ticking.
  */
@@ -51,12 +51,13 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         }
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s",
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s upgrades=%s",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
                 last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b",
-                        last.harvested(), last.collected(), last.pausedFull()));
+                        last.harvested(), last.collected(), last.pausedFull()),
+                harvester.upgrades());
     }
 
     /** {@code <used>/<capacity>}, counting slots that hold a non-empty stack. */
