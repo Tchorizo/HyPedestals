@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 class HarvestCycleTest {
 
     private static final BlockPos CENTER = new BlockPos(0, 64, 0);
+    /** The default {@code CollectMargin}. */
+    private static final int MARGIN = 2;
     private static final String WHEAT = "Plant_Crop_Wheat_Block";
     private static final String BERRY = "Plant_Crop_Berry_Block";
 
@@ -28,10 +30,10 @@ class HarvestCycleTest {
         world.mature(new BlockPos(1, 64, 0), WHEAT);
         world.mature(new BlockPos(2, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
 
         assertEquals(List.of("collect " + CENTER + " r=4.0", "harvestBudget"), world.calls.subList(0, 2),
-                "the budget is read only after collecting; extent = radius + COLLECT_MARGIN");
+                "the budget is read only after collecting; extent = radius + collectMargin");
         assertEquals(1, result.harvested(), "the budget reflects what the collection stored");
         assertEquals(List.of("harvest " + new BlockPos(1, 64, 0)), world.harvestCalls());
     }
@@ -45,7 +47,7 @@ class HarvestCycleTest {
         world.collectedOnCollect = 3;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 5, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 5, MARGIN, new HashSet<>(), 0);
 
         assertEquals(6, result.collected(), "both collect passes are summed");
         assertEquals("collect " + CENTER + " r=7.0", world.calls.getFirst());
@@ -55,12 +57,26 @@ class HarvestCycleTest {
     }
 
     @Test
+    void collectExtentFollowsTheConfiguredMargin() {
+        FakeCycleWorld zero = new FakeCycleWorld();
+        zero.budget = 1;
+        HarvestCycle.run(zero, CENTER, 3, 0, new HashSet<>(), 0);
+        assertEquals("collect " + CENTER + " r=3.0", zero.calls.getFirst(), "margin 0 collects the area only");
+
+        FakeCycleWorld four = new FakeCycleWorld();
+        four.budget = 1;
+        HarvestCycle.run(four, CENTER, 3, 4, new HashSet<>(), 0);
+        assertEquals("collect " + CENTER + " r=7.0", four.calls.getFirst());
+        assertEquals("collect " + CENTER + " r=7.0", four.calls.getLast(), "both passes use the same extent");
+    }
+
+    @Test
     void pausesWhenBudgetIsNegative() {
         FakeCycleWorld world = new FakeCycleWorld();
         world.budget = -1;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
 
         assertTrue(result.pausedFull());
         assertEquals(List.of(), world.harvestCalls());
@@ -73,7 +89,7 @@ class HarvestCycleTest {
         world.collectedOnCollect = 7;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
 
         assertTrue(result.pausedFull());
         assertEquals(7, result.collected());
@@ -89,7 +105,7 @@ class HarvestCycleTest {
             world.mature(new BlockPos(x, 64, 0), WHEAT);
         }
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
 
         assertEquals(2, result.harvested());
         assertEquals(2, world.harvestCalls().size(), "stops calling harvest once the budget is spent");
@@ -106,7 +122,7 @@ class HarvestCycleTest {
         world.immature(immature, WHEAT);
         world.mature(mature, WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
 
         assertEquals(1, result.harvested(), "an immature crop does not consume the budget");
         assertEquals(List.of("harvest " + immature, "harvest " + mature), world.harvestCalls(),
@@ -127,7 +143,7 @@ class HarvestCycleTest {
         first.mature(wheat, WHEAT);
         first.throwingTypes.add(BERRY);
 
-        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, warnedTypes, 0);
+        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0);
 
         assertEquals(List.of(BERRY), firstResult.newWarnings());
         assertEquals(List.of("harvest " + berryA, "harvest " + wheat), first.harvestCalls(),
@@ -142,7 +158,7 @@ class HarvestCycleTest {
         second.mature(wheat, WHEAT);
         second.throwingTypes.add(BERRY);
 
-        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, warnedTypes, 0);
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0);
 
         assertEquals(List.of(), secondResult.newWarnings());
         assertEquals(List.of("harvest " + wheat), second.harvestCalls());
@@ -167,7 +183,7 @@ class HarvestCycleTest {
             world.budget = 2;
             crops.forEach(c -> world.mature(c, WHEAT));
 
-            CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>(), start);
+            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start);
 
             assertEquals(2, result.harvested());
             harvestedInOrder.addAll(world.harvestCalls());
@@ -191,7 +207,7 @@ class HarvestCycleTest {
         world.mature(new BlockPos(0, 63, 0), WHEAT);
         world.mature(new BlockPos(1, 64, -1), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, new HashSet<>(), 10);
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 10);
 
         assertEquals(List.of("harvest " + new BlockPos(1, 64, -1)), world.harvestCalls(),
                 "the scan starts at startIndex");
@@ -206,7 +222,7 @@ class HarvestCycleTest {
         world.mature(new BlockPos(1, 64, -1), WHEAT);
 
         // 37 is out of range for 27 positions and wraps to 10.
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, new HashSet<>(), 37);
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 37);
 
         assertEquals(List.of("harvest " + new BlockPos(1, 64, -1), "harvest " + new BlockPos(0, 63, 0)),
                 world.harvestCalls(), "the scan wraps around past the last position");
@@ -219,7 +235,7 @@ class HarvestCycleTest {
         FakeCycleWorld world = new FakeCycleWorld();
         world.budget = 0;
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, new HashSet<>(), 5);
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 5);
 
         assertTrue(result.pausedFull());
         assertEquals(5, result.nextIndex());

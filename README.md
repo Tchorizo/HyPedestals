@@ -17,7 +17,7 @@ The area is a square centered on the Harvester (side `2R+1`) and 3 blocks tall (
 
 Upgrading is done by crafting: the previous tier is an ingredient of the next one. The contents of the old Harvester do not carry over, so empty it first.
 
-The numbers live in the block's asset JSON (`HyHarvester` and `ItemContainerBlock` components), so server owners can rebalance them with an asset override. Radius must be 1–8 and IntervalSeconds > 0; invalid values disable that block (one warning in the server log).
+The numbers in the table are the defaults. Radius and interval can be changed per tier in the [configuration](#configuration); the storage size lives in the block's asset JSON (`ItemContainerBlock` component). The `HyHarvester` component's `Radius`/`IntervalSeconds` in the asset are only used for a tier the configuration does not know (e.g. one added by another asset pack); there Radius must be 1–8 and IntervalSeconds > 0, and invalid values disable that block (one warning in the server log).
 
 ## Usage
 
@@ -34,6 +34,35 @@ When no storage slot can take more items, the Harvester stops harvesting (nothin
 
 The command loads the section from disk if it exists and never generates terrain. If there is nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
+## Configuration
+
+The settings are global (the same for the whole server) and stored in `HyPedestals.json` in the plugin's data folder (on a dedicated server: `mods/Tchorizo_HyPedestals/HyPedestals.json`). The file is created with the defaults on the first start.
+
+```json
+{
+  "Copper":  { "Radius": 2, "IntervalSeconds": 12.0 },
+  "Iron":    { "Radius": 3, "IntervalSeconds": 8.0 },
+  "Thorium": { "Radius": 4, "IntervalSeconds": 5.0 },
+  "Cobalt":  { "Radius": 5, "IntervalSeconds": 3.0 },
+  "CollectAnyItem": true,
+  "CollectMargin": 2
+}
+```
+
+| Key | Range | Meaning |
+|---|---|---|
+| `<Tier>.Radius` | 1–8 | Harvest area radius R (area `2R+1` × `2R+1`) |
+| `<Tier>.IntervalSeconds` | 0.5–600 | Seconds between cycles |
+| `CollectAnyItem` | true/false | `true`: collect every dropped item around the area. `false`: leave tools, weapons and armor (items whose asset has a `Tool`, `Weapon` or `Armor` section) and unknown items on the ground, e.g. gear a player dropped by the farm; crops, seeds and other materials are still collected |
+| `CollectMargin` | 0–4 | Extra blocks beyond the area (horizontally) where drops are still collected |
+
+Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
+
+In game (operators):
+
+- `/hypedestals config show` — prints the current values and the file path.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin> <value>` — change one value, apply it and save the file. Also works from the server console.
+
 ## Known limitations
 
 - **No claim/protection support.** Harvesting goes through the game's farming code, which does not fire a block break event, so claim or protection plugins cannot stop a Harvester from harvesting inside a protected area.
@@ -41,7 +70,7 @@ The command loads the section from disk if it exists and never generates terrain
 - If harvesting a crop type throws an error, that Harvester skips that crop type until its chunk reloads (one warning is logged).
 - **Annual crops are not replanted.** They are removed when harvested; replant them yourself. Bushes that reset after harvest (e.g. berries) regrow by themselves.
 - **One harvest can produce up to 2 stacks** (the crop plus Life Essence). When the storage is nearly full, whatever does not fit stays on the ground and is collected once space frees up.
-- **Vacuums any dropped item** within radius + 1, not only crops.
+- **Vacuums any dropped item** within radius + `CollectMargin` (2 by default), not only crops, unless `CollectAnyItem` is turned off (then tools, weapons and armor stay on the ground).
 - Remove your Harvesters before uninstalling the plugin.
 
 ## Install

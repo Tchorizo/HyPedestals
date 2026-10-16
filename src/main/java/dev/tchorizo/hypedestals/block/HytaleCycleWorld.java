@@ -19,6 +19,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
+import dev.tchorizo.hypedestals.harvest.CollectFilter;
 import dev.tchorizo.hypedestals.harvest.CycleWorld;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import org.joml.Vector3d;
@@ -33,16 +34,19 @@ final class HytaleCycleWorld implements CycleWorld {
     private final Store<EntityStore> entityStore;
     private final SectionReader reader;
     private final ItemContainer container;
+    private final boolean collectAnyItem;
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
      *     must go through it rather than the chunk store itself while the system is ticking
+     * @param collectAnyItem the config's {@code CollectAnyItem}; see {@link CollectFilter}
      */
-    HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container) {
+    HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container, boolean collectAnyItem) {
         this.chunkBuffer = chunkBuffer;
         this.entityStore = world.getEntityStore().getStore();
         this.reader = new SectionReader(world.getChunkStore());
         this.container = container;
+        this.collectAnyItem = collectAnyItem;
     }
 
     /**
@@ -107,7 +111,7 @@ final class HytaleCycleWorld implements CycleWorld {
             }
             ItemComponent item = entityStore.getComponent(ref, ItemComponent.getComponentType());
             ItemStack stack = item == null ? null : item.getItemStack();
-            if (stack == null || stack.isEmpty()) {
+            if (stack == null || stack.isEmpty() || !accepts(stack)) {
                 continue;
             }
             // All-or-nothing (the container default is partial): a partial insert would leave the
@@ -123,6 +127,15 @@ final class HytaleCycleWorld implements CycleWorld {
         }
         refs.clear();
         return inserted;
+    }
+
+    /** {@link CollectFilter} over the stack's item definition (only looked up when the filter is on). */
+    private boolean accepts(ItemStack stack) {
+        Item def = collectAnyItem ? null : stack.getItem();
+        return CollectFilter.accepts(collectAnyItem, def != null,
+                def != null && def.getTool() != null,
+                def != null && def.getWeapon() != null,
+                def != null && def.getArmor() != null);
     }
 
     @Override

@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## Unreleased
 
+### Added
+
+- Global configuration file `HyPedestals.json` (plugin data folder): radius and interval per tier, `CollectAnyItem` (turn off to leave tools, weapons and armor on the ground) and `CollectMargin` (how far beyond the area drops are collected). The tier values in the block assets are now the defaults.
+- `/hypedestals config show` and `/hypedestals config set …` to view and change the configuration in game or from the console; changes apply from each Harvester's next cycle.
+
 ### Changed
 
 - Harvester blocks are now shaped like a pedestal (base, column, top plate and wheel) instead of a plain cube, with matching item icons.

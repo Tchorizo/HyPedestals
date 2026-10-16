@@ -10,11 +10,18 @@ import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBloc
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
+import dev.tchorizo.hypedestals.config.ModSettings;
+import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import org.joml.Vector3i;
 
-/** Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}. */
+/**
+ * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}. Radius,
+ * interval, margin and item filter are read from the global config on every tick, so changes made
+ * with {@code /hypedestals config} (command or window) apply right away; hand edits to the config
+ * file are read at server start only.
+ */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
     @Override
@@ -34,20 +41,23 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         HarvesterComponent harvester = chunk.getComponent(index, HarvesterComponent.TYPE);
         BlockModule.BlockStateInfo info = chunk.getComponent(index, BlockModule.BlockStateInfo.getComponentType());
 
-        // Both sanitizers map invalid settings to 0; checked before the timer because a 0 interval
-        // would otherwise fire every tick.
-        if (harvester.radius == 0 || harvester.intervalSeconds == 0) {
+        ModSettings global = HyPedestalsPlugin.settings();
+        TierSettings settings = global.effective(harvester.tier, harvester.radius, harvester.intervalSeconds);
+        // Config values are always valid; only the asset fallback (a tier the config does not
+        // know) can be 0 here, from the component sanitizers. Checked before the timer because a
+        // 0 interval would otherwise fire every tick.
+        if (settings.radius() == 0 || settings.intervalSeconds() == 0) {
             if (!harvester.inactiveWarned) {
                 harvester.inactiveWarned = true;
                 Vector3i pos = new Vector3i();
-                HyPedestalsPlugin.warn("Harvester tier %d at %s inactive: invalid Radius/IntervalSeconds in asset (Radius must be 1..%d, IntervalSeconds > 0)",
+                HyPedestalsPlugin.warn("Harvester tier %d at %s inactive: tier not in the config and invalid Radius/IntervalSeconds in asset (Radius must be 1..%d, IntervalSeconds > 0)",
                         harvester.tier, info.fillWorldPos(cb, pos) ? pos : "?", HarvesterSettings.MAX_RADIUS);
             }
             return;
         }
 
         harvester.elapsed += dt;
-        if (harvester.elapsed < harvester.intervalSeconds) {
+        if (harvester.elapsed < settings.intervalSeconds()) {
             return;
         }
         harvester.elapsed = 0;
@@ -68,8 +78,9 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
 
         harvester.lastResult = HarvestCycle.run(
-                new HytaleCycleWorld(world, cb, containerBlock.getItemContainer()),
-                new BlockPos(pos.x, pos.y, pos.z), harvester.radius, harvester.warnedTypes, harvester.scanIndex);
+                new HytaleCycleWorld(world, cb, containerBlock.getItemContainer(), global.collectAnyItem()),
+                new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
+                harvester.warnedTypes, harvester.scanIndex);
         harvester.scanIndex = harvester.lastResult.nextIndex();
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {

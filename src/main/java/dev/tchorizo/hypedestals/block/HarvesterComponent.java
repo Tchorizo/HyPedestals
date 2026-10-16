@@ -6,6 +6,8 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import dev.tchorizo.hypedestals.HyPedestalsPlugin;
+import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 
 import java.util.HashSet;
@@ -13,7 +15,9 @@ import java.util.Set;
 
 /**
  * Harvester block state. {@code Tier}, {@code Radius} and {@code IntervalSeconds} come from the
- * tier's block JSON; everything else is runtime-only and resets on load.
+ * tier's block JSON; everything else is runtime-only and resets on load. The radius and interval
+ * a Harvester runs with come from the global config for its {@code Tier} ({@link #settings()});
+ * the JSON values are only the fallback for a tier the config does not know.
  */
 public final class HarvesterComponent implements Component<ChunkStore> {
 
@@ -35,9 +39,9 @@ public final class HarvesterComponent implements Component<ChunkStore> {
 
     // Persisted.
     int tier;
-    /** Always within {@code 1..HarvesterSettings.MAX_RADIUS}, or {@code 0} when the configured radius was invalid (inactive). */
+    /** Asset radius: within {@code 1..HarvesterSettings.MAX_RADIUS}, or {@code 0} when the JSON value was invalid. */
     int radius;
-    /** Always positive, or {@code 0} when the configured interval was not (inactive). */
+    /** Asset interval: positive, or {@code 0} when the JSON value was not. */
     float intervalSeconds;
 
     // Transient.
@@ -57,12 +61,23 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         return tier;
     }
 
-    public int radius() {
-        return radius;
+    /**
+     * Radius and interval this Harvester runs with: the global config's entry for its tier, or the
+     * block JSON values for a tier the config does not know. Read anew every call, so a config
+     * change applies right away. A {@code 0} in the result means inactive (invalid JSON fallback).
+     */
+    public TierSettings settings() {
+        return HyPedestalsPlugin.settings().effective(tier, radius, intervalSeconds);
     }
 
+    /** Effective radius; see {@link #settings()}. */
+    public int radius() {
+        return settings().radius();
+    }
+
+    /** Effective interval; see {@link #settings()}. */
     public float intervalSeconds() {
-        return intervalSeconds;
+        return settings().intervalSeconds();
     }
 
     /** Result of the most recent cycle, or {@code null} before the first one. */
@@ -81,7 +96,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     }
 
     public float secondsToNextCycle() {
-        return Math.max(0f, intervalSeconds - elapsed);
+        return Math.max(0f, intervalSeconds() - elapsed);
     }
 
     /** Copies only the persisted fields; runtime state starts fresh. */

@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-/** {@code /hypedestals}: {@code inspect} always; {@code dev …} only when the server enables it. */
+/** {@code /hypedestals}: {@code inspect} and {@code config} always; {@code dev …} only when the server enables it. */
 public final class HyPedestalsCommand extends AbstractAsyncCommand {
 
     /** System property that enables the {@code dev} subcommands (e.g. {@code -Dhypedestals.dev=true}). */
@@ -30,6 +30,7 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
         super("hypedestals", "HyPedestals commands");
         this.dev = dev;
         addSubCommand(new InspectCommand());
+        addSubCommand(new ConfigCommand());
         if (dev) {
             addSubCommand(new DevCommands());
         }
@@ -38,8 +39,8 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
     @Override
     protected CompletableFuture<Void> executeAsync(CommandContext context) {
         reply(context, dev
-                ? "usage: hypedestals inspect <x y z> | hypedestals dev place|plant|ripen|break|collect ..."
-                : "usage: hypedestals inspect <x y z>");
+                ? "usage: hypedestals inspect <x y z> | hypedestals config [show|set ...] | hypedestals dev place|plant|ripen|break|collect ..."
+                : "usage: hypedestals inspect <x y z> | hypedestals config [show|set ...]");
         return CompletableFuture.completedFuture(null);
     }
 

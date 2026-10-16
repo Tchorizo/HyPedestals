@@ -9,11 +9,8 @@ public final class HarvestCycle {
 
     private HarvestCycle() {}
 
-    /** Horizontal margin beyond the harvest area where drops that rolled away are still collected. */
-    public static final int COLLECT_MARGIN = 2;
-
     /**
-     * Runs one cycle. Drops are collected first (box half-extent {@code radius + COLLECT_MARGIN})
+     * Runs one cycle. Drops are collected first (box half-extent {@code radius + collectMargin})
      * so the budget reflects what is already on the ground, and again after harvesting to pick up
      * whatever the item index has already registered; the game's index lags behind spawns, so the
      * remainder is picked up by the next cycle. Harvesting is capped by
@@ -30,11 +27,14 @@ public final class HarvestCycle {
      * {@code ceil(matureCrops / budget)} cycles instead of the first positions being harvested
      * over and over.
      *
+     * @param collectMargin horizontal margin beyond the harvest area where drops that rolled away
+     *     are still collected (the config's {@code CollectMargin})
      * @param warnedTypes crop types whose harvest already threw; they are skipped, and types that
      *     throw during this cycle are added to it
      */
-    public static CycleResult run(CycleWorld world, BlockPos center, int radius, Set<String> warnedTypes, int startIndex) {
-        double collectExtent = radius + COLLECT_MARGIN;
+    public static CycleResult run(CycleWorld world, BlockPos center, int radius, int collectMargin,
+                                  Set<String> warnedTypes, int startIndex) {
+        double collectExtent = radius + collectMargin;
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
         int start = Math.floorMod(startIndex, size);
