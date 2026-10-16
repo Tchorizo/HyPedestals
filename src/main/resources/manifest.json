@@ -1,0 +1,25 @@
+{
+  "Group": "Tchorizo",
+  "Name": "HyPedestals",
+  "Version": "${version}",
+  "Description": "Automatic crop harvester blocks with material tiers.",
+  "Authors": [
+    {
+      "Name": "Tchorizo"
+    }
+  ],
+  "Website": "https://github.com/Tchorizo/HyPedestals",
+  "Main": "dev.tchorizo.hypedestals.HyPedestalsPlugin",
+  "ServerVersion": ">=0.7.2 <0.8.0",
+  "Dependencies": {
+    "Hytale:Universe": "*",
+    "Hytale:BlockModule": "*",
+    "Hytale:EntityModule": "*",
+    "Hytale:Farming": "*"
+  },
+  "OptionalDependencies": {},
+  "LoadBefore": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": true,
+  "SubPlugins": []
+}

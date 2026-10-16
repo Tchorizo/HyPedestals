@@ -1,5 +1,5 @@
 # --- Material de desenvolvimento (privado; o repo é público) ---
-dev/
+/dev/
 CLAUDE.md
 AGENTS.md
 .claude/
