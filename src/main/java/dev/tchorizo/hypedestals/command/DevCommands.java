@@ -442,7 +442,8 @@ final class DevCommands extends AbstractAsyncCommand {
             if (section == null) {
                 return "crop at " + HyPedestalsCommand.format(pos) + ": section not loaded";
             }
-            BlockType type = BlockType.getAssetMap().getAsset(new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+            SectionReader reader = new SectionReader(chunkStore);
+            BlockType type = BlockType.getAssetMap().getAsset(reader.getBlock(pos.x, pos.y, pos.z));
             Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
             FarmingBlock farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
             BlockType crop = type == null ? null : BlockType.getAssetMap().getAsset(HytaleIds.baseBlockId(type.getId()));
@@ -453,8 +454,8 @@ final class DevCommands extends AbstractAsyncCommand {
                 stages = String.format(Locale.ROOT, " stageSet=%s progress=%.2f/%d", set, farm.getGrowthProgress(),
                         data == null ? -1 : data.length - 1);
             }
-            return String.format(Locale.ROOT, "crop at %s: %s farmingBlock=%b%s", HyPedestalsCommand.format(pos),
-                    type == null ? "null" : type.getId(), farm != null, stages);
+            return String.format(Locale.ROOT, "crop at %s: %s filler=%d farmingBlock=%b%s", HyPedestalsCommand.format(pos),
+                    type == null ? "null" : type.getId(), reader.getFiller(pos.x, pos.y, pos.z), farm != null, stages);
         }
     }
 

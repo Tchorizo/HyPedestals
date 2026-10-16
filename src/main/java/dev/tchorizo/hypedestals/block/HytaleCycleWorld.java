@@ -48,10 +48,16 @@ final class HytaleCycleWorld implements CycleWorld {
     /**
      * Base crop id (e.g. {@code Plant_Crop_Wheat_Block}) so every growth state of a crop shares one
      * id for {@code warnedTypes}. A state variant may not carry the farming config itself, so the
-     * base asset is consulted when the variant has none.
+     * base asset is consulted when the variant has none. Filler parts of a multi-block crop (the
+     * upper half of ripe wheat) report {@code null}: the crop is harvested only through its origin
+     * block, because {@code harvest} on the upper half removes an Eternal crop instead of resetting
+     * it, and with the rotating scan the upper half can come up before its origin.
      */
     @Override
     public String cropTypeAt(BlockPos p) {
+        if (reader.getFiller(p.x(), p.y(), p.z()) != 0) {
+            return null;
+        }
         BlockType block = BlockType.getAssetMap().getAsset(reader.getBlock(p.x(), p.y(), p.z()));
         if (block == null) {
             return null;
