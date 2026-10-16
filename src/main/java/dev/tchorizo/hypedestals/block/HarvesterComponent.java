@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
+import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 
@@ -77,6 +78,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int lastWatered = -1;
     /** Soil blocks watered since the load. */
     int wateredTotal;
+    /** Result of the most recent export to an adjacent container; {@code NONE} before the first one or with export off. */
+    ExportPlan.Result lastExport = ExportPlan.Result.NONE;
 
     public HarvesterComponent() {}
 
@@ -149,6 +152,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     /** Seconds since the last soil sweep, or since the load before the first one. */
     public float secondsSinceSoilSweep() {
         return soilElapsed;
+    }
+
+    /** See {@link #lastExport}. */
+    public ExportPlan.Result lastExport() {
+        return lastExport;
     }
 
     public float secondsToNextCycle() {

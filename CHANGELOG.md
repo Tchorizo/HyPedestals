@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Global configuration file `HyPedestals.json` (plugin data folder): radius and interval per tier, `CollectAnyItem` (turn off to leave tools, weapons and armor on the ground) and `CollectMargin` (how far beyond the area drops are collected). The shipped tier values are the defaults; the block asset's `Radius`/`IntervalSeconds` are only used for tiers the config does not know.
 - `/hypedestals config show` and `/hypedestals config set …` to view and change the configuration in game or from the console; changes apply from each Harvester's next cycle.
 - In-game settings window (`/hypedestals config`, operators) to edit the same values, in English and Brazilian Portuguese.
+- Configuration keys `WateringSeconds` (per tier), `SoilSweepSeconds`, `ExportToAdjacent` and `HarvestParticles`, also in `config set` and the settings window.
+- Export to an adjacent container (`ExportToAdjacent`, on by default): after each cycle the Harvester moves its items into a storage block below it or on one of its four sides, first container with room first; Harvesters never export to each other and the last slot is kept. `/hypedestals inspect` shows `exported=<items>`.
 
 ### Changed
 

@@ -40,12 +40,15 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 
 ```json
 {
-  "Copper":  { "Radius": 2, "IntervalSeconds": 12.0 },
-  "Iron":    { "Radius": 3, "IntervalSeconds": 8.0 },
-  "Thorium": { "Radius": 4, "IntervalSeconds": 5.0 },
-  "Cobalt":  { "Radius": 5, "IntervalSeconds": 3.0 },
+  "Copper":  { "Radius": 2, "IntervalSeconds": 12.0, "WateringSeconds": 21600 },
+  "Iron":    { "Radius": 3, "IntervalSeconds": 8.0,  "WateringSeconds": 43200 },
+  "Thorium": { "Radius": 4, "IntervalSeconds": 5.0,  "WateringSeconds": 72000 },
+  "Cobalt":  { "Radius": 5, "IntervalSeconds": 3.0,  "WateringSeconds": 108000 },
   "CollectAnyItem": true,
-  "CollectMargin": 2
+  "CollectMargin": 2,
+  "SoilSweepSeconds": 30,
+  "ExportToAdjacent": true,
+  "HarvestParticles": true
 }
 ```
 
@@ -53,16 +56,24 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 |---|---|---|
 | `<Tier>.Radius` | 1–8 | Harvest area radius R (area `2R+1` × `2R+1`) |
 | `<Tier>.IntervalSeconds` | 0.5–600 | Seconds between cycles |
+| `<Tier>.WateringSeconds` | 60–604800 | How long (in game seconds) the Watering upgrade keeps a soil block watered |
 | `CollectAnyItem` | true/false | `true`: collect every dropped item around the area. `false`: leave tools, weapons and armor (items whose asset has a `Tool`, `Weapon` or `Armor` section) and unknown items on the ground, e.g. gear a player dropped by the farm; crops, seeds and other materials are still collected |
 | `CollectMargin` | 0–4 | Extra blocks beyond the area (horizontally) where drops are still collected |
+| `SoilSweepSeconds` | 5–600 | Real seconds between two soil passes of a Harvester with the Watering upgrade |
+| `ExportToAdjacent` | true/false | `true`: after each cycle the Harvester moves its items into a container touching it (see [Export](#export-to-an-adjacent-container)) |
+| `HarvestParticles` | true/false | Particle effect when a cycle harvests something (the effect itself is not implemented yet) |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
 In game (operators):
 
-- `/hypedestals config` — opens the settings window: radius and interval for each tier, the collect-any-item checkbox and the collect margin. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
+- `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles> <value>` — change one value, apply it and save the file. Also works from the server console.
+
+## Export to an adjacent container
+
+With `ExportToAdjacent` on (the default), at the end of every cycle the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. The Harvester's **last slot is never exported** (it is reserved as the input slot of a coming fertilizer upgrade). `/hypedestals inspect` shows `exported=<items>` for the last cycle.
 
 ## Known limitations
 

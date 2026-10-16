@@ -13,6 +13,7 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.ModSettings;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
+import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
@@ -21,12 +22,13 @@ import org.joml.Vector3i;
 import java.time.Instant;
 
 /**
- * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}, and, every
- * {@code SoilSweepSeconds} on a timer of its own, a {@link SoilPass} over the same area when the
- * watering upgrade is installed. Radius, interval, margin, item filter and the soil settings are
- * read from the global config on every tick, so changes made with {@code /hypedestals config}
- * (command or window) apply right away; hand edits to the config file are read at server start
- * only.
+ * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}, then, with
+ * {@code ExportToAdjacent}, an {@link ExportPlan} into the containers touching the block; and,
+ * every {@code SoilSweepSeconds} on a timer of its own, a {@link SoilPass} over the same area
+ * when the watering upgrade is installed. Radius, interval, margin, item filter, export and the
+ * soil settings are read from the global config on every tick, so changes made with
+ * {@code /hypedestals config} (command or window) apply right away; hand edits to the config
+ * file are read at server start only.
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -114,6 +116,11 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             HyPedestalsPlugin.warn("Harvester at %s: %d crop(s) still being updated by the game, retrying next cycle",
                     pos, harvester.lastResult.transientFailures());
         }
+        // After the cycle's second collect, so this cycle's items leave right away; also when the
+        // cycle paused because the container was full, which is when export matters most.
+        harvester.lastExport = global.exportToAdjacent()
+                ? new HytaleExport(world, cb).run(containerBlock.getItemContainer(), info, new BlockPos(pos.x, pos.y, pos.z))
+                : ExportPlan.Result.NONE;
     }
 
     /** Waters the tilled soil of the area that needs it, for {@code WateringSeconds} of game time. */
