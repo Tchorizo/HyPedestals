@@ -29,10 +29,28 @@ class HarvestCycleTest {
 
         CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>());
 
-        assertEquals(List.of("collect " + CENTER + " r=3.0", "freeSlots"), world.calls.subList(0, 2),
-                "free slots are read only after collecting");
+        assertEquals(List.of("collect " + CENTER + " r=4.0", "freeSlots"), world.calls.subList(0, 2),
+                "free slots are read only after collecting; extent = radius + COLLECT_MARGIN");
         assertEquals(1, result.harvested(), "the budget reflects the slots the collection filled");
         assertEquals(List.of("harvest " + new BlockPos(1, 64, 0)), world.harvestCalls());
+    }
+
+    @Test
+    void collectsAgainAfterHarvestingAndSumsBothPasses() {
+        // Drops the item index already registered are picked up in the same cycle; the rest
+        // waits for the next one. Both passes use the same box extent.
+        FakeCycleWorld world = new FakeCycleWorld();
+        world.freeSlots = 5;
+        world.collectedOnCollect = 3;
+        world.mature(new BlockPos(1, 64, 0), WHEAT);
+
+        CycleResult result = HarvestCycle.run(world, CENTER, 5, new HashSet<>());
+
+        assertEquals(6, result.collected(), "both collect passes are summed");
+        assertEquals("collect " + CENTER + " r=7.0", world.calls.getFirst());
+        assertEquals("collect " + CENTER + " r=7.0", world.calls.getLast(),
+                "the cycle ends with a second collect after harvesting");
+        assertEquals(1, result.harvested());
     }
 
     @Test

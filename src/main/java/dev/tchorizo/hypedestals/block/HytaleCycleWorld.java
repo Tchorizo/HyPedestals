@@ -73,16 +73,24 @@ final class HytaleCycleWorld implements CycleWorld {
         }
     }
 
+    /**
+     * Collects dropped items inside an axis-aligned box around {@code center}: {@code halfExtent}
+     * blocks horizontally and {@code -2..+3} vertically. A box (not a sphere) is used because the
+     * harvest area is a square: with a sphere the corners of larger tiers fall outside it, and
+     * drops roll a block or two past the crop they came from.
+     */
     @Override
-    public int collectDroppedItems(BlockPos center, double radius) {
+    public int collectDroppedItems(BlockPos center, double halfExtent) {
         var spatial = entityStore.getResource(EntityModule.get().getItemSpatialResourceType());
         if (spatial == null || spatial.getSpatialStructure() == null) {
             return 0;
         }
         List<Ref<EntityStore>> refs = SpatialResource.getThreadLocalReferenceList();
         refs.clear();
-        spatial.getSpatialStructure().collect(
-                new Vector3d(center.x() + 0.5, center.y() + 0.5, center.z() + 0.5), radius, refs);
+        double cx = center.x() + 0.5, cz = center.z() + 0.5;
+        spatial.getSpatialStructure().collectBox(
+                new Vector3d(cx - halfExtent, center.y() - 2.0, cz - halfExtent),
+                new Vector3d(cx + halfExtent, center.y() + 3.0, cz + halfExtent), refs);
 
         int inserted = 0;
         for (Ref<EntityStore> ref : refs) {

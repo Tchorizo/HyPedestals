@@ -9,17 +9,23 @@ public final class HarvestCycle {
 
     private HarvestCycle() {}
 
+    /** Horizontal margin beyond the harvest area where drops that rolled away are still collected. */
+    public static final int COLLECT_MARGIN = 2;
+
     /**
-     * Runs one cycle. Drops are collected first (radius {@code radius + 1}) because the game's item
-     * index lags behind spawns, so drops from this cycle's harvests are picked up by the next one.
-     * Harvesting is capped by a budget equal to the empty slots left after collecting; each
-     * successful harvest spends one. With no empty slot the cycle pauses without harvesting.
+     * Runs one cycle. Drops are collected first (box half-extent {@code radius + COLLECT_MARGIN})
+     * so the slot budget reflects what is already on the ground, and again after harvesting to
+     * pick up whatever the item index has already registered; the game's index lags behind spawns,
+     * so the remainder is picked up by the next cycle. Harvesting is capped by a budget equal to
+     * the empty slots left after the first collect; each successful harvest spends one. With no
+     * empty slot the cycle pauses without harvesting.
      *
      * @param warnedTypes crop types whose harvest already threw; they are skipped, and types that
      *     throw during this cycle are added to it
      */
     public static CycleResult run(CycleWorld world, BlockPos center, int radius, Set<String> warnedTypes) {
-        int collected = world.collectDroppedItems(center, radius + 1);
+        double collectExtent = radius + COLLECT_MARGIN;
+        int collected = world.collectDroppedItems(center, collectExtent);
         int budget = world.freeSlots();
         if (budget <= 0) {
             return new CycleResult(0, collected, true, List.of());
@@ -44,6 +50,7 @@ public final class HarvestCycle {
                 newWarnings.add(type);
             }
         }
+        collected += world.collectDroppedItems(center, collectExtent);
         return new CycleResult(harvested, collected, false, List.copyOf(newWarnings));
     }
 }
