@@ -12,7 +12,9 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleFertilizerInput;
+import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
+import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
@@ -61,10 +63,16 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
-                last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b exported=%d",
-                        last.harvested(), last.collected(), last.pausedFull(), harvester.lastExport().moved()),
+                last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b exported=%s",
+                        last.harvested(), last.collected(), last.pausedFull(), export(harvester.lastExport())),
                 harvester.upgrades(), soil(harvester),
                 harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "");
+    }
+
+    /** {@code <moved>→<x y z>} of the last container that received items, or {@code <moved>→none}. */
+    private static String export(ExportPlan.Result result) {
+        BlockPos t = result.target();
+        return result.moved() + "→" + (t == null ? "none" : t.x() + " " + t.y() + " " + t.z());
     }
 
     /**

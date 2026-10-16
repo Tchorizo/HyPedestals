@@ -50,8 +50,10 @@ public final class HytaleSoilWorld implements SoilWorld {
     /**
      * Sets {@code wateredUntil} like the vanilla watering can: the block is set ticking with a
      * tick scheduled at {@code until}, so the soil switches to its watered look now and back to dry
-     * when the watering ends; then marked for saving, since this mutation is outside the engine's
-     * own flows (AGENTS.md, spike S4).
+     * when the watering ends; then marked for saving, since a block entity changed outside the
+     * engine's own flows is otherwise not written when its section is saved. Rewatering before the
+     * previous watering ends is safe: the earlier scheduled tick leaves the later
+     * {@code wateredUntil} in place.
      */
     @Override
     public void water(BlockPos p, Instant until) {

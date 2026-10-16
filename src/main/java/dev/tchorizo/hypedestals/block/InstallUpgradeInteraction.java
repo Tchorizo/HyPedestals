@@ -2,9 +2,11 @@ package dev.tchorizo.hypedestals.block;
 
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.CommandBuffer;
+import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.protocol.InteractionState;
 import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.server.core.entity.InteractionContext;
+import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.CooldownHandler;
@@ -17,8 +19,10 @@ import org.joml.Vector3i;
 
 /**
  * Interaction type {@code HyPedestalsInstallUpgrade}: the upgrade item's {@code Secondary}. Installs
- * the held upgrade into the Harvester under the cursor and consumes one item from the hand. Any
- * other target, or an upgrade the Harvester already has, fails the interaction without side effects.
+ * the held upgrade into the Harvester under the cursor and consumes one item from the hand (not in
+ * Creative, like the vanilla inventory-modifying interactions). Checked before paid: any other
+ * target, an upgrade the Harvester already has, or a hand that cannot give up the item fails the
+ * interaction without side effects.
  */
 public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
 
@@ -39,22 +43,27 @@ public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        if (!target.harvester().upgrades().install(upgrade)) {
+        if (target.harvester().hasUpgrade(upgrade)) {
             UpgradeTarget.tell(cb, ctx, "alreadyInstalled", upgrade);
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        if (!hand.removeItemStackFromSlot((short) ctx.getHeldItemSlot(), 1).succeeded()) {
-            // Never install for free: undo when the hand could not pay.
-            target.harvester().upgrades().remove(upgrade);
+        if (!isCreative(cb, ctx) && !hand.removeItemStackFromSlot((short) ctx.getHeldItemSlot(), 1).succeeded()) {
             ctx.getState().state = InteractionState.Failed;
             return;
         }
+        target.harvester().upgrades().install(upgrade);
         target.markNeedsSaving();
         HarvesterVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "installed", upgrade);
         HyPedestalsPlugin.log("upgrade: %s installed at %d %d %d -> %s",
                 upgrade.displayName(), pos.x, pos.y, pos.z, target.harvester().upgrades());
+    }
+
+    /** Same test as the vanilla {@code ModifyInventoryInteraction}: the interactor's {@link Player} game mode. */
+    private static boolean isCreative(CommandBuffer<EntityStore> cb, InteractionContext ctx) {
+        Player player = cb.getComponent(ctx.getEntity(), Player.getComponentType());
+        return player != null && player.getGameMode() == GameMode.Creative;
     }
 
     @Override

@@ -91,7 +91,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
 
         // Own timer, independent of the harvest interval: the soil is cared for even while the
-        // container is full (upgrades spec §2.1).
+        // container is full (upgrades spec §2.1). Starts expired, so the first sweep after a load
+        // runs on the first tick.
         harvester.soilElapsed += dt;
         if (harvester.soilElapsed >= global.soilSweepSeconds()) {
             harvester.soilElapsed = 0;
@@ -126,7 +127,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
 
         harvester.lastResult = HarvestCycle.run(
-                new HytaleCycleWorld(world, cb, container, global.collectAnyItem(), harvester.inputFiltered != null),
+                new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(), harvester.inputFiltered != null),
                 new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
                 harvester.warnedTypes, harvester.scanIndex);
         harvester.scanIndex = harvester.lastResult.nextIndex();
@@ -134,8 +135,12 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         for (String type : harvester.lastResult.newWarnings()) {
             HyPedestalsPlugin.warn("crop type %s at %s skipped until chunk reload", type, pos);
         }
-        if (harvester.lastResult.transientFailures() > 0) {
-            // At most one line per cycle; those crops stay eligible and are retried next cycle.
+        if (harvester.lastResult.transientFailures() == 0) {
+            harvester.transientWarned = false;
+        } else if (!harvester.transientWarned) {
+            // Once until a cycle without such failures; those crops stay eligible and are retried
+            // every cycle meanwhile.
+            harvester.transientWarned = true;
             HyPedestalsPlugin.warn("Harvester at %s: %d crop(s) still being updated by the game, retrying next cycle",
                     pos, harvester.lastResult.transientFailures());
         }
@@ -174,7 +179,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 settings.radius(), now, harvester.hasUpgrade(UpgradeType.WATERING), settings.wateringSeconds(), applications);
         if (result.applicationsUsed() > 0) {
             HytaleFertilizerInput.consume(input, result.applicationsUsed());
-            // The container is the Harvester's own component; a write outside the engine's flows (S4).
+            // The container is the Harvester's own component, changed outside the engine's flows.
             info.markNeedsSaving(cb);
         }
         harvester.lastSoil = result;

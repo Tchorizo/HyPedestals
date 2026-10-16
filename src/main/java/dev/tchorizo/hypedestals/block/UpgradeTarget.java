@@ -29,7 +29,7 @@ record UpgradeTarget(HarvesterComponent harvester, BlockModule.BlockStateInfo in
         return harvester == null || info == null ? null : new UpgradeTarget(harvester, info, store);
     }
 
-    /** The upgrade list changed outside the engine; without this it is lost on unload/restart (spike S4). */
+    /** The upgrade list changed outside the engine; unmarked, the change is lost on the next unload or restart. */
     void markNeedsSaving() {
         info.markNeedsSaving(store);
     }

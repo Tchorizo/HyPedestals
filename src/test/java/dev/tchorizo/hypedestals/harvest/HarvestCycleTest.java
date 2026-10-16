@@ -190,7 +190,9 @@ class HarvestCycleTest {
         second.budget = 1;
         second.mature(busy, WHEAT);
 
-        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0);
+        // As HarvesterSystem does: the next cycle starts where this one stopped (after `other`),
+        // so the busy crop is reached by wrapping around the area.
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, firstResult.nextIndex());
 
         assertEquals(List.of("harvest " + busy), second.harvestCalls());
         assertEquals(1, secondResult.harvested(), "the crop that was busy is harvested on the next cycle");

@@ -67,6 +67,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     final Set<String> warnedTypes = new HashSet<>();
     boolean inactiveWarned;
     boolean missingContainerWarned;
+    /** Whether the "crops still being updated" warning was logged since the last cycle without such failures. */
+    boolean transientWarned;
     /**
      * Persisted upgrade ids the last decode dropped (unknown or repeated); warned about once, with
      * the block position, by {@code HarvesterSystem}. Carried over by {@link #clone()} in case the
@@ -74,8 +76,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      */
     List<String> ignoredUpgrades = List.of();
     boolean ignoredUpgradesWarned;
-    /** Seconds since the last soil sweep (or the load); the sweep has its own timer, see {@code HarvesterSystem}. */
-    float soilElapsed;
+    /**
+     * Seconds since the last soil sweep; infinite after a load, so the first sweep runs on the
+     * first tick. The sweep has its own timer, see {@code HarvesterSystem}.
+     */
+    float soilElapsed = Float.POSITIVE_INFINITY;
     /** Result of the last soil sweep (watering and fertilizer); {@code null} before the first one. */
     SoilPass.Result lastSoil;
     /** Soil blocks watered since the load. */
@@ -165,7 +170,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         return fertilizedTotal;
     }
 
-    /** Seconds since the last soil sweep, or since the load before the first one. */
+    /** Seconds since the last soil sweep; infinite before the first tick after the load. */
     public float secondsSinceSoilSweep() {
         return soilElapsed;
     }
@@ -179,7 +184,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         return Math.max(0f, intervalSeconds() - elapsed);
     }
 
-    /** Copies only the persisted fields; runtime state starts fresh. */
+    /** Copies the persisted fields and what the decode reported about them; runtime state starts fresh. */
     @Override
     public HarvesterComponent clone() {
         HarvesterComponent copy = new HarvesterComponent();
@@ -188,6 +193,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         copy.intervalSeconds = HarvesterSettings.sanitizeInterval(intervalSeconds);
         copy.upgrades = upgrades.copy();
         copy.ignoredUpgrades = ignoredUpgrades;
+        copy.ignoredUpgradesWarned = ignoredUpgradesWarned;
         return copy;
     }
 }

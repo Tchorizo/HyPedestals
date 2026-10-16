@@ -44,23 +44,28 @@ final class HytaleCycleWorld implements CycleWorld {
     private final Store<EntityStore> entityStore;
     private final SectionReader reader;
     private final ItemContainer container;
+    /** Block state of the Harvester that owns {@link #container}. */
+    private final BlockModule.BlockStateInfo info;
     private final boolean collectAnyItem;
     private final boolean inputSlot;
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
      *     must go through it rather than the chunk store itself while the system is ticking
+     * @param info block state of the Harvester whose container this is; marked for saving
+     *     whenever collected items go into the container
      * @param collectAnyItem the config's {@code CollectAnyItem}; see {@link CollectFilter}
      * @param inputSlot whether the container's last slot is the fertilizer input slot (fertilizer
      *     upgrade installed, its slot filter applied); it is then left out of {@link #harvestBudget}
      */
     HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container,
-                     boolean collectAnyItem, boolean inputSlot) {
+                     BlockModule.BlockStateInfo info, boolean collectAnyItem, boolean inputSlot) {
         this.chunkBuffer = chunkBuffer;
         this.chunkStore = world.getChunkStore();
         this.entityStore = world.getEntityStore().getStore();
         this.reader = new SectionReader(chunkStore);
         this.container = container;
+        this.info = info;
         this.collectAnyItem = collectAnyItem;
         this.inputSlot = inputSlot;
     }
@@ -161,7 +166,11 @@ final class HytaleCycleWorld implements CycleWorld {
      * Collects dropped items inside an axis-aligned box around {@code center}: {@code halfExtent}
      * blocks horizontally and {@code -2..+3} vertically. A box (not a sphere) is used because the
      * harvest area is a square: with a sphere the corners of larger tiers fall outside it, and
-     * drops roll a block or two past the crop they came from.
+     * drops roll a block or two past the crop they came from. When anything went in, the Harvester
+     * is marked for saving. The engine already does that on every content change of a block
+     * container (a change listener registered when the block entity is added); the explicit mark
+     * keeps collected items safe even for a container that listener does not watch (e.g. one
+     * swapped in after the block entity was added).
      */
     @Override
     public int collectDroppedItems(BlockPos center, double halfExtent) {
@@ -198,6 +207,9 @@ final class HytaleCycleWorld implements CycleWorld {
             inserted += stack.getQuantity();
         }
         refs.clear();
+        if (inserted > 0) {
+            info.markNeedsSaving(chunkBuffer);
+        }
         return inserted;
     }
 

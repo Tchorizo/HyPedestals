@@ -98,6 +98,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new WaterCommand());
         addSubCommand(new SoilCommand());
         addSubCommand(new SetItemCommand());
+        addSubCommand(new PinCommand());
     }
 
     @Override
@@ -108,7 +109,7 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
                         + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
-                        + " | water <x y z> <game seconds> | soil <x y z>"
+                        + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z>"
                         + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
@@ -487,6 +488,24 @@ final class DevCommands extends AbstractAsyncCommand {
             }
             return String.format(Locale.ROOT, "crop at %s: %s filler=%d farmingBlock=%b%s", HyPedestalsCommand.format(pos),
                     type == null ? "null" : type.getId(), reader.getFiller(pos.x, pos.y, pos.z), farm != null, stages);
+        }
+    }
+
+    /**
+     * {@code pin <x y z>}: what {@code place} does to keep a Harvester running on a server without
+     * players ({@link #pin}), for a block that already exists (e.g. after a restart), without
+     * touching the block.
+     */
+    private static final class PinCommand extends HyPedestalsCommand.PositionCommand {
+        PinCommand() {
+            super("pin", "Keep the chunk at a position loaded and its section ticking (no block change)");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "pin at %s: pinned=%b",
+                    HyPedestalsCommand.format(pos), pin(world, pos)), pos);
         }
     }
 

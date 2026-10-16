@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.SectionReader;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.util.FillerBlockUtil;
+import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 
@@ -21,9 +22,9 @@ import java.util.List;
  * {@link ExportPlan} over one Hytale world, for a single export of one Harvester: the neighbors'
  * {@code ItemContainerBlock}s are the targets. Not reusable across ticks.
  *
- * <p>Moving items between two block containers is outside the engine's own flows, so both
- * blocks are marked for saving afterwards ({@link #run}), as for any such mutation (AGENTS.md,
- * spike S4).
+ * <p>Both blocks are marked for saving afterwards ({@link #run}): a block entity changed outside
+ * the engine's own flows reaches disk only when marked. The engine also marks a block container on
+ * every content change; the explicit marks do not depend on that.
  */
 final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> {
 
@@ -43,17 +44,29 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
 
     /**
      * Exports {@code container} (the Harvester at {@code center}, whose block state is
-     * {@code info}) into its neighbors and marks every changed block for saving.
+     * {@code info}) into its neighbors and marks every changed block for saving. An exception from
+     * the engine (e.g. a neighbor's container in an unexpected state) ends this export with
+     * {@link ExportPlan.Result#NONE} and a warning; what already moved is still marked for saving,
+     * and the next cycle tries again.
      */
     ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center) {
-        ExportPlan.Result result = ExportPlan.run(this, new Source(container), center);
-        if (result.moved() > 0) {
-            info.markNeedsSaving(accessor);
-            for (Target t : touched) {
-                if (t.received) {
-                    t.info.markNeedsSaving(accessor);
-                }
+        ExportPlan.Result result;
+        try {
+            result = ExportPlan.run(this, new Source(container), center);
+        } catch (RuntimeException e) {
+            HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
+                    center.x(), center.y(), center.z(), e.toString());
+            result = ExportPlan.Result.NONE;
+        }
+        boolean anyReceived = false;
+        for (Target t : touched) {
+            if (t.received) {
+                t.info.markNeedsSaving(accessor);
+                anyReceived = true;
             }
+        }
+        if (anyReceived) {
+            info.markNeedsSaving(accessor);
         }
         return result;
     }

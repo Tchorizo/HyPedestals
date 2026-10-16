@@ -61,7 +61,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `<Tier>.WateringSeconds` | 60–604800 | How long (in game seconds) the Watering upgrade keeps a soil block watered |
 | `CollectAnyItem` | true/false | `true`: collect every dropped item around the area. `false`: leave tools, weapons and armor (items whose asset has a `Tool`, `Weapon` or `Armor` section) and unknown items on the ground, e.g. gear a player dropped by the farm; crops, seeds and other materials are still collected |
 | `CollectMargin` | 0–4 | Extra blocks beyond the area (horizontally) where drops are still collected |
-| `SoilSweepSeconds` | 5–600 | Real seconds between two soil passes of a Harvester with the Watering upgrade |
+| `SoilSweepSeconds` | 5–600 | Real seconds between two soil passes of a Harvester with the Watering or the Fertilizer upgrade |
 | `ExportToAdjacent` | true/false | `true`: after each cycle the Harvester moves its items into a container touching it (see [Export](#export-to-an-adjacent-container)) |
 | `HarvestParticles` | true/false | A short puff of dust above the Harvester when a cycle harvests something |
 
@@ -75,7 +75,7 @@ In game (operators):
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. The Harvester's **last slot is never exported** (it is reserved as the input slot of a coming fertilizer upgrade). `/hypedestals inspect` shows `exported=<items>` for the last cycle.
+With `ExportToAdjacent` on (the default), at the end of every cycle the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. The Harvester's **last slot is never exported** (it is the input slot of the Fertilizer upgrade). `/hypedestals inspect` shows `exported=<items>→<x y z>` for the last cycle, with the position of the container that received them (`→none` when nothing moved).
 
 ## Known limitations
 
