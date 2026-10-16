@@ -21,14 +21,14 @@ public final class HarvestCycle {
     public static CycleResult run(CycleWorld world, BlockPos center, int radius, Set<String> warnedTypes) {
         int collected = world.collectDroppedItems(center, radius + 1);
         int budget = world.freeSlots();
-        if (budget == 0) {
+        if (budget <= 0) {
             return new CycleResult(0, collected, true, List.of());
         }
 
         int harvested = 0;
         List<String> newWarnings = new ArrayList<>();
         for (BlockPos pos : HarvestArea.positions(center, radius)) {
-            if (harvested == budget) {
+            if (harvested >= budget) {
                 break;
             }
             String type = world.cropTypeAt(pos);

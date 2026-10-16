@@ -20,14 +20,31 @@ class HarvestCycleTest {
 
     @Test
     void collectsBeforeHarvesting() {
+        // The collection fills one of the two empty slots, so only one harvest fits afterwards.
         FakeCycleWorld world = new FakeCycleWorld();
-        world.freeSlots = 9;
+        world.freeSlots = 2;
+        world.slotsFilledByCollect = 1;
+        world.mature(new BlockPos(1, 64, 0), WHEAT);
+        world.mature(new BlockPos(2, 64, 0), WHEAT);
+
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>());
+
+        assertEquals(List.of("collect " + CENTER + " r=3.0", "freeSlots"), world.calls.subList(0, 2),
+                "free slots are read only after collecting");
+        assertEquals(1, result.harvested(), "the budget reflects the slots the collection filled");
+        assertEquals(List.of("harvest " + new BlockPos(1, 64, 0)), world.harvestCalls());
+    }
+
+    @Test
+    void pausesWhenFreeSlotsIsNegative() {
+        FakeCycleWorld world = new FakeCycleWorld();
+        world.freeSlots = -1;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        HarvestCycle.run(world, CENTER, 2, new HashSet<>());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, new HashSet<>());
 
-        assertEquals("collect " + CENTER + " r=3.0", world.calls.getFirst());
-        assertEquals(List.of("harvest " + new BlockPos(1, 64, 0)), world.harvestCalls());
+        assertTrue(result.pausedFull());
+        assertEquals(List.of(), world.harvestCalls());
     }
 
     @Test
@@ -123,6 +140,7 @@ class HarvestCycleTest {
         final Set<String> throwingTypes = new HashSet<>();
         int freeSlots;
         int collectedOnCollect;
+        int slotsFilledByCollect;
 
         void mature(BlockPos pos, String type) {
             cropTypes.put(pos, type);
@@ -154,11 +172,13 @@ class HarvestCycleTest {
         @Override
         public int collectDroppedItems(BlockPos center, double radius) {
             calls.add("collect " + center + " r=" + radius);
+            freeSlots -= slotsFilledByCollect;
             return collectedOnCollect;
         }
 
         @Override
         public int freeSlots() {
+            calls.add("freeSlots");
             return freeSlots;
         }
     }
