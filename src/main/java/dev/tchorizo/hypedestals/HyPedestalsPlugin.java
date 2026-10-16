@@ -4,6 +4,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HarvesterSystem;
+import dev.tchorizo.hypedestals.command.HyPedestalsCommand;
 
 import java.util.Locale;
 
@@ -25,7 +26,9 @@ public final class HyPedestalsPlugin extends JavaPlugin {
         HarvesterComponent.TYPE = getChunkStoreRegistry().registerComponent(
                 HarvesterComponent.class, "HyHarvester", HarvesterComponent.CODEC);
         getChunkStoreRegistry().registerSystem(new HarvesterSystem());
-        log("setup");
+        boolean dev = System.getProperty(HyPedestalsCommand.DEV_PROPERTY) != null;
+        getCommandRegistry().registerCommand(new HyPedestalsCommand(dev));
+        log("setup (dev commands %s)", dev ? "on" : "off");
     }
 
     @Override
