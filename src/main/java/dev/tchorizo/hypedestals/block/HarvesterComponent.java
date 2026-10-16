@@ -5,11 +5,13 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
+import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
+import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 
@@ -74,10 +76,19 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     boolean ignoredUpgradesWarned;
     /** Seconds since the last soil sweep (or the load); the sweep has its own timer, see {@code HarvesterSystem}. */
     float soilElapsed;
-    /** Soil blocks the last watering sweep watered; {@code -1} before the first one. */
-    int lastWatered = -1;
+    /** Result of the last soil sweep (watering and fertilizer); {@code null} before the first one. */
+    SoilPass.Result lastSoil;
     /** Soil blocks watered since the load. */
     int wateredTotal;
+    /** Soil blocks fertilized since the load. */
+    int fertilizedTotal;
+    /**
+     * The container whose last slot carries the fertilizer input filter, or {@code null}. Slot
+     * filters are runtime-only (the {@code SimpleItemContainer} codec has only {@code Capacity}
+     * and {@code Items}), so after a load this is {@code null} and {@code HarvesterSystem}
+     * applies the filter again; kept as the container itself to notice a replaced container.
+     */
+    SimpleItemContainer inputFiltered;
     /** Result of the most recent export to an adjacent container; {@code NONE} before the first one or with export off. */
     ExportPlan.Result lastExport = ExportPlan.Result.NONE;
 
@@ -139,14 +150,19 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         return upgrades.has(type);
     }
 
-    /** Soil blocks the most recent watering sweep watered; {@code -1} before the first one since the load. */
-    public int lastWatered() {
-        return lastWatered;
+    /** Result of the most recent soil sweep, or {@code null} before the first one since the load. */
+    public SoilPass.Result lastSoil() {
+        return lastSoil;
     }
 
     /** Soil blocks watered since the load. */
     public int wateredTotal() {
         return wateredTotal;
+    }
+
+    /** Soil blocks fertilized since the load. */
+    public int fertilizedTotal() {
+        return fertilizedTotal;
     }
 
     /** Seconds since the last soil sweep, or since the load before the first one. */

@@ -16,6 +16,7 @@ import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.arguments.system.RequiredArg;
 import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractAsyncCommand;
+import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
@@ -94,6 +95,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new FenceCommand());
         addSubCommand(new WaterCommand());
         addSubCommand(new SoilCommand());
+        addSubCommand(new SetItemCommand());
     }
 
     @Override
@@ -104,7 +106,8 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
                         + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
-                        + " | water <x y z> <game seconds> | soil <x y z>",
+                        + " | water <x y z> <game seconds> | soil <x y z>"
+                        + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -1224,6 +1227,87 @@ final class DevCommands extends AbstractAsyncCommand {
                     "soil at %s: %s ticking=%s planted=%b fertilized=%b externalWater=%b wateredUntil=%s left=%s now=%s",
                     at, id, blocks == null ? "?" : blocks.isTicking(pos.x, pos.y, pos.z), soil.isPlanted(),
                     soil.isFertilized(), soil.hasExternalWater(), until, left, now);
+        }
+    }
+
+    /**
+     * {@code setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]}: puts a stack
+     * into one slot of the item container at the position (replacing what is there), e.g. a
+     * fertilizer bag into a Harvester's input slot without a client. The write goes through the
+     * container's slot filters like a player's, so it is refused ({@code succeeded=false}) where
+     * a filter rejects the item; {@code empty} clears the slot. {@code --durability} defaults to the
+     * item's maximum. A successful write marks the block for saving.
+     */
+    private static final class SetItemCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<String> slot =
+                withRequiredArg("slot", "Slot index from 0, or last", ArgTypes.STRING);
+        private final RequiredArg<String> item =
+                withRequiredArg("item", "Item id (e.g. Tool_Fertilizer) or empty", ArgTypes.STRING);
+        private final DefaultArg<Integer> qty = withDefaultArg("qty", "Stack quantity", ArgTypes.INTEGER, 1, "1");
+        private final DefaultArg<Double> durability = withDefaultArg("durability",
+                "Durability (negative = the item's maximum)", ArgTypes.DOUBLE, -1.0, "-1");
+
+        SetItemCommand() {
+            super("setitem", "Put an item stack into one slot of the container at a position");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            String slotArg = context.get(slot);
+            String itemId = context.get(item);
+            int quantity = context.get(qty);
+            double d = context.get(durability);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s",
+                    apply(world, pos, slotArg, itemId, quantity, d)), pos);
+        }
+
+        private static String apply(World world, Vector3i pos, String slotArg, String itemId, int quantity, double d) {
+            String at = HyPedestalsCommand.format(pos);
+            Store<ChunkStore> store = world.getChunkStore().getStore();
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z);
+            ItemContainerBlock block = ref == null ? null : store.getComponent(ref, ItemContainerBlock.getComponentType());
+            if (block == null) {
+                return "setitem: no item container at " + at;
+            }
+            ItemContainer container = block.getItemContainer();
+            short capacity = container.getCapacity();
+            short s;
+            try {
+                s = slotArg.equalsIgnoreCase("last") ? (short) (capacity - 1) : Short.parseShort(slotArg);
+            } catch (NumberFormatException e) {
+                s = -1;
+            }
+            if (s < 0 || s >= capacity) {
+                return String.format(Locale.ROOT, "setitem: slot %s outside 0..%d at %s", slotArg, capacity - 1, at);
+            }
+            boolean clear = itemId.equalsIgnoreCase("empty");
+            if (!clear && (Item.getAssetMap().getAsset(itemId) == null || quantity < 1)) {
+                return "setitem: unknown item " + itemId + " or quantity < 1";
+            }
+            boolean succeeded;
+            if (clear) {
+                succeeded = container.removeItemStackFromSlot(s).succeeded();
+            } else {
+                ItemStack stack = new ItemStack(itemId, quantity);
+                if (d >= 0) {
+                    stack = stack.withDurability(d);
+                }
+                succeeded = container.setItemStackForSlot(s, stack).succeeded();
+            }
+            BlockModule.BlockStateInfo info = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
+            if (succeeded && info != null) {
+                info.markNeedsSaving(store);
+            }
+            ItemStack now = container.getItemStack(s);
+            return String.format(Locale.ROOT, "setitem %d at %s: succeeded=%b slot=%s", s, at, succeeded,
+                    now == null || now.isEmpty() ? "empty" : String.format(Locale.ROOT, "%s x%d durability=%s/%s",
+                            now.getItemId(), now.getQuantity(), now.getDurability(), now.getMaxDurability()));
         }
     }
 }

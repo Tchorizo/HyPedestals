@@ -11,8 +11,12 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
+import dev.tchorizo.hypedestals.block.HytaleFertilizerInput;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
+import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
+import dev.tchorizo.hypedestals.harvest.SoilPass;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import org.joml.Vector3i;
 
 import java.util.Locale;
@@ -20,7 +24,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, scan
- * position, container usage, last cycle result, installed upgrades and watering sweeps,
+ * position, container usage, last cycle result, installed upgrades, soil sweeps and (with the
+ * fertilizer upgrade) the input slot,
  * {@code no Harvester at <x y z>}, or {@code section not loaded at <x y z>} when the section was
  * never generated (inspecting never generates terrain).
  * Loads the section from disk if it exists (never generating it) and marks it as ticking.
@@ -52,23 +57,49 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         }
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s upgrades=%s soil: %s",
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s upgrades=%s soil: %s%s",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
                 last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b exported=%d",
                         last.harvested(), last.collected(), last.pausedFull(), harvester.lastExport().moved()),
-                harvester.upgrades(), soil(harvester));
+                harvester.upgrades(), soil(harvester),
+                harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "");
     }
 
     /**
-     * {@code watered=<last sweep> total=<since load> lastSweep=<seconds ago>s}, or {@code none}
-     * before the first watering sweep since the load. A sweep rewaters only soil with less than
-     * half the tier's duration left, so after the first sweep {@code watered} is usually 0.
+     * {@code watered=<last sweep> total=<since load> fertilized=<last sweep> fertilizedTotal=<since load>
+     * lastSweep=<seconds ago>s}, or {@code none} before the first soil sweep since the load. A sweep
+     * rewaters only soil with less than half the tier's duration left and fertilizes only soil not
+     * fertilized yet, so after the first sweeps both counts are usually 0.
      */
     private static String soil(HarvesterComponent harvester) {
-        return harvester.lastWatered() < 0 ? "none" : String.format(Locale.ROOT, "watered=%d total=%d lastSweep=%.1fs",
-                harvester.lastWatered(), harvester.wateredTotal(), harvester.secondsSinceSoilSweep());
+        SoilPass.Result last = harvester.lastSoil();
+        return last == null ? "none" : String.format(Locale.ROOT,
+                "watered=%d total=%d fertilized=%d fertilizedTotal=%d lastSweep=%.1fs",
+                last.watered(), harvester.wateredTotal(), last.fertilized(), harvester.fertilizedTotal(),
+                harvester.secondsSinceSoilSweep());
+    }
+
+    /**
+     * The input slot: {@code <durability>/<max>} (with {@code xN} for a stack of N bags), {@code none}
+     * when empty, or {@code blocked} when it holds something else (e.g. harvest from before the
+     * upgrade, which the filter does not evict).
+     */
+    private static String fertilizer(ItemContainerBlock containerBlock) {
+        FertilizerInput.InputStack stack = containerBlock == null ? null : HytaleFertilizerInput.read(containerBlock.getItemContainer());
+        if (stack == null) {
+            return "none";
+        }
+        if (!FertilizerInput.accepts(stack.itemId())) {
+            return "blocked";
+        }
+        return number(stack.durability()) + "/" + number(stack.maxDurability())
+                + (stack.quantity() > 1 ? "x" + stack.quantity() : "");
+    }
+
+    private static String number(double d) {
+        return d == Math.rint(d) ? Long.toString((long) d) : String.format(Locale.ROOT, "%.1f", d);
     }
 
     /** {@code <used>/<capacity>}, counting slots that hold a non-empty stack. */

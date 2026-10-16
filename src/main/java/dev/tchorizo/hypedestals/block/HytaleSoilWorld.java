@@ -7,6 +7,7 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.time.WorldTimeResource;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.accessor.SectionReader;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
@@ -22,6 +23,8 @@ public final class HytaleSoilWorld implements SoilWorld {
 
     private final ChunkStore chunkStore;
     private final ComponentAccessor<ChunkStore> accessor;
+    /** Created on the first {@link #cropAt}: a watering-only pass never needs it. */
+    private SectionReader reader;
 
     /**
      * @param accessor the command buffer of the current {@code ChunkStore} tick, or the chunk
@@ -64,6 +67,40 @@ public final class HytaleSoilWorld implements SoilWorld {
             blocks.setTicking(p.x(), p.y(), p.z(), true);
             blocks.scheduleTick(ChunkUtil.indexBlock(p.x(), p.y(), p.z()), until);
         }
+        markNeedsSaving(ref);
+    }
+
+    /** Same crop detection as the harvest ({@code HytaleCycleWorld.cropTypeAt}). */
+    @Override
+    public boolean cropAt(BlockPos p) {
+        if (reader == null) {
+            reader = new SectionReader(chunkStore);
+        }
+        return HytaleCycleWorld.cropTypeAt(reader, p) != null;
+    }
+
+    /**
+     * Sets {@code fertilized} like the vanilla fertilizer bag: the block is set ticking (no tick
+     * scheduled; fertilizing does not expire) so the soil's farming tick recomputes its block
+     * state ({@code _Fertilized}) and the crop above grows with the modifier; then marked for saving.
+     */
+    @Override
+    public void fertilize(BlockPos p) {
+        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
+        Ref<ChunkStore> ref = section == null ? null : BlockModule.getBlockEntity(accessor, section, p.x(), p.y(), p.z());
+        TilledSoilBlock soil = ref == null ? null : accessor.getComponent(ref, TilledSoilBlock.getComponentType());
+        if (soil == null) {
+            return;
+        }
+        soil.setFertilized(true);
+        BlockSection blocks = accessor.getComponent(section, BlockSection.getComponentType());
+        if (blocks != null) {
+            blocks.setTicking(p.x(), p.y(), p.z(), true);
+        }
+        markNeedsSaving(ref);
+    }
+
+    private void markNeedsSaving(Ref<ChunkStore> ref) {
         BlockModule.BlockStateInfo info = accessor.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
         if (info != null) {
             info.markNeedsSaving(accessor);

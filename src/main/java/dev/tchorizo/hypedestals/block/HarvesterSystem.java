@@ -5,6 +5,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -14,6 +15,7 @@ import dev.tchorizo.hypedestals.config.ModSettings;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
+import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
@@ -25,10 +27,12 @@ import java.time.Instant;
  * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}, then, with
  * {@code ExportToAdjacent}, an {@link ExportPlan} into the containers touching the block; and,
  * every {@code SoilSweepSeconds} on a timer of its own, a {@link SoilPass} over the same area
- * when the watering upgrade is installed. Radius, interval, margin, item filter, export and the
- * soil settings are read from the global config on every tick, so changes made with
- * {@code /hypedestals config} (command or window) apply right away; hand edits to the config
- * file are read at server start only.
+ * when the watering or the fertilizer upgrade is installed. With the fertilizer upgrade, the
+ * container's last slot is the fertilizer input slot ({@link HytaleFertilizerInput}): filtered
+ * to the fertilizer bag, left out of the harvest budget, and the source of the pass's
+ * applications. Radius, interval, margin, item filter, export and the soil settings are read
+ * from the global config on every tick, so changes made with {@code /hypedestals config} (command
+ * or window) apply right away; hand edits to the config file are read at server start only.
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -56,6 +60,13 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                     info.fillWorldPos(cb, at) ? at : "?", harvester.ignoredUpgrades);
         }
 
+        ItemContainerBlock containerBlock = chunk.getComponent(index, ItemContainerBlock.getComponentType());
+        SimpleItemContainer container = containerBlock == null ? null : containerBlock.getItemContainer();
+        // Every tick, before anything adds to the container: the filter is runtime-only and follows
+        // the upgrade (installed or removed by an interaction or a command between ticks).
+        harvester.inputFiltered = HytaleFertilizerInput.sync(container, harvester.inputFiltered,
+                harvester.hasUpgrade(UpgradeType.FERTILIZER));
+
         ModSettings global = HyPedestalsPlugin.settings();
         TierSettings settings = global.effective(harvester.tier, harvester.radius, harvester.intervalSeconds);
         // Config values are always valid; only the asset fallback (a tier the config does not
@@ -76,7 +87,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         harvester.soilElapsed += dt;
         if (harvester.soilElapsed >= global.soilSweepSeconds()) {
             harvester.soilElapsed = 0;
-            if (harvester.hasUpgrade(UpgradeType.WATERING)) {
+            if (harvester.hasUpgrade(UpgradeType.WATERING) || harvester.hasUpgrade(UpgradeType.FERTILIZER)) {
                 sweepSoil(harvester, info, store, cb, settings);
             }
         }
@@ -93,8 +104,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
         World world = store.getExternalData().getWorld();
 
-        ItemContainerBlock containerBlock = chunk.getComponent(index, ItemContainerBlock.getComponentType());
-        if (containerBlock == null) {
+        if (container == null) {
             if (!harvester.missingContainerWarned) {
                 harvester.missingContainerWarned = true;
                 HyPedestalsPlugin.warn("Harvester at %s has no ItemContainerBlock; inactive", pos);
@@ -103,7 +113,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
 
         harvester.lastResult = HarvestCycle.run(
-                new HytaleCycleWorld(world, cb, containerBlock.getItemContainer(), global.collectAnyItem()),
+                new HytaleCycleWorld(world, cb, container, global.collectAnyItem(), harvester.inputFiltered != null),
                 new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
                 harvester.warnedTypes, harvester.scanIndex);
         harvester.scanIndex = harvester.lastResult.nextIndex();
@@ -119,11 +129,15 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         // After the cycle's second collect, so this cycle's items leave right away; also when the
         // cycle paused because the container was full, which is when export matters most.
         harvester.lastExport = global.exportToAdjacent()
-                ? new HytaleExport(world, cb).run(containerBlock.getItemContainer(), info, new BlockPos(pos.x, pos.y, pos.z))
+                ? new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z))
                 : ExportPlan.Result.NONE;
     }
 
-    /** Waters the tilled soil of the area that needs it, for {@code WateringSeconds} of game time. */
+    /**
+     * Waters the tilled soil of the area that needs it, for {@code WateringSeconds} of game time
+     * (watering upgrade), and fertilizes the soil under crops with the bag in the input slot
+     * (fertilizer upgrade, filter applied), taking one durability point per soil block.
+     */
     private static void sweepSoil(HarvesterComponent harvester, BlockModule.BlockStateInfo info,
                                   Store<ChunkStore> store, CommandBuffer<ChunkStore> cb, TierSettings settings) {
         Vector3i pos = new Vector3i();
@@ -135,8 +149,17 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         if (now == null) {
             return;
         }
-        harvester.lastWatered = SoilPass.run(new HytaleSoilWorld(world, cb), new BlockPos(pos.x, pos.y, pos.z),
-                settings.radius(), now, settings.wateringSeconds());
-        harvester.wateredTotal += harvester.lastWatered;
+        SimpleItemContainer input = harvester.inputFiltered;
+        int applications = input == null ? 0 : FertilizerInput.applications(HytaleFertilizerInput.read(input));
+        SoilPass.Result result = SoilPass.run(new HytaleSoilWorld(world, cb), new BlockPos(pos.x, pos.y, pos.z),
+                settings.radius(), now, harvester.hasUpgrade(UpgradeType.WATERING), settings.wateringSeconds(), applications);
+        if (result.applicationsUsed() > 0) {
+            HytaleFertilizerInput.consume(input, result.applicationsUsed());
+            // The container is the Harvester's own component; a write outside the engine's flows (S4).
+            info.markNeedsSaving(cb);
+        }
+        harvester.lastSoil = result;
+        harvester.wateredTotal += result.watered();
+        harvester.fertilizedTotal += result.fertilized();
     }
 }

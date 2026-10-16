@@ -45,19 +45,24 @@ final class HytaleCycleWorld implements CycleWorld {
     private final SectionReader reader;
     private final ItemContainer container;
     private final boolean collectAnyItem;
+    private final boolean inputSlot;
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
      *     must go through it rather than the chunk store itself while the system is ticking
      * @param collectAnyItem the config's {@code CollectAnyItem}; see {@link CollectFilter}
+     * @param inputSlot whether the container's last slot is the fertilizer input slot (fertilizer
+     *     upgrade installed, its slot filter applied); it is then left out of {@link #harvestBudget}
      */
-    HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container, boolean collectAnyItem) {
+    HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container,
+                     boolean collectAnyItem, boolean inputSlot) {
         this.chunkBuffer = chunkBuffer;
         this.chunkStore = world.getChunkStore();
         this.entityStore = world.getEntityStore().getStore();
         this.reader = new SectionReader(chunkStore);
         this.container = container;
         this.collectAnyItem = collectAnyItem;
+        this.inputSlot = inputSlot;
     }
 
     /**
@@ -70,6 +75,11 @@ final class HytaleCycleWorld implements CycleWorld {
      */
     @Override
     public String cropTypeAt(BlockPos p) {
+        return cropTypeAt(reader, p);
+    }
+
+    /** {@link #cropTypeAt(BlockPos)} over any reader; also the soil pass's "crop above" test. */
+    static String cropTypeAt(SectionReader reader, BlockPos p) {
         if (reader.getFiller(p.x(), p.y(), p.z()) != 0) {
             return null;
         }
@@ -200,11 +210,13 @@ final class HytaleCycleWorld implements CycleWorld {
                 def != null && def.getArmor() != null);
     }
 
+    /** Skips the last slot while it is the fertilizer input slot: the harvest can never go there. */
     @Override
     public int harvestBudget() {
         int budget = 0;
         short capacity = container.getCapacity();
-        for (short slot = 0; slot < capacity; slot++) {
+        short end = inputSlot ? (short) (capacity - 1) : capacity;
+        for (short slot = 0; slot < end; slot++) {
             ItemStack stack = container.getItemStack(slot);
             if (stack == null || stack.isEmpty()) {
                 budget += HarvestCycle.slotBudget(0, 0);

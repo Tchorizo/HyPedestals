@@ -17,4 +17,10 @@ public interface SoilWorld {
 
     /** Sets the soil at {@code p} watered until {@code until} (game time); only called where {@link #soilAt} found soil. */
     void water(BlockPos p, Instant until);
+
+    /** Whether a crop stands at {@code p}, by the same detection the harvest uses ({@link CycleWorld#cropTypeAt}). */
+    boolean cropAt(BlockPos p);
+
+    /** Marks the soil at {@code p} fertilized; only called where {@link #soilAt} found unfertilized soil. */
+    void fertilize(BlockPos p);
 }
