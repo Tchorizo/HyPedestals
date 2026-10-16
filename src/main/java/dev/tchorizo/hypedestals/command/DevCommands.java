@@ -7,6 +7,8 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.farming.FarmingStageData;
 import com.hypixel.hytale.server.core.command.system.arguments.system.DefaultArg;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
@@ -93,12 +95,17 @@ final class DevCommands extends AbstractAsyncCommand {
         return CompletableFuture.completedFuture(null);
     }
 
-    /** {@code setBlock} at {@code p}; the block's section must already be loaded. */
+    /** {@code setBlock} at {@code p}, unrotated; the block's section must already be loaded. */
     private static boolean setBlock(World world, Vector3i p, String blockId, BlockType type) {
+        return setBlock(world, p, blockId, type, RotationTuple.NONE_INDEX);
+    }
+
+    /** {@code setBlock} at {@code p} with a {@link RotationTuple} index; the section must already be loaded. */
+    private static boolean setBlock(World world, Vector3i p, String blockId, BlockType type, int rotation) {
         ChunkStore chunkStore = world.getChunkStore();
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x, p.y, p.z);
         return section != null && BlockOperations.setBlock(chunkStore, section, p.x, p.y, p.z,
-                BlockType.getAssetMap().getIndex(blockId), type, 0, 0, SetBlockSettings.NONE);
+                BlockType.getAssetMap().getIndex(blockId), type, rotation, 0, SetBlockSettings.NONE);
     }
 
     /** {@link #setBlock} by asset id; {@code false} when the asset is not loaded. */
@@ -580,7 +587,9 @@ final class DevCommands extends AbstractAsyncCommand {
      * area is tilled and filled with ripe Eternal crops ({@link #cropFor}: carrot for Iron, wheat
      * elsewhere; they regrow after a harvest, so the scene never runs out) except its +z edge row
      * (tilled, left for the player), with a chest at x+1 of each harvester and a ripe berry bush in
-     * the Copper area's -x/-z corner. Each area also gets {@code grow} at {@link #SCENE_GROW_FACTOR}.
+     * the Copper area's -x/-z corner. Each area also gets {@code grow} at {@link #SCENE_GROW_FACTOR}
+     * and a {@link #FENCE} ring {@link #FENCE_DISTANCE} blocks outside it (chest and berry inside)
+     * so drops that roll away stay within reach of the collect pass.
      * An extra Copper stands at y={@link #ELEVATED_Y} (where the dev-server test saw
      * harvested crops without drops), or {@link #CLEARANCE} above the ground level if that is
      * higher, {@link #ELEVATED_DZ} blocks along z on a small platform. Nothing is pinned, unlike
@@ -592,6 +601,15 @@ final class DevCommands extends AbstractAsyncCommand {
         private static final String GRASS = "Soil_Grass";
         private static final String BERRY = "Plant_Crop_Berry_Block";
         private static final String CHEST = "Furniture_Crude_Chest_Small";
+        /** Ring around each area that keeps drops from rolling off; see {@link #FENCE_DISTANCE}. */
+        private static final String FENCE = "Wood_Greenwood_Fence";
+        /** Corner state of {@link #FENCE}; {@code setBlock} never picks it by itself. */
+        private static final String FENCE_CORNER = "*Wood_Greenwood_Fence_State_Definitions_Corner";
+        /**
+         * Chebyshev distance of the fence ring from the harvester: two outside the area, so drops
+         * stop within the collect box ({@code radius + HarvestCycle.COLLECT_MARGIN}).
+         */
+        private static final int FENCE_DISTANCE = 2;
         private static final int GAP = 6;
         private static final int MARGIN = 3;
         private static final int CLEARANCE = 16;
@@ -691,11 +709,11 @@ final class DevCommands extends AbstractAsyncCommand {
                     z - maxRadius - MARGIN, z + maxRadius + MARGIN, y);
         }
 
-        /** Small platform for the elevated harvester: its area plus a one-block rim. */
+        /** Small platform for the elevated harvester: its area plus a rim wide enough for the fence. */
         private static Platform elevated(Site copper, int groundY) {
             int x = copper.pos().x;
             int z = copper.pos().z + ELEVATED_DZ;
-            int r = copper.radius() + 1;
+            int r = copper.radius() + FENCE_DISTANCE;
             return new Platform(x - r, x + r, z - r, z + r, Math.max(ELEVATED_Y, groundY + CLEARANCE));
         }
 
@@ -770,7 +788,64 @@ final class DevCommands extends AbstractAsyncCommand {
             return tier.equals("Iron") ? CARROT_ETERNAL : WHEAT_ETERNAL;
         }
 
-        /** Crops, harvester, chest and {@code grow} of one site; returns its reply line. */
+        /**
+         * Fence ring at {@link #FENCE_DISTANCE} outside the area of the harvester at {@code p}, on the
+         * harvester's layer (one above the soil); returns how many ring blocks end up as a fence.
+         * {@code setBlock} does not run the fence's connection rules (every block stays the plain
+         * straight fence), so each block is placed in its final shape: straight segments along x
+         * unrotated, along z turned 90°, and the four corners as {@link #FENCE_CORNER} turned so its
+         * two arms point along the ring.
+         */
+        private static int fence(World world, Vector3i p, int radius) {
+            int d = radius + FENCE_DISTANCE;
+            BlockType straight = BlockType.getAssetMap().getAsset(FENCE);
+            BlockType corner = BlockType.getAssetMap().getAsset(FENCE_CORNER);
+            if (straight == null || corner == null) {
+                return 0;
+            }
+            int alongZ = RotationTuple.index(Rotation.Ninety, Rotation.None, Rotation.None);
+            SectionReader reader = new SectionReader(world.getChunkStore());
+            int placed = 0;
+            for (int dx = -d; dx <= d; dx++) {
+                for (int dz = -d; dz <= d; dz++) {
+                    boolean xEdge = Math.abs(dx) == d;
+                    boolean zEdge = Math.abs(dz) == d;
+                    if (!xEdge && !zEdge) {
+                        continue;
+                    }
+                    Vector3i f = new Vector3i(p.x + dx, p.y, p.z + dz);
+                    if (xEdge && zEdge) {
+                        // Arms toward the two ring neighbours, i.e. back toward the area on each axis.
+                        setBlock(world, f, FENCE_CORNER, corner, cornerRotation(-Integer.signum(dx), -Integer.signum(dz)));
+                    } else {
+                        setBlock(world, f, FENCE, straight, xEdge ? alongZ : RotationTuple.NONE_INDEX);
+                    }
+                    placed += blockName(reader, f.x, f.y, f.z).contains(FENCE) ? 1 : 0;
+                }
+            }
+            return placed;
+        }
+
+        /**
+         * Rotation index (yaw only) that turns the unrotated corner, whose arms point to -x and +z
+         * (hitbox {@code Fence_Corner_Thin}), so they point to {@code (armX, 0, 0)} and {@code (0, 0, armZ)}.
+         */
+        private static int cornerRotation(int armX, int armZ) {
+            for (Rotation yaw : Rotation.VALUES) {
+                RotationTuple rotation = RotationTuple.of(yaw, Rotation.None, Rotation.None);
+                Vector3i a = new Vector3i(-1, 0, 0);
+                Vector3i b = new Vector3i(0, 0, 1);
+                rotation.applyRotationTo(a);
+                rotation.applyRotationTo(b);
+                Set<Vector3i> arms = Set.of(a, b);
+                if (arms.equals(Set.of(new Vector3i(armX, 0, 0), new Vector3i(0, 0, armZ)))) {
+                    return rotation.index();
+                }
+            }
+            return RotationTuple.NONE_INDEX;
+        }
+
+        /** Crops, harvester, chest, fence ring and {@code grow} of one site; returns its reply line. */
         private static String build(World world, Site site, Vector3i berry) {
             Vector3i p = site.pos();
             int r = site.radius();
@@ -802,11 +877,13 @@ final class DevCommands extends AbstractAsyncCommand {
             boolean hasHarvester = ref != null
                     && world.getChunkStore().getStore().getComponent(ref, HarvesterComponent.TYPE) != null;
             boolean chestSet = setBlock(world, chest, CHEST);
+            int fence = fence(world, p, r);
+            int ring = 8 * (r + FENCE_DISTANCE);
             return String.format(Locale.ROOT,
                     "scene %s at %s r=%d: setBlock=%b HyHarvester=%b chest %s=%b %s planted=%d/%d ripe=%d"
-                            + " unplanted row z=%d%s; %s",
+                            + " unplanted row z=%d%s; %s fence=%d/%d; %s",
                     id, HyPedestalsCommand.format(p), r, set, hasHarvester, HyPedestalsCommand.format(chest),
-                    chestSet, cropId, planted, cells, ripe, p.z + r, berryResult,
+                    chestSet, cropId, planted, cells, ripe, p.z + r, berryResult, FENCE, fence, ring,
                     grow(world, p, r, SCENE_GROW_FACTOR));
         }
     }
