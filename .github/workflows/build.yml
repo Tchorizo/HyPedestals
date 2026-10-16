@@ -24,3 +24,4 @@ jobs:
         with:
           name: HyPedestals
           path: build/libs/*.jar
+          if-no-files-found: error

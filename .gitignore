@@ -32,6 +32,6 @@ Thumbs.db
 
 # --- Build (Gradle/Java) ---
 .gradle/
-build/
-out/
-run/
+/build/
+/out/
+/run/
