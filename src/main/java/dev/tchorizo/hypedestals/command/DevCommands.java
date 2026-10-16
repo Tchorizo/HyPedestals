@@ -83,6 +83,8 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SceneCommand());
         addSubCommand(new GrowCommand());
         addSubCommand(new CropCommand());
+        addSubCommand(new SetBlockCommand());
+        addSubCommand(new ContentsCommand());
     }
 
     @Override
@@ -90,7 +92,8 @@ final class DevCommands extends AbstractAsyncCommand {
         HyPedestalsCommand.reply(context,
                 "usage: hypedestals dev place <x y z> <%s> | plant <x y z> [--block <id>] | ripen <x y z>"
                         + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
-                        + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>",
+                        + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
+                        + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -334,6 +337,18 @@ final class DevCommands extends AbstractAsyncCommand {
         return stage.getDuration() == null ? 0 : (stage.getDuration().min + stage.getDuration().max) / 2.0;
     }
 
+    /** {@code id x qty} for each non-empty slot, comma separated. */
+    private static String contents(ItemContainer container) {
+        List<String> stacks = new ArrayList<>();
+        for (short slot = 0; slot < container.getCapacity(); slot++) {
+            ItemStack stack = container.getItemStack(slot);
+            if (stack != null && !stack.isEmpty()) {
+                stacks.add(stack.getItemId() + " x" + stack.getQuantity());
+            }
+        }
+        return String.join(", ", stacks);
+    }
+
     private static final class PlaceCommand extends HyPedestalsCommand.PositionCommand {
         private final RequiredArg<String> tier =
                 withRequiredArg("tier", "Copper, Iron, Thorium or Cobalt", ArgTypes.STRING);
@@ -518,18 +533,6 @@ final class DevCommands extends AbstractAsyncCommand {
                     breaking == null ? null : breaking.getItemId(),
                     breaking == null ? null : breaking.getDropListId(),
                     contents, after == null ? "null" : after.getId());
-        }
-
-        /** {@code id x qty} for each non-empty slot, comma separated. */
-        private static String contents(ItemContainer container) {
-            List<String> stacks = new ArrayList<>();
-            for (short slot = 0; slot < container.getCapacity(); slot++) {
-                ItemStack stack = container.getItemStack(slot);
-                if (stack != null && !stack.isEmpty()) {
-                    stacks.add(stack.getItemId() + " x" + stack.getQuantity());
-                }
-            }
-            return String.join(", ", stacks);
         }
     }
 
@@ -890,6 +893,108 @@ final class DevCommands extends AbstractAsyncCommand {
                     id, HyPedestalsCommand.format(p), r, set, hasHarvester, HyPedestalsCommand.format(chest),
                     chestSet, cropId, planted, cells, ripe, p.z + r, berryResult, FENCE, fence, ring,
                     grow(world, p, r, SCENE_GROW_FACTOR));
+        }
+    }
+
+    /**
+     * {@code setblock <x y z> <id> [--rotation <index>]}: any block (or {@code air}) at the position
+     * with a {@link RotationTuple} index, for building third-party setups (e.g. a storage network
+     * next to a harvester) from the console. Replies with the block, rotation (yaw/pitch/roll) and
+     * whether a block entity exists after the placement, read back from the world.
+     */
+    private static final class SetBlockCommand extends HyPedestalsCommand.PositionCommand {
+        private static final String AIR = "air";
+        private final RequiredArg<String> block =
+                withRequiredArg("block", "Block id (e.g. Furniture_Crude_Chest_Small) or air", ArgTypes.STRING);
+        private final DefaultArg<Integer> rotation = withDefaultArg("rotation",
+                "RotationTuple index (0 = unrotated)", ArgTypes.INTEGER, RotationTuple.NONE_INDEX, "0");
+
+        SetBlockCommand() {
+            super("setblock", "Place any block (or air) at a position with a rotation index");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            String id = context.get(block);
+            int rot = context.get(rotation);
+            if (rot < 0 || rot >= RotationTuple.VALUES.length || RotationTuple.VALUES[rot] == null) {
+                HyPedestalsCommand.reply(context, "setblock: rotation must be a RotationTuple index in 0..%d",
+                        RotationTuple.VALUES.length - 1);
+                return CompletableFuture.completedFuture(null);
+            }
+            return runAt(context, world -> {
+                boolean air = id.equalsIgnoreCase(AIR);
+                String blockId = air ? BlockType.EMPTY_KEY : id;
+                BlockType type = air ? BlockType.EMPTY : BlockType.getAssetMap().getAsset(id);
+                if (type == null) {
+                    HyPedestalsCommand.reply(context, "setblock: block %s is not loaded", id);
+                    return;
+                }
+                boolean set = setBlock(world, pos, blockId, type, rot);
+                SectionReader reader = new SectionReader(world.getChunkStore());
+                BlockType after = BlockType.getAssetMap().getAsset(reader.getBlock(pos.x, pos.y, pos.z));
+                int afterRot = reader.getRotationIndex(pos.x, pos.y, pos.z);
+                boolean entity = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z) != null;
+                HyPedestalsCommand.reply(context, "setblock %s at %s rotation=%d: setBlock=%b -> %s rotation=%s blockEntity=%b",
+                        id, HyPedestalsCommand.format(pos), rot, set, after == null ? "null" : after.getId(),
+                        describe(afterRot), entity);
+            }, pos);
+        }
+
+        private static String describe(int index) {
+            RotationTuple r = index >= 0 && index < RotationTuple.VALUES.length ? RotationTuple.VALUES[index] : null;
+            return r == null ? index + "(?)" : index + "(yaw=" + r.yaw() + " pitch=" + r.pitch() + " roll=" + r.roll() + ")";
+        }
+    }
+
+    /**
+     * {@code contents <x y z>}: block id and item container of the block at the position (slots in
+     * use, item total, and each non-empty slot), e.g. to watch a chest that a third-party mod fills.
+     */
+    private static final class ContentsCommand extends HyPedestalsCommand.PositionCommand {
+        ContentsCommand() {
+            super("contents", "Show the item container of the block at a position");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", describe(world, pos)), pos);
+        }
+
+        private static String describe(World world, Vector3i pos) {
+            String at = HyPedestalsCommand.format(pos);
+            ChunkStore chunkStore = world.getChunkStore();
+            Store<ChunkStore> store = chunkStore.getStore();
+            Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
+            if (section == null) {
+                return "contents at " + at + ": section not loaded";
+            }
+            BlockType type = BlockType.getAssetMap().getAsset(new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+            String id = type == null ? "null" : type.getId();
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
+            ItemContainerBlock block = ref == null ? null : store.getComponent(ref, ItemContainerBlock.getComponentType());
+            if (block == null) {
+                return "contents at " + at + ": " + id + " has no item container";
+            }
+            ItemContainer container = block.getItemContainer();
+            int used = 0;
+            int total = 0;
+            for (short slot = 0; slot < container.getCapacity(); slot++) {
+                ItemStack stack = container.getItemStack(slot);
+                if (stack != null && !stack.isEmpty()) {
+                    used++;
+                    total += stack.getQuantity();
+                }
+            }
+            return String.format(Locale.ROOT, "contents at %s: %s slots=%d/%d items=%d [%s]",
+                    at, id, used, container.getCapacity(), total, contents(container));
         }
     }
 }
