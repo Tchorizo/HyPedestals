@@ -7,11 +7,9 @@
   "Quality": "Common",
   "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Thorium.png",
   "BlockType": {
-    "Textures": [
+    "CustomModelTexture": [
       {
-        "Up": "BlockTextures/HyPedestals/Harvester_Thorium_Top.png",
-        "Down": "BlockTextures/HyPedestals/Harvester_Thorium_Bot.png",
-        "Sides": "BlockTextures/HyPedestals/Harvester_Thorium_Side.png",
+        "Texture": "Blocks/HyPedestals/Harvester_Textures/Thorium.png",
         "Weight": 1
       }
     ],

@@ -20,14 +20,15 @@
     ]
   },
   "BlockType": {
-    "Textures": [
+    "DrawType": "Model",
+    "CustomModel": "Blocks/HyPedestals/Harvester.blockymodel",
+    "CustomModelTexture": [
       {
-        "Up": "BlockTextures/HyPedestals/Harvester_Copper_Top.png",
-        "Down": "BlockTextures/HyPedestals/Harvester_Copper_Bot.png",
-        "Sides": "BlockTextures/HyPedestals/Harvester_Copper_Side.png",
+        "Texture": "Blocks/HyPedestals/Harvester_Textures/Copper.png",
         "Weight": 1
       }
     ],
+    "Opacity": "Transparent",
     "TransitionToGroups": [],
     "Gathering": {
       "Breaking": {

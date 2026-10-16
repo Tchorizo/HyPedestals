@@ -7,11 +7,9 @@
   "Quality": "Common",
   "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Copper.png",
   "BlockType": {
-    "Textures": [
+    "CustomModelTexture": [
       {
-        "Up": "BlockTextures/HyPedestals/Harvester_Copper_Top.png",
-        "Down": "BlockTextures/HyPedestals/Harvester_Copper_Bot.png",
-        "Sides": "BlockTextures/HyPedestals/Harvester_Copper_Side.png",
+        "Texture": "Blocks/HyPedestals/Harvester_Textures/Copper.png",
         "Weight": 1
       }
     ],

@@ -7,11 +7,9 @@
   "Quality": "Common",
   "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Iron.png",
   "BlockType": {
-    "Textures": [
+    "CustomModelTexture": [
       {
-        "Up": "BlockTextures/HyPedestals/Harvester_Iron_Top.png",
-        "Down": "BlockTextures/HyPedestals/Harvester_Iron_Bot.png",
-        "Sides": "BlockTextures/HyPedestals/Harvester_Iron_Side.png",
+        "Texture": "Blocks/HyPedestals/Harvester_Textures/Iron.png",
         "Weight": 1
       }
     ],

@@ -7,11 +7,9 @@
   "Quality": "Common",
   "Icon": "Icons/ItemsGenerated/HyPedestals_Harvester_Cobalt.png",
   "BlockType": {
-    "Textures": [
+    "CustomModelTexture": [
       {
-        "Up": "BlockTextures/HyPedestals/Harvester_Cobalt_Top.png",
-        "Down": "BlockTextures/HyPedestals/Harvester_Cobalt_Bot.png",
-        "Sides": "BlockTextures/HyPedestals/Harvester_Cobalt_Side.png",
+        "Texture": "Blocks/HyPedestals/Harvester_Textures/Cobalt.png",
         "Weight": 1
       }
     ],
