@@ -34,7 +34,7 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
     @Override
     protected CompletableFuture<Void> executeAsync(CommandContext context) {
         reply(context, dev
-                ? "usage: hypedestals inspect <x y z> | hypedestals dev place|plant|ripen ..."
+                ? "usage: hypedestals inspect <x y z> | hypedestals dev place|plant|ripen|break|collect ..."
                 : "usage: hypedestals inspect <x y z>");
         return CompletableFuture.completedFuture(null);
     }
