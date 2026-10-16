@@ -589,8 +589,8 @@ final class DevCommands extends AbstractAsyncCommand {
      * elsewhere; they regrow after a harvest, so the scene never runs out) except its +z edge row
      * (tilled, left for the player), with a chest at x+1 of each harvester and a ripe berry bush in
      * the Copper area's -x/-z corner. Each area also gets {@code grow} at {@link #SCENE_GROW_FACTOR}
-     * and a {@link #FENCE} ring {@link #FENCE_DISTANCE} blocks outside it (chest and berry inside)
-     * so drops that roll away stay within reach of the collect pass.
+     * and a {@link #FENCE} ring right outside it, {@link #FENCE_DISTANCE} from the harvester (chest
+     * and berry inside), so drops that roll away stop within reach of the collect pass.
      * An extra Copper stands at y={@link #ELEVATED_Y} (where the dev-server test saw
      * harvested crops without drops), or {@link #CLEARANCE} above the ground level if that is
      * higher, {@link #ELEVATED_DZ} blocks along z on a small platform. Nothing is pinned, unlike
@@ -607,10 +607,11 @@ final class DevCommands extends AbstractAsyncCommand {
         /** Corner state of {@link #FENCE}; {@code setBlock} never picks it by itself. */
         private static final String FENCE_CORNER = "*Wood_Greenwood_Fence_State_Definitions_Corner";
         /**
-         * Chebyshev distance of the fence ring from the harvester: two outside the area, so drops
-         * stop within the collect box ({@code radius + HarvestCycle.COLLECT_MARGIN}).
+         * Chebyshev distance of the fence ring from the harvester, as an offset from the radius:
+         * {@code radius + 1}, right against the area with no free block in between, so every drop
+         * stops well inside the collect box ({@code radius} plus the collect margin).
          */
-        private static final int FENCE_DISTANCE = 2;
+        private static final int FENCE_DISTANCE = 1;
         private static final int GAP = 6;
         private static final int MARGIN = 3;
         private static final int CLEARANCE = 16;
@@ -710,11 +711,14 @@ final class DevCommands extends AbstractAsyncCommand {
                     z - maxRadius - MARGIN, z + maxRadius + MARGIN, y);
         }
 
-        /** Small platform for the elevated harvester: its area plus a rim wide enough for the fence. */
+        /**
+         * Small platform for the elevated harvester: its area, the fence ring and one block more,
+         * so rebuilding over a scene with a wider ring clears the old fence too.
+         */
         private static Platform elevated(Site copper, int groundY) {
             int x = copper.pos().x;
             int z = copper.pos().z + ELEVATED_DZ;
-            int r = copper.radius() + FENCE_DISTANCE;
+            int r = copper.radius() + FENCE_DISTANCE + 1;
             return new Platform(x - r, x + r, z - r, z + r, Math.max(ELEVATED_Y, groundY + CLEARANCE));
         }
 
