@@ -10,6 +10,13 @@ AGENTS.md
 .aider*
 .mcp.json
 
+
+# --- Material proprietário da Hypixel (nunca commitar) ---
+**/shared-source/
+**/SharedSource/
+HytaleServer*.jar
+Server-*.jar
+*.hytale-server.jar
 # --- Segredos / ambiente ---
 .env
 .env.*
