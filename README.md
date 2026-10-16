@@ -91,7 +91,7 @@ In game (operators):
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. The Harvester's **last slot is never exported** (it is the Fertilizer upgrade's input slot).
+With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, the Harvester's **last slot is never exported** (it is the upgrade's input slot); without it, the last slot is exported like the others.
 
 ## Compatibility
 
@@ -110,6 +110,8 @@ Operators, in chat (with `/`) or from the server console (without it):
 | `/hypedestals config` | Opens the settings window (from the console: prints the values) |
 | `/hypedestals config show` | Prints the current settings and the file path |
 | `/hypedestals config set …` | Changes one setting, applies it and saves the file (see [Configuration](#configuration)) |
+
+Permission nodes (operators hold them all through the `*` wildcard; nobody else does by default): `tchorizo.hypedestals.command.hypedestals`, plus `.inspect`, `.config`, `.config.show` and `.config.set` below it. A subcommand also needs the nodes of its parent commands, so letting a non-operator use `config set` takes `tchorizo.hypedestals.command.hypedestals`, `tchorizo.hypedestals.command.hypedestals.config` and `tchorizo.hypedestals.command.hypedestals.config.set`.
 
 `inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the seconds left of the post-harvest collect burst (`burst=<s>`), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag in the input slot (`fertilizer=<uses>/<max>`, `none` when empty, `blocked` when the slot holds something else). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
