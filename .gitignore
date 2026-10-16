@@ -1,0 +1,30 @@
+# --- Material de desenvolvimento (privado; o repo é público) ---
+dev/
+CLAUDE.md
+AGENTS.md
+.claude/
+.omp/
+.cursor/
+.cursorrules
+.codex/
+.aider*
+.mcp.json
+
+# --- Segredos / ambiente ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Build (Gradle/Java) ---
+.gradle/
+build/
+out/
+run/
