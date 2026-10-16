@@ -30,7 +30,7 @@ When no storage slot can take more items, the Harvester stops harvesting (nothin
 
 ### Admin command
 
-`/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots and the result of the last cycle (harvested, collected, paused).
+`/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the result of the last cycle (harvested, collected, paused) and its installed upgrades (`upgrades=[...]`).
 
 The command loads the section from disk if it exists and never generates terrain. If there is nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
@@ -60,7 +60,7 @@ Out-of-range values in the file are replaced by their defaults at startup (one w
 
 In game (operators):
 
-- `/hypedestals config` — opens the settings window: radius and interval for each tier, the collect-any-item checkbox and the collect margin. **Save** applies and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
+- `/hypedestals config` — opens the settings window: radius and interval for each tier, the collect-any-item checkbox and the collect margin. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
 - `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin> <value>` — change one value, apply it and save the file. Also works from the server console.
 

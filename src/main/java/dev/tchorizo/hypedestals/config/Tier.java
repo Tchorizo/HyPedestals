@@ -1,7 +1,5 @@
 package dev.tchorizo.hypedestals.config;
 
-import java.util.Locale;
-
 /**
  * The four Harvester tiers. {@link #number()} is the {@code Tier} of the {@code HyHarvester}
  * component; the radius and interval defaults are the values of the tier's block JSON (pinned by
@@ -50,7 +48,7 @@ public enum Tier {
     /** Tier with that name, ignoring case, or {@code null}. */
     public static Tier byName(String name) {
         for (Tier t : values()) {
-            if (t.displayName.toLowerCase(Locale.ROOT).equals(name.toLowerCase(Locale.ROOT))) {
+            if (t.displayName.equalsIgnoreCase(name)) {
                 return t;
             }
         }

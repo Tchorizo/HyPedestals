@@ -27,3 +27,4 @@ ui.config.close = Fechar
 ui.config.saved = Salvo. Todas as colheitadeiras usam os novos valores a partir do próximo ciclo.
 ui.config.defaultsLoaded = Padrões carregados. Clique em Salvar para aplicá-los.
 ui.config.invalid = Não salvo, fora do intervalo: {problems}
+ui.config.writeFailed = Aplicado, mas a gravação do arquivo de configuração falhou: {error}

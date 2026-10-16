@@ -111,6 +111,34 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, value);
     }
 
+    /**
+     * Applies to these (current) settings only the fields where {@code entered} differs from
+     * {@code opened}, the snapshot the window was filled with. Fields the user did not touch keep
+     * their current value, so a {@code config set} made while the window was open survives its Save.
+     * Intervals are compared in tenths of a second, the window's precision: a {@code 0.75} set by
+     * command shows (and comes back) as {@code 0.8} and is not a change.
+     */
+    public ModSettings withChangesFrom(ModSettings opened, ModSettings entered) {
+        EnumMap<Tier, TierSettings> merged = new EnumMap<>(Tier.class);
+        for (Tier t : Tier.values()) {
+            TierSettings c = tier(t), o = opened.tier(t), e = entered.tier(t);
+            merged.put(t, new TierSettings(
+                    e.radius() != o.radius() ? e.radius() : c.radius(),
+                    tenths(e.intervalSeconds()) != tenths(o.intervalSeconds()) ? e.intervalSeconds() : c.intervalSeconds(),
+                    e.wateringSeconds() != o.wateringSeconds() ? e.wateringSeconds() : c.wateringSeconds()));
+        }
+        return new ModSettings(merged,
+                entered.collectAnyItem != opened.collectAnyItem ? entered.collectAnyItem : collectAnyItem,
+                entered.collectMargin != opened.collectMargin ? entered.collectMargin : collectMargin,
+                entered.soilSweepSeconds != opened.soilSweepSeconds ? entered.soilSweepSeconds : soilSweepSeconds,
+                entered.exportToAdjacent != opened.exportToAdjacent ? entered.exportToAdjacent : exportToAdjacent,
+                entered.harvestParticles != opened.harvestParticles ? entered.harvestParticles : harvestParticles);
+    }
+
+    private static long tenths(float seconds) {
+        return Math.round(seconds * 10.0);
+    }
+
     /** One message per out-of-range value (e.g. {@code Copper.Radius=9 (allowed 1..8)}); empty when valid. */
     public List<String> problems() {
         List<String> problems = new ArrayList<>();

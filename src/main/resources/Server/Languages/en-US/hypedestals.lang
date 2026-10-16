@@ -27,3 +27,4 @@ ui.config.close = Close
 ui.config.saved = Saved. Every Harvester uses the new values from its next cycle.
 ui.config.defaultsLoaded = Defaults loaded. Press Save to apply them.
 ui.config.invalid = Not saved, out of range: {problems}
+ui.config.writeFailed = Applied, but writing the config file failed: {error}

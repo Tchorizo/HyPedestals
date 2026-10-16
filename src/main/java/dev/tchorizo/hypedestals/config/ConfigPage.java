@@ -16,6 +16,7 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,10 +24,12 @@ import java.util.Map;
 
 /**
  * The settings window ({@code Common/UI/Custom/HyPedestals_Config.ui}), opened by
- * {@code /hypedestals config}. The fields are filled from the current settings; Save sends every
- * field's value in one event (the {@code @} keys are read by the client when the button is
- * pressed), validates them, applies them right away and writes the config file; Reset defaults
- * only refills the fields (Save applies them); Close closes the window.
+ * {@code /hypedestals config}. The fields are filled from the current settings, which are kept as
+ * the window's snapshot; Save sends every field's value in one event (the {@code @} keys are read
+ * by the client when the button is pressed), validates them and applies only the fields that
+ * differ from the snapshot ({@link ModSettings#withChangesFrom}), so a {@code config set} made
+ * while the window was open is not reverted; then it writes the config file. Reset defaults only
+ * refills the fields (Save applies them); Close closes the window.
  */
 public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> {
 
@@ -38,6 +41,12 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
     private static final String EXPORT_TO_ADJACENT_VALUE = "#ExportToAdjacent #CheckBox.Value";
     private static final String HARVEST_PARTICLES_VALUE = "#HarvestParticles #CheckBox.Value";
 
+    /**
+     * Settings the fields were last filled from by {@link #build} or a Save; the baseline Save
+     * compares against. Written from the world thread and from the file-write callback.
+     */
+    private volatile ModSettings opened;
+
     public ConfigPage(PlayerRef playerRef) {
         super(playerRef, CustomPageLifetime.CanDismiss, Event.CODEC);
     }
@@ -45,7 +54,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
     @Override
     public void build(Ref<EntityStore> ref, UICommandBuilder commands, UIEventBuilder events, Store<EntityStore> store) {
         commands.append(LAYOUT);
-        fill(commands, HyPedestalsPlugin.settings());
+        opened = HyPedestalsPlugin.settings();
+        fill(commands, opened);
 
         EventData save = EventData.of(Event.ACTION, ACTION_SAVE);
         for (Tier tier : Tier.values()) {
@@ -82,39 +92,51 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
     }
 
     private void save(Event event) {
-        UICommandBuilder commands = new UICommandBuilder();
-        ModSettings entered = event.toSettings();
-        List<String> problems = entered == null ? List.of("missing value") : entered.problems();
-        if (!problems.isEmpty()) {
+        List<String> problems = new ArrayList<>();
+        ModSettings entered = event.toSettings(problems);
+        ModSettings baseline = opened;
+        if (entered != null && problems.isEmpty()) {
+            problems.addAll(entered.problems());
+        }
+        if (entered == null || baseline == null || !problems.isEmpty()) {
+            UICommandBuilder commands = new UICommandBuilder();
             commands.set("#Status.Text", Message.translation("hypedestals.ui.config.invalid")
-                    .param("problems", String.join(", ", problems)));
+                    .param("problems", problems.isEmpty() ? "missing value" : String.join(", ", problems)));
             sendUpdate(commands, false);
             return;
         }
         String who = playerRef.getUsername();
-        HyPedestalsPlugin.updateSettings(current -> entered).whenComplete((ignored, error) -> {
-            if (error != null) {
-                HyPedestalsPlugin.warn("config: %s saved from the window but writing %s failed: %s",
-                        who, HyPedestalsPlugin.configFile(), error);
-            } else {
-                HyPedestalsPlugin.log("config: %s saved from the window: %s", who, entered.describe());
-            }
-        });
-        fill(commands, entered);
-        commands.set("#Status.Text", Message.translation("hypedestals.ui.config.saved"));
-        sendUpdate(commands, false);
+        ModSettings[] applied = new ModSettings[1];
+        HyPedestalsPlugin.updateSettings(current -> applied[0] = current.withChangesFrom(baseline, entered))
+                .whenComplete((ignored, error) -> {
+                    // Applied in memory either way; the status tells whether the file was written.
+                    opened = applied[0];
+                    UICommandBuilder commands = new UICommandBuilder();
+                    fill(commands, applied[0]);
+                    if (error != null) {
+                        HyPedestalsPlugin.warn("config: %s saved from the window but writing %s failed: %s",
+                                who, HyPedestalsPlugin.configFile(), error);
+                        commands.set("#Status.Text", Message.translation("hypedestals.ui.config.writeFailed")
+                                .param("error", String.valueOf(error.getMessage())));
+                    } else {
+                        HyPedestalsPlugin.log("config: %s saved from the window: %s", who, applied[0].describe());
+                        commands.set("#Status.Text", Message.translation("hypedestals.ui.config.saved"));
+                    }
+                    sendUpdate(commands, false);
+                });
     }
 
+    /** Number fields get doubles, as the client sends them back. */
     private static void fill(UICommandBuilder commands, ModSettings settings) {
         for (Tier tier : Tier.values()) {
             TierSettings s = settings.tier(tier);
-            commands.set("#" + radiusId(tier) + ".Value", s.radius());
-            commands.set("#" + intervalId(tier) + ".Value", s.intervalSeconds());
-            commands.set("#" + wateringId(tier) + ".Value", s.wateringSeconds());
+            commands.set("#" + radiusId(tier) + ".Value", (double) s.radius());
+            commands.set("#" + intervalId(tier) + ".Value", (double) s.intervalSeconds());
+            commands.set("#" + wateringId(tier) + ".Value", (double) s.wateringSeconds());
         }
         commands.set(COLLECT_ANY_ITEM_VALUE, settings.collectAnyItem());
-        commands.set("#CollectMargin.Value", settings.collectMargin());
-        commands.set("#SoilSweepSeconds.Value", settings.soilSweepSeconds());
+        commands.set("#CollectMargin.Value", (double) settings.collectMargin());
+        commands.set("#SoilSweepSeconds.Value", (double) settings.soilSweepSeconds());
         commands.set(EXPORT_TO_ADJACENT_VALUE, settings.exportToAdjacent());
         commands.set(HARVEST_PARTICLES_VALUE, settings.harvestParticles());
     }
@@ -185,10 +207,11 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
 
         /**
          * Entered values as settings (radius, watering and sweep rounded to whole numbers,
-         * interval to one decimal), or {@code null} if any value is missing. Range checks are
-         * left to {@link ModSettings#problems()}.
+         * interval to one decimal), or {@code null} if any value is missing. Non-finite numbers
+         * (NaN, infinity) are added to {@code problems} instead of being rounded to 0; other range
+         * checks are left to {@link ModSettings#problems()}.
          */
-        ModSettings toSettings() {
+        ModSettings toSettings(List<String> problems) {
             if (collectAnyItem == null || collectMargin == null || soilSweepSeconds == null
                     || exportToAdjacent == null || harvestParticles == null) {
                 return null;
@@ -199,10 +222,26 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                 if (r == null || i == null || w == null) {
                     return null;
                 }
-                tiers.put(tier, new TierSettings((int) Math.round(r), Math.round(i * 10) / 10f, (int) Math.round(w)));
+                String name = tier.displayName();
+                tiers.put(tier, new TierSettings(whole(name + ".Radius", r, problems),
+                        Double.isFinite(i) ? Math.round(i * 10) / 10f : nonFinite(name + ".IntervalSeconds", i, problems),
+                        whole(name + ".WateringSeconds", w, problems)));
             }
-            return new ModSettings(tiers, collectAnyItem, (int) Math.round(collectMargin),
-                    (int) Math.round(soilSweepSeconds), exportToAdjacent, harvestParticles);
+            return new ModSettings(tiers, collectAnyItem, whole("CollectMargin", collectMargin, problems),
+                    whole("SoilSweepSeconds", soilSweepSeconds, problems), exportToAdjacent, harvestParticles);
+        }
+
+        private static int whole(String field, double value, List<String> problems) {
+            if (Double.isFinite(value)) {
+                return (int) Math.round(value);
+            }
+            nonFinite(field, value, problems);
+            return 0;
+        }
+
+        private static float nonFinite(String field, double value, List<String> problems) {
+            problems.add(field + "=" + value);
+            return 0f;
         }
 
         @Override

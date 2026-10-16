@@ -13,6 +13,7 @@ import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -63,15 +64,19 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     final Set<String> warnedTypes = new HashSet<>();
     boolean inactiveWarned;
     boolean missingContainerWarned;
+    /**
+     * Persisted upgrade ids the last decode dropped (unknown or repeated); warned about once, with
+     * the block position, by {@code HarvesterSystem}. Carried over by {@link #clone()} in case the
+     * engine clones the decoded component.
+     */
+    List<String> ignoredUpgrades = List.of();
+    boolean ignoredUpgradesWarned;
 
     public HarvesterComponent() {}
 
     private static void readUpgrades(HarvesterComponent c, String[] ids) {
         c.upgrades = UpgradeSet.parse(ids);
-        if (!c.upgrades.ignored().isEmpty()) {
-            HyPedestalsPlugin.warn("Harvester: ignored unknown or repeated upgrades %s; they are dropped on the next save",
-                    c.upgrades.ignored());
-        }
+        c.ignoredUpgrades = c.upgrades.ignored();
     }
 
     public int tier() {
@@ -137,6 +142,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         copy.radius = HarvesterSettings.sanitizeRadius(radius);
         copy.intervalSeconds = HarvesterSettings.sanitizeInterval(intervalSeconds);
         copy.upgrades = upgrades.copy();
+        copy.ignoredUpgrades = ignoredUpgrades;
         return copy;
     }
 }

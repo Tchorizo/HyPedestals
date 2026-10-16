@@ -177,6 +177,44 @@ class ModSettingsTest {
     }
 
     @Test
+    void withChangesFromKeepsConcurrentChangesToUntouchedFields() {
+        // The window opens with the defaults; meanwhile `config set Copper IntervalSeconds 3` and
+        // `config set global CollectMargin 0`; the user only changes Iron's radius and the
+        // particles checkbox, then saves.
+        ModSettings opened = ModSettings.DEFAULTS;
+        ModSettings current = opened.set("Copper", "IntervalSeconds", "3").set("global", "CollectMargin", "0");
+        ModSettings entered = opened.set("Iron", "Radius", "6").set("global", "HarvestParticles", "false");
+
+        ModSettings saved = current.withChangesFrom(opened, entered);
+
+        assertEquals(new TierSettings(2, 3f, Tier.COPPER.defaults().wateringSeconds()), saved.tier(Tier.COPPER),
+                "the concurrent command change survives");
+        assertEquals(0, saved.collectMargin(), "the concurrent command change survives");
+        assertEquals(6, saved.tier(Tier.IRON).radius(), "the field the user changed is applied");
+        assertFalse(saved.harvestParticles(), "the field the user changed is applied");
+        assertEquals(Tier.THORIUM.defaults(), saved.tier(Tier.THORIUM));
+        assertEquals(current.withTier(Tier.IRON, new TierSettings(6, 8f, Tier.IRON.defaults().wateringSeconds()))
+                .withHarvestParticles(false), saved, "nothing else changes");
+    }
+
+    @Test
+    void withChangesFromAppliesTheUsersValueOverAConcurrentChangeOfTheSameField() {
+        ModSettings opened = ModSettings.DEFAULTS;
+        ModSettings current = opened.set("Copper", "IntervalSeconds", "3");
+        ModSettings entered = opened.set("Copper", "IntervalSeconds", "6");
+        assertEquals(6f, current.withChangesFrom(opened, entered).tier(Tier.COPPER).intervalSeconds(), "last writer wins");
+    }
+
+    @Test
+    void withChangesFromIgnoresTheWindowsOneDecimalRounding() {
+        // 0.75 set by command shows as 0.8 in the window; saving without touching it keeps 0.75.
+        ModSettings opened = ModSettings.DEFAULTS.set("Copper", "IntervalSeconds", "0.75");
+        ModSettings entered = ModSettings.DEFAULTS.set("Copper", "IntervalSeconds", "0.8");
+        assertEquals(0.75f, opened.withChangesFrom(opened, entered).tier(Tier.COPPER).intervalSeconds());
+        assertEquals(opened, opened.withChangesFrom(opened, opened), "no changes, same settings");
+    }
+
+    @Test
     void describeIsOneLine() {
         assertEquals("Copper Radius=2 IntervalSeconds=12.0 WateringSeconds=21600"
                         + " | Iron Radius=3 IntervalSeconds=8.0 WateringSeconds=43200"

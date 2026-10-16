@@ -41,6 +41,13 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         HarvesterComponent harvester = chunk.getComponent(index, HarvesterComponent.TYPE);
         BlockModule.BlockStateInfo info = chunk.getComponent(index, BlockModule.BlockStateInfo.getComponentType());
 
+        if (!harvester.ignoredUpgradesWarned && !harvester.ignoredUpgrades.isEmpty()) {
+            harvester.ignoredUpgradesWarned = true;
+            Vector3i at = new Vector3i();
+            HyPedestalsPlugin.warn("Harvester at %s: ignored unknown or repeated upgrades %s; they are dropped on the next save",
+                    info.fillWorldPos(cb, at) ? at : "?", harvester.ignoredUpgrades);
+        }
+
         ModSettings global = HyPedestalsPlugin.settings();
         TierSettings settings = global.effective(harvester.tier, harvester.radius, harvester.intervalSeconds);
         // Config values are always valid; only the asset fallback (a tier the config does not

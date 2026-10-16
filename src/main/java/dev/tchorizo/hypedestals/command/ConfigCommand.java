@@ -47,8 +47,12 @@ final class ConfigCommand extends AbstractAsyncCommand {
         }
         Store<EntityStore> store = ref.getStore();
         World world = store.getExternalData().getWorld();
-        // Pages are opened on the player's world thread.
+        // Pages are opened on the player's world thread; the player may have left (or changed
+        // world) before the task runs.
         return CompletableFuture.runAsync(() -> {
+            if (!ref.isValid()) {
+                return;
+            }
             Player player = store.getComponent(ref, Player.getComponentType());
             if (player != null) {
                 player.getPageManager().openCustomPage(ref, store, new ConfigPage(playerRef));

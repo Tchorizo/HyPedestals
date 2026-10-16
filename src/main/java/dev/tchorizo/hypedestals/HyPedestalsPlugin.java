@@ -18,6 +18,8 @@ public final class HyPedestalsPlugin extends JavaPlugin {
     private static final String PREFIX = "[HyPedestals] ";
     /** Config name; the file is {@code <data directory>/HyPedestals.json}. */
     private static final String CONFIG_NAME = "HyPedestals";
+    /** Guards the read-modify-write in {@link #updateSettings}. */
+    private static final Object SETTINGS_LOCK = new Object();
 
     // The server instantiates the plugin exactly once; the static helpers route through it.
     // Server-only: calling them before the server constructs the plugin (e.g. in a plain JUnit test) throws NPE.
@@ -66,15 +68,20 @@ public final class HyPedestalsPlugin extends JavaPlugin {
     }
 
     /**
-     * Applies {@code change} to the current global settings and writes the config file. Serialized,
-     * so concurrent changes (two admins, window and command) do not overwrite each other.
+     * Applies {@code change} to the current global settings and writes the config file. The
+     * read-modify-write is serialized on {@link #SETTINGS_LOCK}, so concurrent changes (two admins,
+     * window and command) do not overwrite each other; the file write runs outside the lock.
      *
      * @param change returns the new settings, already validated; an exception it throws leaves
      *     the settings unchanged and propagates
      */
-    public static synchronized CompletableFuture<Void> updateSettings(UnaryOperator<ModSettings> change) {
+    public static CompletableFuture<Void> updateSettings(UnaryOperator<ModSettings> change) {
         HyPedestalsConfig current = instance.config.get();
-        current.setSettings(change.apply(current.settings()));
+        synchronized (SETTINGS_LOCK) {
+            current.setSettings(change.apply(current.settings()));
+        }
+        // Config.save encodes the settings at call time; a write racing another may leave an
+        // older snapshot on disk, but the in-memory settings stay correct.
         return instance.save();
     }
 

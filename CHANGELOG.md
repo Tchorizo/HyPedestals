@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Global configuration file `HyPedestals.json` (plugin data folder): radius and interval per tier, `CollectAnyItem` (turn off to leave tools, weapons and armor on the ground) and `CollectMargin` (how far beyond the area drops are collected). The tier values in the block assets are now the defaults.
+- Global configuration file `HyPedestals.json` (plugin data folder): radius and interval per tier, `CollectAnyItem` (turn off to leave tools, weapons and armor on the ground) and `CollectMargin` (how far beyond the area drops are collected). The shipped tier values are the defaults; the block asset's `Radius`/`IntervalSeconds` are only used for tiers the config does not know.
 - `/hypedestals config show` and `/hypedestals config set …` to view and change the configuration in game or from the console; changes apply from each Harvester's next cycle.
 - In-game settings window (`/hypedestals config`, operators) to edit the same values, in English and Brazilian Portuguese.
 
