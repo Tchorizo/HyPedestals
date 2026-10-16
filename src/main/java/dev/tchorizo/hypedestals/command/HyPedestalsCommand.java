@@ -18,16 +18,27 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-/** {@code /hypedestals}: {@code inspect} and {@code config} always; {@code dev …} only when the server enables it. */
+/**
+ * {@code /hypedestals}: {@code inspect} and {@code config} always; {@code dev …} only when the server enables it.
+ *
+ * <p>Every node is operator-only: nobody holds them by default and {@code hytale:Admin} (ops) passes
+ * through its {@code *} wildcard. A subcommand also needs its parents' nodes (the engine's
+ * {@code AbstractCommand.hasPermission} walks up the chain), so granting {@code config set} to a
+ * non-op means granting {@link #PERMISSION}, {@code .config} and {@code .config.set}. The nodes are
+ * the ones the engine would generate from the manifest; declaring them keeps them stable.
+ */
 public final class HyPedestalsCommand extends AbstractAsyncCommand {
 
     /** System property that enables the {@code dev} subcommands (e.g. {@code -Dhypedestals.dev=true}). */
     public static final String DEV_PROPERTY = "hypedestals.dev";
+    /** Node of {@code /hypedestals}; subcommands append {@code .<name>}. */
+    static final String PERMISSION = "tchorizo.hypedestals.command.hypedestals";
 
     private final boolean dev;
 
     public HyPedestalsCommand(boolean dev) {
         super("hypedestals", "HyPedestals commands");
+        requirePermission(PERMISSION);
         this.dev = dev;
         addSubCommand(new InspectCommand());
         addSubCommand(new ConfigCommand());

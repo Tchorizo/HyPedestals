@@ -15,7 +15,8 @@ import java.util.Set;
  *       never above (where the crops and the plate are).</li>
  *   <li>A neighbor that is a Harvester is skipped, so two Harvesters side by side never pass
  *       items back and forth. A container reached from two sides is used once.</li>
- *   <li>The last slot is the fertilizer input slot and is never exported.</li>
+ *   <li>The last slot is never exported while it is the fertilizer input slot (upgrade installed,
+ *       slot filter applied); without the upgrade it is a slot like the others.</li>
  *   <li>Partial moves are fine: what does not fit stays for the next cycle.</li>
  * </ul>
  */
@@ -74,17 +75,23 @@ public final class ExportPlan {
         return out;
     }
 
-    /** Every slot except the last one (the fertilizer input slot). */
-    public static boolean isExportable(int slot, int capacity) {
-        return slot >= 0 && slot < capacity - 1;
+    /**
+     * Every slot of the container, except the last one when it is the fertilizer input slot.
+     *
+     * @param inputSlot whether the last slot is currently the input slot
+     */
+    public static boolean isExportable(int slot, int capacity, boolean inputSlot) {
+        return slot >= 0 && slot < (inputSlot ? capacity - 1 : capacity);
     }
 
     /**
      * Moves every exportable slot of {@code source} into the containers around {@code center}.
      * The world is not consulted when no exportable slot holds anything.
+     *
+     * @param inputSlot whether the last slot is currently the fertilizer input slot; see {@link #isExportable}
      */
-    public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center) {
-        if (!hasExportable(source)) {
+    public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center, boolean inputSlot) {
+        if (!hasExportable(source, inputSlot)) {
             return Result.NONE;
         }
         List<ExportTarget<S>> targets = targets(world, center);
@@ -95,7 +102,7 @@ public final class ExportPlan {
         BlockPos last = null;
         int capacity = source.capacity();
         for (int slot = 0; slot < capacity; slot++) {
-            if (!isExportable(slot, capacity)) {
+            if (!isExportable(slot, capacity, inputSlot)) {
                 continue;
             }
             for (ExportTarget<S> target : targets) {
@@ -115,10 +122,10 @@ public final class ExportPlan {
         return moved == 0 ? Result.NONE : new Result(moved, last);
     }
 
-    private static boolean hasExportable(ExportSource source) {
+    private static boolean hasExportable(ExportSource source, boolean inputSlot) {
         int capacity = source.capacity();
         for (int slot = 0; slot < capacity; slot++) {
-            if (isExportable(slot, capacity) && !source.isEmpty(slot)) {
+            if (isExportable(slot, capacity, inputSlot) && !source.isEmpty(slot)) {
                 return true;
             }
         }

@@ -35,9 +35,9 @@ class UpgradeVisualTest {
     @Test
     void followsRemoval() {
         UpgradeSet set = of(UpgradeType.WATERING, UpgradeType.FERTILIZER);
-        set.removeLast();
+        set.remove(set.newest());
         assertEquals("Watering", UpgradeVisual.stateFor(set));
-        set.removeLast();
+        set.remove(set.newest());
         assertEquals(UpgradeVisual.DEFAULT, UpgradeVisual.stateFor(set));
     }
 }

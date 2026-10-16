@@ -59,14 +59,18 @@ class UpgradeSetTest {
     }
 
     @Test
-    void removeLastIsLifo() {
+    void newestIsLifoAndPeeksWithoutRemoving() {
         UpgradeSet set = new UpgradeSet();
+        assertNull(set.newest());
         set.install(UpgradeType.FERTILIZER);
         set.install(UpgradeType.WATERING);
-        assertEquals(UpgradeType.WATERING, set.removeLast());
+        assertEquals(UpgradeType.WATERING, set.newest());
+        assertTrue(set.has(UpgradeType.WATERING), "still installed");
+        assertTrue(set.remove(set.newest()));
         assertFalse(set.has(UpgradeType.WATERING));
-        assertEquals(UpgradeType.FERTILIZER, set.removeLast());
-        assertNull(set.removeLast());
+        assertEquals(UpgradeType.FERTILIZER, set.newest());
+        assertTrue(set.remove(set.newest()));
+        assertNull(set.newest());
         assertTrue(set.isEmpty());
     }
 

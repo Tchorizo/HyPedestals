@@ -6,7 +6,7 @@ import java.util.StringJoiner;
 
 /**
  * Upgrades installed in one Harvester: at most one per type, kept in installation order so
- * {@link #removeLast()} hands back the newest. Persisted as the item ids of {@link #toArray()}.
+ * {@link #newest()} is the one to hand back first. Persisted as the item ids of {@link #toArray()}.
  */
 public final class UpgradeSet {
 
@@ -62,9 +62,9 @@ public final class UpgradeSet {
         return true;
     }
 
-    /** Removes and returns the newest upgrade, or {@code null} when none is installed. */
-    public UpgradeType removeLast() {
-        return installed.isEmpty() ? null : installed.removeLast();
+    /** The newest upgrade, without removing it; {@code null} when none is installed. */
+    public UpgradeType newest() {
+        return installed.isEmpty() ? null : installed.getLast();
     }
 
     /** Removes {@code type}; {@code false} when it was not installed. */

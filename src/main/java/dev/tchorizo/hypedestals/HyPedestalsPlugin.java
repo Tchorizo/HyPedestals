@@ -1,8 +1,10 @@
 package dev.tchorizo.hypedestals;
 
+import com.hypixel.hytale.codec.ExtraInfo;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Interaction;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.util.BsonUtil;
 import com.hypixel.hytale.server.core.util.Config;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HarvesterRemovalSystem;
@@ -12,18 +14,24 @@ import dev.tchorizo.hypedestals.block.RemoveUpgradeInteraction;
 import dev.tchorizo.hypedestals.command.HyPedestalsCommand;
 import dev.tchorizo.hypedestals.config.HyPedestalsConfig;
 import dev.tchorizo.hypedestals.config.ModSettings;
+import org.bson.BsonDocument;
 
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.UnaryOperator;
 
 public final class HyPedestalsPlugin extends JavaPlugin {
     private static final String PREFIX = "[HyPedestals] ";
     /** Config name; the file is {@code <data directory>/HyPedestals.json}. */
     private static final String CONFIG_NAME = "HyPedestals";
-    /** Guards the read-modify-write in {@link #updateSettings}. */
+    /** Guards the read-modify-write in {@link #updateSettings} and the write chain ({@link #lastWrite}). */
     private static final Object SETTINGS_LOCK = new Object();
+    /** How long a reply (and the shutdown) waits for the config file write. */
+    private static final long WRITE_TIMEOUT_SECONDS = 5;
 
     // The server instantiates the plugin exactly once; the static helpers route through it.
     // Server-only: calling them before the server constructs the plugin (e.g. in a plain JUnit test) throws NPE.
@@ -31,6 +39,8 @@ public final class HyPedestalsPlugin extends JavaPlugin {
 
     /** Must be created in the constructor: {@code withConfig} throws once {@code setup} has started. */
     private final Config<HyPedestalsConfig> config;
+    /** Newest queued write of the config file; guarded by {@link #SETTINGS_LOCK}. */
+    private CompletableFuture<Void> lastWrite = CompletableFuture.completedFuture(null);
 
     public HyPedestalsPlugin(JavaPluginInit init) {
         super(init);
@@ -71,6 +81,25 @@ public final class HyPedestalsPlugin extends JavaPlugin {
         log("started");
     }
 
+    /**
+     * The engine's document writer threads are daemons, so a write still queued when the JVM
+     * exits is lost (e.g. {@code config set} followed right away by {@code stop}): wait for it.
+     */
+    @Override
+    protected void shutdown() {
+        CompletableFuture<Void> pending;
+        synchronized (SETTINGS_LOCK) {
+            pending = lastWrite;
+        }
+        try {
+            pending.get(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            warn("config: pending write of %s did not finish: %s", configFile(), e);
+        }
+    }
+
     /** Current global settings; read by every Harvester cycle, so a change applies from the next cycle on. */
     public static ModSettings settings() {
         return instance.config.get().settings();
@@ -78,20 +107,21 @@ public final class HyPedestalsPlugin extends JavaPlugin {
 
     /**
      * Applies {@code change} to the current global settings and writes the config file. The
-     * read-modify-write is serialized on {@link #SETTINGS_LOCK}, so concurrent changes (two admins,
-     * window and command) do not overwrite each other; the file write runs outside the lock.
+     * read-modify-write and the queuing of the write are serialized on {@link #SETTINGS_LOCK}, so
+     * concurrent changes (two admins, window and command) do not overwrite each other and the
+     * newest settings are the last written.
      *
      * @param change returns the new settings, already validated; an exception it throws leaves
      *     the settings unchanged and propagates
+     * @return completes when the file is written; fails with the write error, or with a
+     *     {@link TimeoutException} after {@value #WRITE_TIMEOUT_SECONDS} s
      */
     public static CompletableFuture<Void> updateSettings(UnaryOperator<ModSettings> change) {
         HyPedestalsConfig current = instance.config.get();
         synchronized (SETTINGS_LOCK) {
             current.setSettings(change.apply(current.settings()));
+            return instance.save();
         }
-        // Config.save encodes the settings at call time; a write racing another may leave an
-        // older snapshot on disk, but the in-memory settings stay correct.
-        return instance.save();
     }
 
     /** Absolute path of the config file. */
@@ -99,8 +129,24 @@ public final class HyPedestalsPlugin extends JavaPlugin {
         return instance.getDataDirectory().resolve(CONFIG_NAME + ".json").toAbsolutePath();
     }
 
+    /**
+     * Queues a write of the current settings. Deliberately not {@code Config.save()}: in 0.7.2
+     * {@code Config.load()} publishes its future only after starting the async read, so when the
+     * read finishes first the future is never cleared, and from then on {@code save()} returns an
+     * already-completed future without writing anything (every change of that session silently
+     * lost on restart). This writes the same document, the same way ({@code BsonUtil.writeDocument}:
+     * temp file, {@code .bak}, atomic move), chained after the previous write so two writes never
+     * share the temp file and the newest snapshot lands last.
+     */
     private CompletableFuture<Void> save() {
-        return config.save();
+        synchronized (SETTINGS_LOCK) {
+            BsonDocument document = HyPedestalsConfig.CODEC.encode(config.get(), new ExtraInfo());
+            Path file = configFile();
+            lastWrite = lastWrite.handle((ignored, error) -> null)
+                    .thenCompose(ignored -> BsonUtil.writeDocument(file, document));
+            // copy(): the timeout must fail only the caller's view, not the chain.
+            return lastWrite.copy().orTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        }
     }
 
     public static void log(String fmt, Object... args) {

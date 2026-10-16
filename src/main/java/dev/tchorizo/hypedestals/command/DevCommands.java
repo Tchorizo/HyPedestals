@@ -60,7 +60,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@code /hypedestals dev …}: world setup for testing the harvest cycle on a dedicated server with
- * no player. Registered only when {@link HyPedestalsCommand#DEV_PROPERTY} is set.
+ * no player. Registered only when {@link HyPedestalsCommand#DEV_PROPERTY} is set; operator-only
+ * (each subcommand's node is generated below this one, e.g. {@code ….dev.place}).
  */
 final class DevCommands extends AbstractAsyncCommand {
 
@@ -82,6 +83,7 @@ final class DevCommands extends AbstractAsyncCommand {
 
     DevCommands() {
         super("dev", "HyPedestals development commands");
+        requirePermission(HyPedestalsCommand.PERMISSION + ".dev");
         addSubCommand(new PlaceCommand());
         addSubCommand(new PlantCommand());
         addSubCommand(new RipenCommand());

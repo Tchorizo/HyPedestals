@@ -17,17 +17,19 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals config}: opens the settings window for a player; {@code config show} and
- * {@code config set <Tier|global> <field> <value>} do the same from chat or the console. Uses the
- * engine's default command permission (operators).
+ * {@code config set <Tier|global> <field> <value>} do the same from chat or the console. All three
+ * are operator-only (nodes under {@link HyPedestalsCommand#PERMISSION}).
  */
 final class ConfigCommand extends AbstractAsyncCommand {
 
+    private static final String PERMISSION = HyPedestalsCommand.PERMISSION + ".config";
     private static final String USAGE = "usage: hypedestals config | config show"
             + " | config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>"
             + " | config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles> <value>";
 
     ConfigCommand() {
         super("config", "Open the HyPedestals settings window");
+        requirePermission(PERMISSION);
         addSubCommand(new ShowCommand());
         addSubCommand(new SetCommand());
     }
@@ -67,6 +69,7 @@ final class ConfigCommand extends AbstractAsyncCommand {
     private static final class ShowCommand extends AbstractAsyncCommand {
         ShowCommand() {
             super("show", "Show the HyPedestals settings");
+            requirePermission(PERMISSION + ".show");
         }
 
         @Override
@@ -95,6 +98,7 @@ final class ConfigCommand extends AbstractAsyncCommand {
 
         SetCommand() {
             super("set", "Change one HyPedestals setting");
+            requirePermission(PERMISSION + ".set");
         }
 
         @Override

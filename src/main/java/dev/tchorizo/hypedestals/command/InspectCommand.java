@@ -36,6 +36,8 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
 
     InspectCommand() {
         super("inspect", "Show the state of the Harvester at a position");
+        // Operator-only: reads the state of any block, including other players' Harvesters.
+        requirePermission(HyPedestalsCommand.PERMISSION + ".inspect");
     }
 
     /** Inspecting must never generate terrain; a never-generated section is reported instead. */

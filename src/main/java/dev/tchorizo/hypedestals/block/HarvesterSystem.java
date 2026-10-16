@@ -153,7 +153,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         // After the cycle's second collect, so this cycle's items leave right away; also when the
         // cycle paused because the container was full, which is when export matters most.
         harvester.lastExport = global.exportToAdjacent()
-                ? new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z))
+                ? new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),
+                        harvester.inputFiltered != null)
                 : ExportPlan.Result.NONE;
     }
 

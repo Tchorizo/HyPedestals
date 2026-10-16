@@ -31,7 +31,6 @@ import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 import java.util.List;
-import java.util.Map;
 
 /** {@link CycleWorld} over one Hytale world, for a single cycle of one harvester. Not reusable across ticks. */
 final class HytaleCycleWorld implements CycleWorld {
@@ -101,18 +100,19 @@ final class HytaleCycleWorld implements CycleWorld {
     }
 
     /**
-     * Harvest that does not throw for the known "store busy" case. {@code FarmingUtil.harvest}
-     * removes a crop that does not regrow (no {@code StageSetAfterHarvest}, e.g. plain
-     * {@code Plant_Crop_Wheat_Block}) with {@code BlockOperations.setBlock(air)}, which writes to
-     * the chunk store itself rather than to {@link #chunkBuffer}: if the block still has a block
-     * entity, {@code BlockEntity.setBlockEntity} calls {@code Store.removeEntity}, and from inside
-     * a system that throws {@code IllegalStateException("Store is currently processing! ...")}
-     * after the drops were already spawned and the block set to air (leaving the entity behind).
-     * A ripe crop keeps its {@code FarmingBlock} entity only until its next farming tick removes
-     * it ({@code FarmingUtil.tickFarming} drops the entity once the last stage is reached): about
-     * one tick when the crop ripens naturally, a few seconds after {@code dev ripen}. So such a
-     * position is skipped as {@link HarvestOutcome#TRANSIENT_ERROR} before anything happens, and
-     * the exception itself, should it still occur, is classified the same way by its message.
+     * Harvest that does not throw for the known "store busy" case. Observed on 0.7.2 with plain
+     * {@code Plant_Crop_Wheat_Block} (no {@code StageSetAfterHarvest}) harvested from the
+     * Harvester's tick a few seconds after {@code dev ripen}: {@code FarmingUtil.harvest} spawned
+     * the drops, set the block to air and then threw
+     * {@code IllegalStateException: Store is currently processing! …} from {@code Store.removeEntity}
+     * (stack trace through {@code FarmingUtil.harvest} → {@code BlockOperations.setBlock} →
+     * {@code BlockEntity.setBlockEntity}), leaving the crop's block entity behind. The same crop
+     * harvested once its block entity was gone (the farming tick removes it after the last stage:
+     * about one tick for a naturally ripened crop) came off cleanly, and crops that regrow
+     * ({@code StageSetAfterHarvest}, e.g. the Eternal ones) never threw. So such a position is
+     * skipped as {@link HarvestOutcome#TRANSIENT_ERROR} before anything happens
+     * ({@link #removalBlockedByBlockEntity}), and the exception itself, should a case slip past
+     * that check, is classified the same way by its message.
      */
     @Override
     public HarvestOutcome harvest(BlockPos p) {
@@ -136,9 +136,9 @@ final class HytaleCycleWorld implements CycleWorld {
     }
 
     /**
-     * Whether {@code FarmingUtil.harvest0} would take one of its "replace with air" branches at
-     * {@code p} (same checks, on the block type actually there) while a block entity still exists
-     * at that block, i.e. whether harvesting now would throw "Store is currently processing".
+     * The externally observable rule behind the "store busy" failure (see {@link #harvest}): a
+     * harvestable block ({@code Gathering.Harvest}) that does not regrow in place (no
+     * {@code StageSetAfterHarvest} naming a non-empty stage set) and still has a block entity.
      */
     private boolean removalBlockedByBlockEntity(BlockPos p) {
         BlockType block = BlockType.getAssetMap().getAsset(reader.getBlock(p.x(), p.y(), p.z()));
@@ -148,13 +148,9 @@ final class HytaleCycleWorld implements CycleWorld {
         }
         FarmingData farming = block.getFarming();
         if (farming != null && farming.getStages() != null && farming.getStageSetAfterHarvest() != null) {
-            Map<String, FarmingStageData[]> stages = farming.getStages();
-            if (farming.getStartingStageSet() == null || stages.get(farming.getStartingStageSet()) == null) {
-                return false; // harvest gives the drops and returns false, block untouched
-            }
-            FarmingStageData[] after = stages.get(farming.getStageSetAfterHarvest());
+            FarmingStageData[] after = farming.getStages().get(farming.getStageSetAfterHarvest());
             if (after != null && after.length > 0) {
-                return false; // regrows in place through the command buffer
+                return false; // regrows in place
             }
         }
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());

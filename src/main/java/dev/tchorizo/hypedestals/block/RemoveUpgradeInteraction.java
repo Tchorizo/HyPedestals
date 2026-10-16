@@ -27,7 +27,9 @@ import java.util.List;
  * Interaction type {@code HyPedestalsRemoveUpgrade}: the crouching branch of the Harvester's
  * {@code Use}. Takes out the newest upgrade and gives its item back to the player; what does not
  * fit in the inventory is dropped at the player. An interactor that is not a player gets nothing
- * handed: the item drops on top of the block. Fails when the Harvester has no upgrade.
+ * handed: the item drops on top of the block. Fails when the Harvester has no upgrade. The item is
+ * handed over first and the upgrade removed only after that succeeded, so an engine exception on
+ * the way never leaves the player with neither the item nor the upgrade.
  */
 public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
 
@@ -46,14 +48,12 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        UpgradeType removed = target.harvester().upgrades().removeLast();
+        UpgradeType removed = target.harvester().upgrades().newest();
         if (removed == null) {
             UpgradeTarget.tell(cb, ctx, "none", null);
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        target.markNeedsSaving();
-        HarvesterVisual.request(world, pos);
 
         Ref<EntityStore> interactor = ctx.getEntity();
         ItemStack item = new ItemStack(removed.itemId(), 1);
@@ -68,6 +68,10 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
                 ItemUtils.dropItem(interactor, remainder, cb);
             }
         }
+
+        target.harvester().upgrades().remove(removed);
+        target.markNeedsSaving();
+        HarvesterVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "removed", removed);
         HyPedestalsPlugin.log("upgrade: %s removed at %d %d %d -> %s",
                 removed.displayName(), pos.x, pos.y, pos.z, target.harvester().upgrades());

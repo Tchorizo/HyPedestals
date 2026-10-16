@@ -48,11 +48,13 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
      * the engine (e.g. a neighbor's container in an unexpected state) ends this export with
      * {@link ExportPlan.Result#NONE} and a warning; what already moved is still marked for saving,
      * and the next cycle tries again.
+     *
+     * @param inputSlot whether the container's last slot is the fertilizer input slot (kept out of the export)
      */
-    ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center) {
+    ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center, boolean inputSlot) {
         ExportPlan.Result result;
         try {
-            result = ExportPlan.run(this, new Source(container), center);
+            result = ExportPlan.run(this, new Source(container), center, inputSlot);
         } catch (RuntimeException e) {
             HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
                     center.x(), center.y(), center.z(), e.toString());
@@ -85,7 +87,8 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
         int filler = reader.getFiller(p.x(), p.y(), p.z());
         int x = p.x(), y = p.y(), z = p.z();
         if (filler != 0) {
-            // The filler value is the offset from the origin, as ModernStorage resolves it too.
+            // A filler block (a non-origin part of a multi-block) stores its packed offset from the
+            // origin block, which holds the block entity: subtract it to reach the container.
             x -= FillerBlockUtil.unpackX(filler);
             y -= FillerBlockUtil.unpackY(filler);
             z -= FillerBlockUtil.unpackZ(filler);
