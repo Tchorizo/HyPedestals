@@ -20,8 +20,9 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, scan
- * position, container usage, last cycle result and installed upgrades, {@code no Harvester at <x y z>}, or {@code section not loaded at
- * <x y z>} when the section was never generated (inspecting never generates terrain).
+ * position, container usage, last cycle result, installed upgrades and watering sweeps,
+ * {@code no Harvester at <x y z>}, or {@code section not loaded at <x y z>} when the section was
+ * never generated (inspecting never generates terrain).
  * Loads the section from disk if it exists (never generating it) and marks it as ticking.
  */
 final class InspectCommand extends HyPedestalsCommand.PositionCommand {
@@ -51,13 +52,23 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         }
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s upgrades=%s",
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s upgrades=%s soil: %s",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
                 last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b",
                         last.harvested(), last.collected(), last.pausedFull()),
-                harvester.upgrades());
+                harvester.upgrades(), soil(harvester));
+    }
+
+    /**
+     * {@code watered=<last sweep> total=<since load> lastSweep=<seconds ago>s}, or {@code none}
+     * before the first watering sweep since the load. A sweep rewaters only soil with less than
+     * half the tier's duration left, so after the first sweep {@code watered} is usually 0.
+     */
+    private static String soil(HarvesterComponent harvester) {
+        return harvester.lastWatered() < 0 ? "none" : String.format(Locale.ROOT, "watered=%d total=%d lastSweep=%.1fs",
+                harvester.lastWatered(), harvester.wateredTotal(), harvester.secondsSinceSoilSweep());
     }
 
     /** {@code <used>/<capacity>}, counting slots that hold a non-empty stack. */

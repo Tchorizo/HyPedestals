@@ -71,6 +71,12 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      */
     List<String> ignoredUpgrades = List.of();
     boolean ignoredUpgradesWarned;
+    /** Seconds since the last soil sweep (or the load); the sweep has its own timer, see {@code HarvesterSystem}. */
+    float soilElapsed;
+    /** Soil blocks the last watering sweep watered; {@code -1} before the first one. */
+    int lastWatered = -1;
+    /** Soil blocks watered since the load. */
+    int wateredTotal;
 
     public HarvesterComponent() {}
 
@@ -128,6 +134,21 @@ public final class HarvesterComponent implements Component<ChunkStore> {
 
     public boolean hasUpgrade(UpgradeType type) {
         return upgrades.has(type);
+    }
+
+    /** Soil blocks the most recent watering sweep watered; {@code -1} before the first one since the load. */
+    public int lastWatered() {
+        return lastWatered;
+    }
+
+    /** Soil blocks watered since the load. */
+    public int wateredTotal() {
+        return wateredTotal;
+    }
+
+    /** Seconds since the last soil sweep, or since the load before the first one. */
+    public float secondsSinceSoilSweep() {
+        return soilElapsed;
     }
 
     public float secondsToNextCycle() {

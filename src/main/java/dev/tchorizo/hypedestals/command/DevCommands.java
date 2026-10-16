@@ -2,6 +2,7 @@ package dev.tchorizo.hypedestals.command;
 
 import com.hypixel.hytale.builtin.adventure.farming.config.stages.BlockStateFarmingStageData;
 import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
+import com.hypixel.hytale.builtin.adventure.farming.states.TilledSoilBlock;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
@@ -27,6 +28,7 @@ import com.hypixel.hytale.server.core.universe.world.SetBlockSettings;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.SectionReader;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockOperations;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -34,6 +36,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleIds;
+import dev.tchorizo.hypedestals.block.HytaleSoilWorld;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
@@ -89,6 +92,8 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new ContentsCommand());
         addSubCommand(new UpgradeCommand());
         addSubCommand(new FenceCommand());
+        addSubCommand(new WaterCommand());
+        addSubCommand(new SoilCommand());
     }
 
     @Override
@@ -98,7 +103,8 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
-                        + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>",
+                        + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
+                        + " | water <x y z> <game seconds> | soil <x y z>",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -1132,6 +1138,92 @@ final class DevCommands extends AbstractAsyncCommand {
             }
             return String.format(Locale.ROOT, "upgrade %s %s at %s: changed=%b markedForSave=%b upgrades=%s",
                     add ? "add" : "remove", type.displayName(), at, changed, marked, upgrades);
+        }
+    }
+
+    /**
+     * {@code water <x y z> <seconds>}: waters the tilled soil at the position until
+     * {@code now + seconds} of game time, through the same {@link HytaleSoilWorld} the watering
+     * upgrade uses (setter, ticking, scheduled tick, mark for saving).
+     */
+    private static final class WaterCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<Integer> seconds =
+                withRequiredArg("seconds", "Game seconds from now", ArgTypes.INTEGER);
+
+        WaterCommand() {
+            super("water", "Water the tilled soil at a position for some game seconds");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            int s = context.get(seconds);
+            return runAt(context, world -> {
+                Instant now = HytaleSoilWorld.gameTime(world);
+                if (now == null) {
+                    HyPedestalsCommand.reply(context, "water: no world time");
+                    return;
+                }
+                HytaleSoilWorld soil = new HytaleSoilWorld(world, world.getChunkStore().getStore());
+                BlockPos p = new BlockPos(pos.x, pos.y, pos.z);
+                if (soil.soilAt(p) == null) {
+                    HyPedestalsCommand.reply(context, "water: no tilled soil at %s", HyPedestalsCommand.format(pos));
+                    return;
+                }
+                soil.water(p, now.plusSeconds(s));
+                HyPedestalsCommand.reply(context, "water: %s", SoilCommand.describe(world, pos));
+            }, pos);
+        }
+    }
+
+    /**
+     * {@code soil <x y z>}: block id, ticking flag and {@code TilledSoilBlock} fields at the
+     * position, with {@code wateredUntil} relative to the world's game time.
+     */
+    private static final class SoilCommand extends HyPedestalsCommand.PositionCommand {
+        SoilCommand() {
+            super("soil", "Show the tilled soil state at a position");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", describe(world, pos)), pos);
+        }
+
+        static String describe(World world, Vector3i pos) {
+            String at = HyPedestalsCommand.format(pos);
+            ChunkStore chunkStore = world.getChunkStore();
+            Store<ChunkStore> store = chunkStore.getStore();
+            Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
+            if (section == null) {
+                return "soil at " + at + ": section not loaded";
+            }
+            BlockType type = BlockType.getAssetMap().getAsset(new SectionReader(chunkStore).getBlock(pos.x, pos.y, pos.z));
+            String id = type == null ? "null" : type.getId();
+            TilledSoilBlock soil = new HytaleSoilWorld(world, store).component(new BlockPos(pos.x, pos.y, pos.z));
+            if (soil == null) {
+                return "soil at " + at + ": " + id + " has no TilledSoilBlock";
+            }
+            BlockSection blocks = store.getComponent(section, BlockSection.getComponentType());
+            Instant now = HytaleSoilWorld.gameTime(world);
+            Instant until = soil.getWateredUntil();
+            String left = until == null || now == null ? "-"
+                    : String.format(Locale.ROOT, "%+ds", Duration.between(now, until).toSeconds());
+            return String.format(Locale.ROOT,
+                    "soil at %s: %s ticking=%s planted=%b fertilized=%b externalWater=%b wateredUntil=%s left=%s now=%s",
+                    at, id, blocks == null ? "?" : blocks.isTicking(pos.x, pos.y, pos.z), soil.isPlanted(),
+                    soil.isFertilized(), soil.hasExternalWater(), until, left, now);
         }
     }
 }

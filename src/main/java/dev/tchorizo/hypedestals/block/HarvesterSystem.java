@@ -14,13 +14,19 @@ import dev.tchorizo.hypedestals.config.ModSettings;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
+import dev.tchorizo.hypedestals.harvest.SoilPass;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import org.joml.Vector3i;
 
+import java.time.Instant;
+
 /**
- * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}. Radius,
- * interval, margin and item filter are read from the global config on every tick, so changes made
- * with {@code /hypedestals config} (command or window) apply right away; hand edits to the config
- * file are read at server start only.
+ * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}, and, every
+ * {@code SoilSweepSeconds} on a timer of its own, a {@link SoilPass} over the same area when the
+ * watering upgrade is installed. Radius, interval, margin, item filter and the soil settings are
+ * read from the global config on every tick, so changes made with {@code /hypedestals config}
+ * (command or window) apply right away; hand edits to the config file are read at server start
+ * only.
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -63,6 +69,16 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             return;
         }
 
+        // Own timer, independent of the harvest interval: the soil is cared for even while the
+        // container is full (upgrades spec §2.1).
+        harvester.soilElapsed += dt;
+        if (harvester.soilElapsed >= global.soilSweepSeconds()) {
+            harvester.soilElapsed = 0;
+            if (harvester.hasUpgrade(UpgradeType.WATERING)) {
+                sweepSoil(harvester, info, store, cb, settings);
+            }
+        }
+
         harvester.elapsed += dt;
         if (harvester.elapsed < settings.intervalSeconds()) {
             return;
@@ -98,5 +114,22 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             HyPedestalsPlugin.warn("Harvester at %s: %d crop(s) still being updated by the game, retrying next cycle",
                     pos, harvester.lastResult.transientFailures());
         }
+    }
+
+    /** Waters the tilled soil of the area that needs it, for {@code WateringSeconds} of game time. */
+    private static void sweepSoil(HarvesterComponent harvester, BlockModule.BlockStateInfo info,
+                                  Store<ChunkStore> store, CommandBuffer<ChunkStore> cb, TierSettings settings) {
+        Vector3i pos = new Vector3i();
+        if (!info.fillWorldPos(cb, pos)) {
+            return;
+        }
+        World world = store.getExternalData().getWorld();
+        Instant now = HytaleSoilWorld.gameTime(world);
+        if (now == null) {
+            return;
+        }
+        harvester.lastWatered = SoilPass.run(new HytaleSoilWorld(world, cb), new BlockPos(pos.x, pos.y, pos.z),
+                settings.radius(), now, settings.wateringSeconds());
+        harvester.wateredTotal += harvester.lastWatered;
     }
 }
