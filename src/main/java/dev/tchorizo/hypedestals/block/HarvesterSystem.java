@@ -69,7 +69,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
         harvester.lastResult = HarvestCycle.run(
                 new HytaleCycleWorld(world, cb, containerBlock.getItemContainer()),
-                new BlockPos(pos.x, pos.y, pos.z), harvester.radius, harvester.warnedTypes);
+                new BlockPos(pos.x, pos.y, pos.z), harvester.radius, harvester.warnedTypes, harvester.scanIndex);
+        harvester.scanIndex = harvester.lastResult.nextIndex();
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {
             HyPedestalsPlugin.warn("crop type %s at %s skipped until chunk reload", type, pos);

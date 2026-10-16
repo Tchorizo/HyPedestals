@@ -11,6 +11,7 @@ class HarvestAreaTest {
     @Test
     void countIsSideSquaredTimesThree() {
         assertEquals(75, HarvestArea.positions(new BlockPos(10, 64, -5), 2).size());
+        assertEquals(75, HarvestArea.size(2), "size matches what positions returns");
     }
 
     @Test

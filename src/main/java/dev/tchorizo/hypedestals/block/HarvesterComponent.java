@@ -44,6 +44,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     float elapsed;
     CycleResult lastResult;
     long lastCycleTick;
+    /** Where the next cycle's scan of {@code HarvestArea.positions} starts; see {@code HarvestCycle.run}. */
+    int scanIndex;
     /** Crop types whose harvest threw at this block; skipped from then on. */
     final Set<String> warnedTypes = new HashSet<>();
     boolean inactiveWarned;
@@ -71,6 +73,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     /** World tick of the most recent cycle; {@code 0} before the first one. */
     public long lastCycleTick() {
         return lastCycleTick;
+    }
+
+    /** Index in {@code HarvestArea.positions} where the next cycle's scan starts; {@code 0} after a load. */
+    public int scanIndex() {
+        return scanIndex;
     }
 
     public float secondsToNextCycle() {

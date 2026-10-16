@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Harvester blocks are now shaped like a pedestal (base, column, top plate and wheel) instead of a plain cube, with matching item icons.
+- `/hypedestals inspect` also shows where the next harvest scan starts (`scan=<position>/<total>`).
+
+### Fixed
+
+- A Harvester whose storage had few empty slots kept harvesting the same one or two crops every cycle: partially filled stacks now count as room, and each cycle continues the area scan where the previous one stopped.
 
 ## 0.1.0 — 2026-10-16
 

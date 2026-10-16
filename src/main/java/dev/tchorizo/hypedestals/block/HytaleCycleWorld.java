@@ -7,6 +7,7 @@ import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.item.config.Item;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
@@ -19,6 +20,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleWorld;
+import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -118,15 +120,18 @@ final class HytaleCycleWorld implements CycleWorld {
     }
 
     @Override
-    public int freeSlots() {
-        int free = 0;
+    public int harvestBudget() {
+        int budget = 0;
         short capacity = container.getCapacity();
         for (short slot = 0; slot < capacity; slot++) {
             ItemStack stack = container.getItemStack(slot);
             if (stack == null || stack.isEmpty()) {
-                free++;
+                budget += HarvestCycle.slotBudget(0, 0);
+            } else {
+                Item item = stack.getItem();
+                budget += HarvestCycle.slotBudget(stack.getQuantity(), item == null ? 0 : item.getMaxStack());
             }
         }
-        return free;
+        return budget;
     }
 }

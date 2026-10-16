@@ -12,6 +12,9 @@ public interface CycleWorld {
     /** Pulls dropped items within {@code radius} of {@code center} into the container; returns items inserted. */
     int collectDroppedItems(BlockPos center, double radius);
 
-    /** Number of completely empty container slots. */
-    int freeSlots();
+    /**
+     * How many harvests the container can take: one unit per slot that can still accept at least
+     * one item (see {@link HarvestCycle#slotBudget}).
+     */
+    int harvestBudget();
 }

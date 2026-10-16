@@ -23,14 +23,14 @@ The numbers live in the block's asset JSON (`HyHarvester` and `ItemContainerBloc
 
 1. Craft a Harvester at a Workbench.
 2. Place it next to (or in the middle of) your crops.
-3. Every interval it first collects dropped items within its radius + 1 into its storage, then harvests ripe crops in its area. The drops are picked up on the next cycle.
+3. Every interval it first collects dropped items around its area into its storage, then harvests ripe crops in its area, one harvest per storage slot that can still take items. When it cannot harvest everything at once, the next cycle continues where the last one stopped, so the whole area gets harvested over a few cycles. Most drops are picked up on the next cycle.
 4. Right-click the Harvester to open its storage.
 
-When the storage is full, the Harvester stops harvesting (nothing is harvested onto the ground) until a slot frees up.
+When no storage slot can take more items, the Harvester stops harvesting (nothing is harvested onto the ground) until space frees up.
 
 ### Admin command
 
-`/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, used/total slots and the result of the last cycle (harvested, collected, paused).
+`/hypedestals inspect <x y z>` — shows the Harvester at that position: tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots and the result of the last cycle (harvested, collected, paused).
 
 The command loads the section from disk if it exists and never generates terrain. If there is nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
