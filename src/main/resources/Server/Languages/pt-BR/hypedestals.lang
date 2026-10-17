@@ -23,6 +23,7 @@ ui.config.maxHarvests = Máx. de colheitas por ciclo (0 = sem limite)
 ui.config.soilSweep = Passada no solo a cada (s)
 ui.config.exportToAdjacent = Exportar para um container embaixo ou ao lado da colheitadeira
 ui.config.harvestParticles = Efeito de partículas quando o ciclo colhe
+ui.config.upgradeParticles = Partículas dos upgrades a cada (s, 0 = só o estado do bloco)
 ui.config.save = Salvar
 ui.config.reset = Restaurar padrões
 ui.config.close = Fechar

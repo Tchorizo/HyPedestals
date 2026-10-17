@@ -23,6 +23,7 @@ ui.config.maxHarvests = Max crops harvested per cycle (0 = no limit)
 ui.config.soilSweep = Soil pass every (s)
 ui.config.exportToAdjacent = Export to a container below or beside the Harvester
 ui.config.harvestParticles = Particle effect when a cycle harvests
+ui.config.upgradeParticles = Upgrade particles every (s, 0 = block state only)
 ui.config.save = Save
 ui.config.reset = Reset defaults
 ui.config.close = Close

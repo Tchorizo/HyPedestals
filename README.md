@@ -42,7 +42,7 @@ A Harvester holds up to two upgrades, one of each kind. They are stored in the H
 - **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
 - **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
 - **Breaking** a Harvester drops its installed upgrades together with the block and its storage contents. Unloading the chunk or restarting the server keeps them installed.
-- **Particles** show what is installed: blue sparks for watering, green spores for the fertilizer, both when it has both. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
+- **Particles** show what is installed: glowing blue orbs around the Harvester for watering, green orbs for the fertilizer, both colors when it has both. They come from the block itself and, every `UpgradeParticlesSeconds` (2 s by default), from the server as well. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
 
 Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s by default), separate from the harvest interval and also while the storage is full. The pass covers the same area as the harvest; soil one block below the Harvester's level (under crops on the Harvester's own level) is included.
 
@@ -66,7 +66,8 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "ExportToAdjacent": true,
   "HarvestParticles": true,
   "PostHarvestCollectSeconds": 3.0,
-  "MaxHarvestsPerCycle": 0
+  "MaxHarvestsPerCycle": 0,
+  "UpgradeParticlesSeconds": 2.0
 }
 ```
 
@@ -82,6 +83,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `HarvestParticles` | true/false | A short puff of dust above the Harvester when a cycle harvests something |
 | `PostHarvestCollectSeconds` | 0–10 | After a cycle that harvested, the Harvester collects drops on every tick for this many seconds (the game registers new drops with a delay of a few seconds); 0 turns it off, and drops then wait for the next cycle. The burst stops early when the storage is full, or after 3 ticks in a row that found items but could put none in |
 | `MaxHarvestsPerCycle` | 0–1000 | Most crops one Harvester harvests per cycle; 0 (the default) = no limit, every ripe crop. A safety cap for servers that want one; with a cap, each cycle continues the area scan where the previous one stopped |
+| `UpgradeParticlesSeconds` | 0–60 | A Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds (each burst lasts that long), on top of the particles of the block itself; 0 turns this off and leaves only the block's own particles |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
@@ -89,7 +91,7 @@ In game (operators):
 
 - `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds> <value>` — change one value, apply it and save the file. Also works from the server console.
 
 ## Export to an adjacent container
 

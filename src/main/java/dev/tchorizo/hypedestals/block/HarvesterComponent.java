@@ -82,6 +82,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      * first tick. The sweep has its own timer, see {@code HarvesterSystem}.
      */
     float soilElapsed = Float.POSITIVE_INFINITY;
+    /**
+     * Seconds since the last spawn of the upgrade particles ({@code UpgradeParticlesSeconds});
+     * infinite after a load, so a Harvester with upgrades shows them on its first tick.
+     */
+    float upgradeParticlesElapsed = Float.POSITIVE_INFINITY;
     /** Result of the last soil sweep (watering and fertilizer); {@code null} before the first one. */
     SoilPass.Result lastSoil;
     /** Soil blocks watered since the load. */

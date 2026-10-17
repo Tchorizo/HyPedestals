@@ -239,6 +239,22 @@ $C.@PageOverlay {
         Anchor: (Bottom: 12);
       }
 
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.upgradeParticles;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #UpgradeParticlesSeconds {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 60, Step: 0.5, MaxDecimalPlaces: 1);
+        }
+      }
+
       Label #Status {
         Text: "";
         Anchor: (Top: 4, Height: 40);

@@ -25,7 +25,10 @@ public final class CycleStats {
         SOIL("soil"),
         /** The export to an adjacent container at the end of a cycle. */
         EXPORT("export"),
-        /** Checking (and requesting) the block state that shows the upgrades, once per cycle. */
+        /**
+         * Checking (and requesting) the block state that shows the upgrades, once per cycle, and
+         * spawning the upgrade particles every {@code UpgradeParticlesSeconds}.
+         */
         VISUAL("visual");
 
         private final String label;

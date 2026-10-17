@@ -70,6 +70,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         save.append(Event.SOIL_SWEEP, "#SoilSweepSeconds.Value");
         save.append(Event.EXPORT_TO_ADJACENT, EXPORT_TO_ADJACENT_VALUE);
         save.append(Event.HARVEST_PARTICLES, HARVEST_PARTICLES_VALUE);
+        save.append(Event.UPGRADE_PARTICLES, "#UpgradeParticlesSeconds.Value");
         events.addEventBinding(CustomUIEventBindingType.Activating, "#SaveButton", save, false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ResetButton", EventData.of(Event.ACTION, ACTION_RESET), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CloseConfigButton", EventData.of(Event.ACTION, ACTION_CLOSE), false);
@@ -143,6 +144,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         commands.set("#SoilSweepSeconds.Value", (double) settings.soilSweepSeconds());
         commands.set(EXPORT_TO_ADJACENT_VALUE, settings.exportToAdjacent());
         commands.set(HARVEST_PARTICLES_VALUE, settings.harvestParticles());
+        commands.set("#UpgradeParticlesSeconds.Value", (double) settings.upgradeParticlesSeconds());
     }
 
     /** Element id of a tier's radius field, e.g. {@code CopperRadius}; the event key is the same with {@code @}. */
@@ -168,6 +170,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         static final String HARVEST_PARTICLES = "@HarvestParticles";
         static final String POST_HARVEST_COLLECT = "@PostHarvestCollectSeconds";
         static final String MAX_HARVESTS = "@MaxHarvestsPerCycle";
+        static final String UPGRADE_PARTICLES = "@UpgradeParticlesSeconds";
 
         public static final BuilderCodec<Event> CODEC = codec();
 
@@ -182,6 +185,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         Boolean harvestParticles;
         Double postHarvestCollectSeconds;
         Double maxHarvestsPerCycle;
+        Double upgradeParticlesSeconds;
 
         private static BuilderCodec<Event> codec() {
             BuilderCodec.Builder<Event> builder = BuilderCodec.builder(Event.class, Event::new)
@@ -202,6 +206,9 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     .add()
                     .append(new KeyedCodec<>(MAX_HARVESTS, Codec.DOUBLE),
                             (e, v) -> e.maxHarvestsPerCycle = v, e -> e.maxHarvestsPerCycle)
+                    .add()
+                    .append(new KeyedCodec<>(UPGRADE_PARTICLES, Codec.DOUBLE),
+                            (e, v) -> e.upgradeParticlesSeconds = v, e -> e.upgradeParticlesSeconds)
                     .add();
             // Number fields arrive as doubles, whole or not; they are rounded below.
             for (Tier tier : Tier.values()) {
@@ -221,14 +228,14 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
 
         /**
          * Entered values as settings (radius, watering, sweep and harvest cap rounded to whole numbers,
-         * interval and post-harvest window to one decimal), or {@code null} if any value is
+         * interval, post-harvest window and upgrade particle period to one decimal), or {@code null} if any value is
          * missing. Non-finite numbers (NaN, infinity) are added to {@code problems} instead of
          * being rounded to 0; other range checks are left to {@link ModSettings#problems()}.
          */
         ModSettings toSettings(List<String> problems) {
             if (collectAnyItem == null || collectMargin == null || soilSweepSeconds == null
                     || exportToAdjacent == null || harvestParticles == null || postHarvestCollectSeconds == null
-                    || maxHarvestsPerCycle == null) {
+                    || maxHarvestsPerCycle == null || upgradeParticlesSeconds == null) {
                 return null;
             }
             Map<Tier, TierSettings> tiers = new EnumMap<>(Tier.class);
@@ -245,7 +252,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             return new ModSettings(tiers, collectAnyItem, whole("CollectMargin", collectMargin, problems),
                     whole("SoilSweepSeconds", soilSweepSeconds, problems), exportToAdjacent, harvestParticles,
                     tenths("PostHarvestCollectSeconds", postHarvestCollectSeconds, problems),
-                    whole("MaxHarvestsPerCycle", maxHarvestsPerCycle, problems));
+                    whole("MaxHarvestsPerCycle", maxHarvestsPerCycle, problems),
+                    tenths("UpgradeParticlesSeconds", upgradeParticlesSeconds, problems));
         }
 
         private static int whole(String field, double value, List<String> problems) {
@@ -270,9 +278,10 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         public String toString() {
             return String.format(Locale.ROOT, "Event[action=%s radius=%s interval=%s watering=%s collectAnyItem=%s"
                             + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s"
-                            + " postHarvestCollectSeconds=%s maxHarvestsPerCycle=%s]",
+                            + " postHarvestCollectSeconds=%s maxHarvestsPerCycle=%s upgradeParticlesSeconds=%s]",
                     action, radius, interval, watering, collectAnyItem, collectMargin, soilSweepSeconds,
-                    exportToAdjacent, harvestParticles, postHarvestCollectSeconds, maxHarvestsPerCycle);
+                    exportToAdjacent, harvestParticles, postHarvestCollectSeconds, maxHarvestsPerCycle,
+                    upgradeParticlesSeconds);
         }
     }
 }

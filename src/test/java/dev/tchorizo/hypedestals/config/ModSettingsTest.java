@@ -34,6 +34,7 @@ class ModSettingsTest {
         assertTrue(ModSettings.DEFAULTS.harvestParticles());
         assertEquals(3f, ModSettings.DEFAULTS.postHarvestCollectSeconds());
         assertEquals(0, ModSettings.DEFAULTS.maxHarvestsPerCycle(), "no harvest limit by default");
+        assertEquals(2f, ModSettings.DEFAULTS.upgradeParticlesSeconds(), "upgrade particles every 2 s by default");
         assertEquals(List.of(), ModSettings.DEFAULTS.problems(), "the defaults are valid");
     }
 
@@ -70,7 +71,7 @@ class ModSettingsTest {
     void withersAreImmutable() {
         ModSettings changed = ModSettings.DEFAULTS.withCollectAnyItem(false).withCollectMargin(0)
                 .withSoilSweepSeconds(5).withExportToAdjacent(false).withHarvestParticles(false)
-                .withPostHarvestCollectSeconds(0f).withMaxHarvestsPerCycle(50);
+                .withPostHarvestCollectSeconds(0f).withMaxHarvestsPerCycle(50).withUpgradeParticlesSeconds(0f);
         assertFalse(changed.collectAnyItem());
         assertEquals(0, changed.collectMargin());
         assertEquals(5, changed.soilSweepSeconds());
@@ -78,6 +79,7 @@ class ModSettingsTest {
         assertFalse(changed.harvestParticles());
         assertEquals(0f, changed.postHarvestCollectSeconds());
         assertEquals(50, changed.maxHarvestsPerCycle());
+        assertEquals(0f, changed.upgradeParticlesSeconds());
         assertEquals(ModSettings.DEFAULTS.tiers(), changed.tiers(), "global withers keep the tiers");
         assertTrue(ModSettings.DEFAULTS.collectAnyItem());
         assertEquals(2, ModSettings.DEFAULTS.collectMargin());
@@ -91,6 +93,7 @@ class ModSettingsTest {
         assertFalse(tiered.harvestParticles());
         assertEquals(0f, tiered.postHarvestCollectSeconds());
         assertEquals(50, tiered.maxHarvestsPerCycle());
+        assertEquals(0f, tiered.upgradeParticlesSeconds());
         assertThrows(UnsupportedOperationException.class, () -> changed.tiers().put(Tier.COPPER, new TierSettings(1, 1f, 60)));
     }
 
@@ -98,7 +101,7 @@ class ModSettingsTest {
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f));
     }
 
     @Test
@@ -113,7 +116,8 @@ class ModSettingsTest {
                 .withExportToAdjacent(false)
                 .withHarvestParticles(false)
                 .withPostHarvestCollectSeconds(10.5f)
-                .withMaxHarvestsPerCycle(1001);
+                .withMaxHarvestsPerCycle(1001)
+                .withUpgradeParticlesSeconds(61f);
 
         assertEquals(List.of(
                 "Copper.Radius=9 (allowed 1..8)",
@@ -126,7 +130,8 @@ class ModSettingsTest {
                 "CollectMargin=5 (allowed 0..4)",
                 "SoilSweepSeconds=4 (allowed 5..600)",
                 "PostHarvestCollectSeconds=10.5 (allowed 0.0..10.0)",
-                "MaxHarvestsPerCycle=1001 (allowed 0..1000)"), raw.problems());
+                "MaxHarvestsPerCycle=1001 (allowed 0..1000)",
+                "UpgradeParticlesSeconds=61.0 (allowed 0.0..60.0)"), raw.problems());
 
         ModSettings fixed = raw.sanitized();
         assertEquals(Tier.COPPER.defaults(), fixed.tier(Tier.COPPER));
@@ -139,6 +144,15 @@ class ModSettingsTest {
         assertFalse(fixed.harvestParticles());
         assertEquals(3f, fixed.postHarvestCollectSeconds());
         assertEquals(0, fixed.maxHarvestsPerCycle());
+        assertEquals(2f, fixed.upgradeParticlesSeconds());
+        assertEquals(List.of("UpgradeParticlesSeconds=-1.0 (allowed 0.0..60.0)"),
+                ModSettings.DEFAULTS.withUpgradeParticlesSeconds(-1f).problems(), "negative is out of range");
+        assertEquals(2f, ModSettings.DEFAULTS.withUpgradeParticlesSeconds(Float.NaN).sanitized().upgradeParticlesSeconds(),
+                "NaN is out of range");
+        assertEquals(0f, ModSettings.DEFAULTS.withUpgradeParticlesSeconds(0f).sanitized().upgradeParticlesSeconds(),
+                "0 (off) is valid");
+        assertEquals(60f, ModSettings.DEFAULTS.withUpgradeParticlesSeconds(60f).sanitized().upgradeParticlesSeconds(),
+                "upper bound is valid");
         assertEquals(List.of("MaxHarvestsPerCycle=-1 (allowed 0..1000)"),
                 ModSettings.DEFAULTS.withMaxHarvestsPerCycle(-1).problems(), "negative is out of range");
         assertEquals(1000, ModSettings.DEFAULTS.withMaxHarvestsPerCycle(1000).sanitized().maxHarvestsPerCycle(),
@@ -181,6 +195,9 @@ class ModSettingsTest {
         assertEquals(0, s.withMaxHarvestsPerCycle(64).set("global", "maxharvestspercycle", "0").maxHarvestsPerCycle(),
                 "0 removes the limit");
         assertEquals(1000, s.set("global", "MaxHarvestsPerCycle", "1000").maxHarvestsPerCycle());
+        assertEquals(0f, s.set("global", "UpgradeParticlesSeconds", "0").upgradeParticlesSeconds(), "0 turns it off");
+        assertEquals(0.5f, s.set("global", "upgradeparticlesseconds", "0.5").upgradeParticlesSeconds());
+        assertEquals(60f, s.set("global", "UpgradeParticlesSeconds", "60").upgradeParticlesSeconds());
         assertEquals(ModSettings.DEFAULTS, s, "set returns a copy");
     }
 
@@ -219,6 +236,12 @@ class ModSettingsTest {
                 () -> s.set("global", "MaxHarvestsPerCycle", "-1"));
         assertMessage("not a whole number: 2.5", () -> s.set("global", "MaxHarvestsPerCycle", "2.5"));
         assertMessage("unknown tier field MaxHarvestsPerCycle", () -> s.set("Cobalt", "MaxHarvestsPerCycle", "10"));
+        assertMessage("UpgradeParticlesSeconds must be 0.0..60.0 (0 = off), got 61",
+                () -> s.set("global", "UpgradeParticlesSeconds", "61"));
+        assertMessage("UpgradeParticlesSeconds must be 0.0..60.0 (0 = off), got -1",
+                () -> s.set("global", "UpgradeParticlesSeconds", "-1"));
+        assertMessage("not a number: often", () -> s.set("global", "UpgradeParticlesSeconds", "often"));
+        assertMessage("unknown tier field UpgradeParticlesSeconds", () -> s.set("Iron", "UpgradeParticlesSeconds", "2"));
     }
 
     @Test
@@ -267,6 +290,12 @@ class ModSettingsTest {
                 "the post-harvest window is compared in tenths too");
         assertEquals(0f, ModSettings.DEFAULTS.withChangesFrom(ModSettings.DEFAULTS,
                 ModSettings.DEFAULTS.withPostHarvestCollectSeconds(0f)).postHarvestCollectSeconds(), "a real change is applied");
+        ModSettings openedParticles = ModSettings.DEFAULTS.set("global", "UpgradeParticlesSeconds", "1.25");
+        ModSettings enteredParticles = ModSettings.DEFAULTS.set("global", "UpgradeParticlesSeconds", "1.3");
+        assertEquals(1.25f, openedParticles.withChangesFrom(openedParticles, enteredParticles).upgradeParticlesSeconds(),
+                "the upgrade particle period is compared in tenths too");
+        assertEquals(0f, ModSettings.DEFAULTS.withChangesFrom(ModSettings.DEFAULTS,
+                ModSettings.DEFAULTS.withUpgradeParticlesSeconds(0f)).upgradeParticlesSeconds(), "turning it off is applied");
     }
 
     @Test
@@ -276,7 +305,7 @@ class ModSettingsTest {
                         + " | Thorium Radius=4 IntervalSeconds=5.0 WateringSeconds=72000"
                         + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
                         + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true"
-                        + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0",
+                        + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=2.0",
                 ModSettings.DEFAULTS.describe());
     }
 

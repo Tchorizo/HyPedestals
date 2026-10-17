@@ -36,24 +36,44 @@
         "Watering": {
           "Particles": [
             {
-              "SystemId": "Plant_Mana_Tier1"
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#64c1ff",
+              "Scale": 1.2,
+              "PositionOffset": {
+                "Y": 0.6
+              }
             }
           ]
         },
         "Fertilizer": {
           "Particles": [
             {
-              "SystemId": "Dungeon_Goblin_Spores_Green"
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#60d682",
+              "Scale": 1.2,
+              "PositionOffset": {
+                "Y": 0.6
+              }
             }
           ]
         },
         "Both": {
           "Particles": [
             {
-              "SystemId": "Plant_Mana_Tier1"
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#64c1ff",
+              "Scale": 1.2,
+              "PositionOffset": {
+                "Y": 0.6
+              }
             },
             {
-              "SystemId": "Dungeon_Goblin_Spores_Green"
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#60d682",
+              "Scale": 1.2,
+              "PositionOffset": {
+                "Y": 0.6
+              }
             }
           ]
         }

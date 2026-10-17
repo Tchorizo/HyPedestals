@@ -20,7 +20,8 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *   "ExportToAdjacent": true,
  *   "HarvestParticles": true,
  *   "PostHarvestCollectSeconds": 3.0,
- *   "MaxHarvestsPerCycle": 0
+ *   "MaxHarvestsPerCycle": 0,
+ *   "UpgradeParticlesSeconds": 2.0
  * }
  * }</pre>
  *
@@ -82,6 +83,10 @@ public final class HyPedestalsConfig {
                 .append(new KeyedCodec<>("MaxHarvestsPerCycle", Codec.INTEGER),
                         (c, v) -> c.settings = c.settings.withMaxHarvestsPerCycle(v),
                         c -> c.settings.maxHarvestsPerCycle())
+                .add()
+                .append(new KeyedCodec<>("UpgradeParticlesSeconds", Codec.FLOAT),
+                        (c, v) -> c.settings = c.settings.withUpgradeParticlesSeconds(v),
+                        c -> c.settings.upgradeParticlesSeconds())
                 .add()
                 .build();
     }

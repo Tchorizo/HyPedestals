@@ -125,6 +125,44 @@ class HytaleIdsTest {
                 "states in the Template would be inherited with the Template's variant ids");
     }
 
+    /**
+     * The state particles are the effects {@link UpgradeVisual#particlesFor} names for the periodic
+     * spawn (same system, colors, scale and height), so both paths show the same thing.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"Copper", "Iron", "Thorium", "Cobalt"})
+    void stateParticlesMatchUpgradeVisual(String tier) throws IOException {
+        String json = resource(ITEMS + "Harvester/HyPedestals_Harvester_" + tier + ".json");
+        String watering = between(json, "\"" + UpgradeVisual.WATERING + "\": {", "\"" + UpgradeVisual.FERTILIZER + "\": {");
+        String fertilizer = between(json, "\"" + UpgradeVisual.FERTILIZER + "\": {", "\"" + UpgradeVisual.BOTH + "\": {");
+        String both = between(json, "\"" + UpgradeVisual.BOTH + "\": {", "\"Recipe\"");
+        String water = color(UpgradeVisual.WATERING_PARTICLE), fert = color(UpgradeVisual.FERTILIZER_PARTICLE);
+        assertTrue(watering.contains(water) && !watering.contains(fert), tier + " Watering: " + watering);
+        assertTrue(fertilizer.contains(fert) && !fertilizer.contains(water), tier + " Fertilizer: " + fertilizer);
+        assertTrue(both.contains(water) && both.contains(fert), tier + " Both: " + both);
+        for (String state : new String[] {watering, fertilizer, both}) {
+            int entries = state.split("\"SystemId\"", -1).length - 1;
+            assertEquals(entries, count(state, "\"SystemId\": \"" + UpgradeVisual.PARTICLE_SYSTEM + "\""), state);
+            assertEquals(entries, count(state, "\"Scale\": " + UpgradeVisual.PARTICLE_SCALE), state);
+            assertEquals(entries, count(state, "\"Y\": " + UpgradeVisual.PARTICLE_OFFSET_Y), state);
+        }
+    }
+
+    private static String color(UpgradeVisual.Particle particle) {
+        return "\"Color\": \"" + particle.color() + "\"";
+    }
+
+    private static String between(String text, String start, String end) {
+        int from = text.indexOf(start);
+        int to = text.indexOf(end, from + start.length());
+        assertTrue(from >= 0 && to > from, "missing " + start + " … " + end);
+        return text.substring(from, to);
+    }
+
+    private static int count(String text, String part) {
+        return text.split(java.util.regex.Pattern.quote(part), -1).length - 1;
+    }
+
     private static String resource(String path) throws IOException {
         try (InputStream in = HytaleIdsTest.class.getResourceAsStream(path)) {
             assertNotNull(in, "missing resource " + path);

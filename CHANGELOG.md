@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## Unreleased
 
+### Added
+
+- `UpgradeParticlesSeconds` (global, 0–60, 2 by default, 0 = off; in the config file, the settings window and `config set global`): a Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds, each burst lasting until the next one, so the effect shows even where the block's own particles do not.
+
+### Fixed
+
+- The upgrade particles could not be seen in game: the watering sparks (the mana plant sparks, at most 4 tiny particles within 0.2 blocks of the block's center) most likely stayed inside the pedestal's shaft, under its cap. Both upgrades now show glowing orbs (the vanilla temple lantern effect, tinted) on a ring around the pedestal, outside the shaft: blue for watering, green for the fertilizer, both with both.
+
 ### Changed
 
 - A Harvester harvests every ripe crop **only while its storage has room for the drops**: before each crop it checks that the most that crop can drop still fits (counting what the cycle already harvested, and what the last two cycles harvested that has not reached the storage yet), and the first crop that does not fit ends the cycle; it and the rest stay ripe on the plant until space frees up. Nothing is dropped on the ground for lack of space anymore (0.2.0 kept harvesting into a pile on the ground that despawned after 600 s). A crop whose harvest drop list cannot be found counts as dropping a full stack of its item, with a warning in the log once per crop.

@@ -7,7 +7,9 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.protocol.Color;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.particle.config.ParticleSystem;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.farming.FarmingStageData;
@@ -38,6 +40,7 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleIds;
 import dev.tchorizo.hypedestals.block.HytaleSoilWorld;
+import dev.tchorizo.hypedestals.block.UpgradeParticles;
 import dev.tchorizo.hypedestals.config.Tier;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
@@ -81,6 +84,8 @@ final class DevCommands extends AbstractAsyncCommand {
     private static final long GROW_PERIOD_MS = 500;
     /** Growth factor the scene turns on; wheat goes from planted to ripe in about 15 s with it. */
     private static final double SCENE_GROW_FACTOR = 200;
+    /** Active {@code particles} loops by block position; a loop runs while its {@link ParticleLoop} is the registered one. */
+    private static final Map<Vector3i, ParticleLoop> PARTICLES = new ConcurrentHashMap<>();
 
     DevCommands() {
         super("dev", "HyPedestals development commands");
@@ -103,6 +108,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SetItemCommand());
         addSubCommand(new PinCommand());
         addSubCommand(new StressCommand());
+        addSubCommand(new ParticlesCommand());
     }
 
     @Override
@@ -114,7 +120,8 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
                         + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
                         + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z> | stress <x y z> <count> [--factor F]"
-                        + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]",
+                        + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]"
+                        + " | particles <x y z> <SystemId|off> [--scale S] [--offset Y] [--color rrggbb] [--seconds N]",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
@@ -1323,6 +1330,103 @@ final class DevCommands extends AbstractAsyncCommand {
                     container == null ? "none" : "[" + contents(container.getItemContainer()) + "]",
                     textures, particles);
         }
+    }
+
+    /**
+     * {@code particles <x y z> <SystemId|off> [--scale S] [--offset Y] [--color rrggbb] [--seconds N]}:
+     * spawns a vanilla particle system at the center of the block at the position, {@code Y} above
+     * its base, every second for {@code N} seconds (default 60), to compare candidates in the
+     * client without a rebuild. Each spawn lasts one second ({@code maxDuration}), the way the
+     * Harvester's own upgrade particles are spawned: if the effect stops about a second after the
+     * loop ends, the client honours the duration and looping systems do not pile up. {@code off}
+     * stops the loop at the position. Sent to the players within 75 blocks; not persisted.
+     */
+    private static final class ParticlesCommand extends HyPedestalsCommand.PositionCommand {
+        private static final String OFF = "off";
+        private static final long PERIOD_SECONDS = 1;
+        private final RequiredArg<String> system = withRequiredArg("system",
+                "Particle system id (Server/Particles/**/<id>.particlesystem) or off", ArgTypes.STRING);
+        private final DefaultArg<Double> scale = withDefaultArg("scale", "Size multiplier", ArgTypes.DOUBLE, 1.0, "1");
+        private final DefaultArg<Double> offset = withDefaultArg("offset",
+                "Height above the block's base, at the block's center", ArgTypes.DOUBLE, UpgradeVisual.PARTICLE_OFFSET_Y,
+                String.valueOf(UpgradeVisual.PARTICLE_OFFSET_Y));
+        private final DefaultArg<String> color = withDefaultArg("color",
+                "Tint as rrggbb (e.g. 64c1ff), or none for the system's own colors", ArgTypes.STRING, "none", "none");
+        private final DefaultArg<Integer> seconds = withDefaultArg("seconds",
+                "How long to keep spawning (1..600)", ArgTypes.INTEGER, 60, "60");
+
+        ParticlesCommand() {
+            super("particles", "Spawn a particle system at a position every second (visual test)");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            String id = context.get(system);
+            Vector3i key = new Vector3i(pos);
+            String at = HyPedestalsCommand.format(pos);
+            if (id.equalsIgnoreCase(OFF)) {
+                ParticleLoop old = PARTICLES.remove(key);
+                HyPedestalsCommand.reply(context, "particles at %s: off%s", at, old == null ? " (was not on)" : "");
+                return CompletableFuture.completedFuture(null);
+            }
+            ParticleSystem asset = ParticleSystem.getAssetMap().getAsset(id);
+            int duration = context.get(seconds);
+            String tint = context.get(color);
+            Color rgb;
+            try {
+                rgb = tint.equalsIgnoreCase("none") ? null : UpgradeParticles.color(UpgradeVisual.rgb(tint));
+            } catch (IllegalArgumentException e) {
+                HyPedestalsCommand.reply(context, "particles: %s", e.getMessage());
+                return CompletableFuture.completedFuture(null);
+            }
+            if (asset == null || duration < 1 || duration > 600) {
+                HyPedestalsCommand.reply(context, "particles: %s; usage: hypedestals dev particles <x y z> <SystemId|off>"
+                        + " [--scale S] [--offset Y] [--color rrggbb] [--seconds 1..600]",
+                        asset == null ? "unknown particle system " + id : "seconds must be 1..600");
+                return CompletableFuture.completedFuture(null);
+            }
+            double offsetY = context.get(offset);
+            ParticleLoop loop = new ParticleLoop(asset.getId(), new Vector3d(pos.x + 0.5, pos.y + offsetY, pos.z + 0.5),
+                    context.get(scale).floatValue(), rgb, duration);
+            return runAt(context, world -> {
+                PARTICLES.put(key, loop);
+                int players = particleStep(world, key, loop, 0);
+                HyPedestalsCommand.reply(context, "%s", String.format(Locale.ROOT,
+                        "particles %s at %s: every %d s for %d s, scale=%s offsetY=%s color=%s; system lifeSpan=%s"
+                                + " spawners=%d; sent to %d player(s) now",
+                        asset.getId(), at, PERIOD_SECONDS, duration, loop.scale(), offsetY, tint,
+                        asset.getLifeSpan(), asset.getSpawners() == null ? 0 : asset.getSpawners().length, players));
+            }, pos);
+        }
+    }
+
+    /** One {@code particles} loop: what to spawn, where, and for how many seconds in all. */
+    private record ParticleLoop(String systemId, Vector3d at, float scale, Color color, int seconds) {}
+
+    /**
+     * Spawn number {@code step} of a {@code particles} loop, on the world thread, then schedules
+     * the next one; stops after {@link ParticleLoop#seconds()} spawns, when the loop at the
+     * position is replaced or turned off, or when the world dies. Returns the players reached.
+     */
+    private static int particleStep(World world, Vector3i key, ParticleLoop loop, int step) {
+        if (!world.isAlive() || PARTICLES.get(key) != loop) {
+            return 0;
+        }
+        if (step >= loop.seconds()) {
+            PARTICLES.remove(key, loop);
+            return 0;
+        }
+        int players = UpgradeParticles.spawn(world, loop.systemId(), loop.at(), loop.scale(), loop.color(),
+                ParticlesCommand.PERIOD_SECONDS);
+        world.scheduleAfter(() -> world.execute(() -> particleStep(world, key, loop, step + 1)),
+                ParticlesCommand.PERIOD_SECONDS, TimeUnit.SECONDS);
+        return players;
     }
 
     /**

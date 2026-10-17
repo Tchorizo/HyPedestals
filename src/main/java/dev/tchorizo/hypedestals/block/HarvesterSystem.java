@@ -36,8 +36,9 @@ import java.util.List;
  * when the watering or the fertilizer upgrade is installed. With the fertilizer upgrade, the pass
  * takes its applications from the fertilizer bags in the container, whatever their slot
  * ({@link HytaleFertilizerInput}), and the export leaves those bags in place. Each cycle also
- * re-asserts the block state that shows the upgrades
- * ({@link HarvesterVisual}) and, with {@code HarvestParticles}, puffs a short particle burst when
+ * re-asserts the block state that shows the upgrades ({@link HarvesterVisual}); with
+ * {@code UpgradeParticlesSeconds} above 0 the same effects are also spawned as world particles
+ * on that period ({@link UpgradeParticles}); and, with {@code HarvestParticles}, it puffs a short particle burst when
  * something was harvested. After a cycle that harvested, a {@link CollectBurst} collects drops on
  * every tick for {@code PostHarvestCollectSeconds}. Radius, interval, margin, item filter, export,
  * the burst and the soil settings are read from the global config on every tick, so changes made
@@ -115,6 +116,21 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 long soilStart = System.nanoTime();
                 sweepSoil(harvester, info, container, store, cb, settings);
                 phase(harvester, CycleStats.Phase.SOIL, micros(soilStart));
+            }
+        }
+
+        // Own timer too, so the effect keeps going between slow cycles; each spawn lasts one period.
+        float particleSeconds = global.upgradeParticlesSeconds();
+        if (particleSeconds > 0 && !harvester.upgrades().isEmpty()) {
+            harvester.upgradeParticlesElapsed += dt;
+            if (harvester.upgradeParticlesElapsed >= particleSeconds) {
+                harvester.upgradeParticlesElapsed = 0;
+                long particlesStart = System.nanoTime();
+                Vector3i at = new Vector3i();
+                if (info.fillWorldPos(cb, at)) {
+                    UpgradeParticles.spawn(store.getExternalData().getWorld(), at, harvester.upgrades(), particleSeconds);
+                }
+                phase(harvester, CycleStats.Phase.VISUAL, micros(particlesStart));
             }
         }
 
