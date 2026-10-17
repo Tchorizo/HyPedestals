@@ -5,7 +5,6 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
-import com.hypixel.hytale.server.core.inventory.container.SimpleItemContainer;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
@@ -87,13 +86,6 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int wateredTotal;
     /** Soil blocks fertilized since the load. */
     int fertilizedTotal;
-    /**
-     * The container whose last slot carries the fertilizer input filter, or {@code null}. Slot
-     * filters are runtime-only (the {@code SimpleItemContainer} codec has only {@code Capacity}
-     * and {@code Items}), so after a load this is {@code null} and {@code HarvesterSystem}
-     * applies the filter again; kept as the container itself to notice a replaced container.
-     */
-    SimpleItemContainer inputFiltered;
     /** Result of the most recent export to an adjacent container; {@code NONE} before the first one or with export off. */
     ExportPlan.Result lastExport = ExportPlan.Result.NONE;
     /**

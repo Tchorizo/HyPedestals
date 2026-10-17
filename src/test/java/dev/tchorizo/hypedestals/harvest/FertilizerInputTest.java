@@ -8,6 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tchorizo.hypedestals.harvest.FertilizerInput.InputStack;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class FertilizerInputTest {
@@ -79,5 +83,54 @@ class FertilizerInputTest {
         InputStack three = new InputStack("Tool_Fertilizer", 5, 5, 3);
         assertEquals(new InputStack("Tool_Fertilizer", 5, 5, 1), FertilizerInput.afterUses(three, 10));
         assertEquals(new InputStack("Tool_Fertilizer", 4, 5, 1), FertilizerInput.afterUses(three, 11));
+    }
+
+    private static final InputStack WHEAT = new InputStack("Plant_Crop_Wheat_Item", 0, 0, 12);
+
+    @Test
+    void fertilizerFoundInAnySlot() {
+        for (int slot = 0; slot < 9; slot++) {
+            List<InputStack> slots = new ArrayList<>(Collections.nCopies(9, (InputStack) null));
+            slots.set(slot, bag(5));
+            assertEquals(slot, FertilizerInput.nextSlot(slots));
+            assertEquals(5, FertilizerInput.totalApplications(slots));
+            assertEquals(List.of(new FertilizerInput.Draw(slot, bag(4))), FertilizerInput.draw(slots, 1));
+        }
+    }
+
+    @Test
+    void otherItemsAndSpentBagsAreNotFertilizer() {
+        List<InputStack> slots = Arrays.asList(WHEAT, null, bag(0.5), new InputStack("Tool_Fertilizer_Crystal", 5, 5, 1));
+        assertEquals(-1, FertilizerInput.nextSlot(slots));
+        assertEquals(0, FertilizerInput.totalApplications(slots));
+        assertEquals(List.of(), FertilizerInput.draw(slots, 0));
+        assertEquals(-1, FertilizerInput.nextSlot(List.of()));
+    }
+
+    @Test
+    void theMostWornBagIsUsedFirst() {
+        List<InputStack> slots = Arrays.asList(bag(5), WHEAT, bag(2), null, bag(2), bag(4));
+        assertEquals(2, FertilizerInput.nextSlot(slots), "lowest durability; ties go to the lower slot");
+        assertEquals(13, FertilizerInput.totalApplications(slots));
+        assertEquals(List.of(new FertilizerInput.Draw(2, bag(1))), FertilizerInput.draw(slots, 1));
+    }
+
+    @Test
+    void drawingEmptiesOneBagBeforeTheNext() {
+        List<InputStack> slots = Arrays.asList(bag(5), WHEAT, bag(2), null, bag(4));
+        assertEquals(List.of(
+                new FertilizerInput.Draw(2, null),
+                new FertilizerInput.Draw(4, bag(3))), FertilizerInput.draw(slots, 3));
+        assertEquals(List.of(
+                new FertilizerInput.Draw(2, null),
+                new FertilizerInput.Draw(4, null),
+                new FertilizerInput.Draw(0, null)), FertilizerInput.draw(slots, 11));
+    }
+
+    @Test
+    void drawingMoreThanTheBagsHoldIsABug() {
+        List<InputStack> slots = Arrays.asList(bag(2), null, bag(1));
+        assertThrows(IllegalArgumentException.class, () -> FertilizerInput.draw(slots, 4));
+        assertThrows(IllegalArgumentException.class, () -> FertilizerInput.draw(slots, -1));
     }
 }

@@ -15,8 +15,9 @@ import java.util.Set;
  *       never above (where the crops and the plate are).</li>
  *   <li>A neighbor that is a Harvester is skipped, so two Harvesters side by side never pass
  *       items back and forth. A container reached from two sides is used once.</li>
- *   <li>The last slot is never exported while it is the fertilizer input slot (upgrade installed,
- *       slot filter applied); without the upgrade it is a slot like the others.</li>
+ *   <li>With the fertilizer upgrade installed, fertilizer bags ({@link FertilizerInput#ITEM_ID})
+ *       are never exported, whatever their slot: they feed the soil pass. Without it they move
+ *       like any other item.</li>
  *   <li>Partial moves are fine: what does not fit stays for the next cycle.</li>
  * </ul>
  */
@@ -37,6 +38,9 @@ public final class ExportPlan {
         int capacity();
 
         boolean isEmpty(int slot);
+
+        /** Item id of the stack in {@code slot}; only asked for a slot that is not empty. */
+        String itemId(int slot);
     }
 
     /** A container next to the Harvester. */
@@ -76,22 +80,23 @@ public final class ExportPlan {
     }
 
     /**
-     * Every slot of the container, except the last one when it is the fertilizer input slot.
+     * Whether a stack of {@code itemId} leaves the Harvester: everything, except fertilizer bags
+     * while the fertilizer upgrade is installed.
      *
-     * @param inputSlot whether the last slot is currently the input slot
+     * @param keepFertilizer whether the fertilizer upgrade is installed
      */
-    public static boolean isExportable(int slot, int capacity, boolean inputSlot) {
-        return slot >= 0 && slot < (inputSlot ? capacity - 1 : capacity);
+    public static boolean isExportable(String itemId, boolean keepFertilizer) {
+        return !(keepFertilizer && FertilizerInput.accepts(itemId));
     }
 
     /**
-     * Moves every exportable slot of {@code source} into the containers around {@code center}.
-     * The world is not consulted when no exportable slot holds anything.
+     * Moves every exportable stack of {@code source} into the containers around {@code center}.
+     * The world is not consulted when no slot holds an exportable stack.
      *
-     * @param inputSlot whether the last slot is currently the fertilizer input slot; see {@link #isExportable}
+     * @param keepFertilizer whether the fertilizer upgrade is installed; see {@link #isExportable}
      */
-    public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center, boolean inputSlot) {
-        if (!hasExportable(source, inputSlot)) {
+    public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center, boolean keepFertilizer) {
+        if (!hasExportable(source, keepFertilizer)) {
             return Result.NONE;
         }
         List<ExportTarget<S>> targets = targets(world, center);
@@ -102,7 +107,7 @@ public final class ExportPlan {
         BlockPos last = null;
         int capacity = source.capacity();
         for (int slot = 0; slot < capacity; slot++) {
-            if (!isExportable(slot, capacity, inputSlot)) {
+            if (!exportable(source, slot, keepFertilizer)) {
                 continue;
             }
             for (ExportTarget<S> target : targets) {
@@ -122,14 +127,18 @@ public final class ExportPlan {
         return moved == 0 ? Result.NONE : new Result(moved, last);
     }
 
-    private static boolean hasExportable(ExportSource source, boolean inputSlot) {
+    private static boolean hasExportable(ExportSource source, boolean keepFertilizer) {
         int capacity = source.capacity();
         for (int slot = 0; slot < capacity; slot++) {
-            if (isExportable(slot, capacity, inputSlot) && !source.isEmpty(slot)) {
+            if (exportable(source, slot, keepFertilizer)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean exportable(ExportSource source, int slot, boolean keepFertilizer) {
+        return !source.isEmpty(slot) && isExportable(source.itemId(slot), keepFertilizer);
     }
 
     private static <S extends ExportSource> List<ExportTarget<S>> targets(ExportWorld<S> world, BlockPos center) {

@@ -37,7 +37,7 @@ A Harvester holds up to two upgrades, one of each kind. They are stored in the H
 | Upgrade | Recipe (Farming Bench) | What it does |
 |---|---|---|
 | **Watering Upgrade** | tier 2: 1× Watering Can + 4× Iron Bar + 3× Tree Sap + 25× Life Essence | Keeps the tilled soil in the Harvester's area watered, like a watering can, with no water source needed and nothing consumed |
-| **Fertilizer Upgrade** | tier 3: 1× Fertilizer + 4× Iron Bar + 25× Life Essence | Fertilizes the planted soil in its area with Fertilizer bags you put in the Harvester's last slot |
+| **Fertilizer Upgrade** | tier 3: 1× Fertilizer + 4× Iron Bar + 25× Life Essence | Fertilizes the planted soil in its area with Fertilizer bags you put in the Harvester's storage (any slot) |
 
 - **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
 - **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
@@ -48,7 +48,7 @@ Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s b
 
 **Watering.** Each pass waters every tilled soil block in the area that has less than half of its watering time left, for the tier's `WateringSeconds` of game time: about 12 / 24 / 40 / 60 real minutes for Copper / Iron / Thorium / Cobalt. While the Harvester runs the soil never dries; after it is removed (or its chunk unloads) the soil stays watered for that long.
 
-**Fertilizer.** With the upgrade installed, the Harvester's **last storage slot becomes a fertilizer input**: it accepts only the game's Fertilizer bag, the harvest never goes there, and it is never exported. Each pass fertilizes the soil blocks in the area that have a crop on them and are not fertilized yet, one bag use per block (5 uses per bag, like using the bag by hand); an empty bag disappears. Fertilized soil stays fertilized until the soil block is replaced. If the last slot already holds something else when you install the upgrade, nothing is pushed out: fertilizing waits until you empty that slot. Anything that inserts items into containers can also feed bags into that slot.
+**Fertilizer.** With the upgrade installed, the Harvester uses the game's **Fertilizer bags from any slot of its storage**; no slot is reserved and nothing is filtered, so the harvest can use every slot. Each pass fertilizes the soil blocks in the area that have a crop on them and are not fertilized yet, one bag use per block (5 uses per bag, like using the bag by hand); an empty bag disappears. With several bags, the most used one goes first, so bags are emptied one at a time. While the upgrade is installed the bags are never exported. Fertilized soil stays fertilized until the soil block is replaced. Anything that inserts items into containers can also feed bags to the Harvester.
 
 ## Configuration
 
@@ -91,11 +91,11 @@ In game (operators):
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, the Harvester's **last slot is never exported** (it is the upgrade's input slot); without it, the last slot is exported like the others.
+With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, **Fertilizer bags are never exported**, whatever their slot (they are the upgrade's supply); without it, they are exported like any other item.
 
 ## Compatibility
 
-- **ModernStorage:** an Import Bus placed against a Harvester (front facing it) pulls the harvest into the storage network, with no setup on the Harvester side. An Export Bus filtered to Fertilizer should be able to keep a Fertilizer upgrade's input slot fed (not tested yet).
+- **ModernStorage:** an Import Bus placed against a Harvester (front facing it) pulls the harvest into the storage network, with no setup on the Harvester side. An Export Bus filtered to Fertilizer should be able to keep a Fertilizer upgrade supplied, and an Import Bus may pull the bags back out (both not tested yet).
 - **AutoStorage:** it only pushes items out of its own chest and never pulls from other containers, so place a Harvester right next to an AutoStorage chest and let [export](#export-to-an-adjacent-container) move the harvest into it.
 - **Chests and other containers** that use the game's item storage work as export targets.
 - **Eternal crops** (vanilla) are harvested and grow back on their own; regular annual crops have to be replanted.
@@ -113,7 +113,7 @@ Operators, in chat (with `/`) or from the server console (without it):
 
 Permission nodes (operators hold them all through the `*` wildcard; nobody else does by default): `tchorizo.hypedestals.command.hypedestals`, plus `.inspect`, `.config`, `.config.show` and `.config.set` below it. A subcommand also needs the nodes of its parent commands, so letting a non-operator use `config set` takes `tchorizo.hypedestals.command.hypedestals`, `tchorizo.hypedestals.command.hypedestals.config` and `tchorizo.hypedestals.command.hypedestals.config.set`.
 
-`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the seconds left of the post-harvest collect burst (`burst=<s>`), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag in the input slot (`fertilizer=<uses>/<max>`, `none` when empty, `blocked` when the slot holds something else). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
+`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the seconds left of the post-harvest collect burst (`burst=<s>`), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag the next pass uses (`fertilizer=<uses>/<max> (slot N)`, or `none` when the storage holds no usable Fertilizer bag). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
 ## Known limitations
 

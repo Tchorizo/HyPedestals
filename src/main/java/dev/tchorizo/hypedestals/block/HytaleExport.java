@@ -49,12 +49,12 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
      * {@link ExportPlan.Result#NONE} and a warning; what already moved is still marked for saving,
      * and the next cycle tries again.
      *
-     * @param inputSlot whether the container's last slot is the fertilizer input slot (kept out of the export)
+     * @param keepFertilizer whether the fertilizer upgrade is installed (fertilizer bags stay)
      */
-    ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center, boolean inputSlot) {
+    ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center, boolean keepFertilizer) {
         ExportPlan.Result result;
         try {
-            result = ExportPlan.run(this, new Source(container), center, inputSlot);
+            result = ExportPlan.run(this, new Source(container), center, keepFertilizer);
         } catch (RuntimeException e) {
             HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
                     center.x(), center.y(), center.z(), e.toString());
@@ -125,6 +125,11 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
         @Override
         public boolean isEmpty(int slot) {
             return ItemStack.isEmpty(container.getItemStack((short) slot));
+        }
+
+        @Override
+        public String itemId(int slot) {
+            return container.getItemStack((short) slot).getItemId();
         }
 
         int quantity(int slot) {

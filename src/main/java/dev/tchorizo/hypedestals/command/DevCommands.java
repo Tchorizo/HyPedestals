@@ -1330,7 +1330,7 @@ final class DevCommands extends AbstractAsyncCommand {
     /**
      * {@code setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]}: puts a stack
      * into one slot of the item container at the position (replacing what is there), e.g. a
-     * fertilizer bag into a Harvester's input slot without a client. The write goes through the
+     * fertilizer bag into any slot of a Harvester without a client. The write goes through the
      * container's slot filters like a player's, so it is refused ({@code succeeded=false}) where
      * a filter rejects the item; {@code empty} clears the slot. {@code --durability} defaults to the
      * item's maximum. A successful write marks the block for saving.

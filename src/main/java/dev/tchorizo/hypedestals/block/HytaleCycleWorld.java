@@ -46,7 +46,6 @@ final class HytaleCycleWorld implements CycleWorld {
     /** Block state of the Harvester that owns {@link #container}. */
     private final BlockModule.BlockStateInfo info;
     private final boolean collectAnyItem;
-    private final boolean inputSlot;
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
@@ -54,11 +53,9 @@ final class HytaleCycleWorld implements CycleWorld {
      * @param info block state of the Harvester whose container this is; marked for saving
      *     whenever collected items go into the container
      * @param collectAnyItem the config's {@code CollectAnyItem}; see {@link CollectFilter}
-     * @param inputSlot whether the container's last slot is the fertilizer input slot (fertilizer
-     *     upgrade installed, its slot filter applied); it is then left out of {@link #harvestBudget}
      */
     HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container,
-                     BlockModule.BlockStateInfo info, boolean collectAnyItem, boolean inputSlot) {
+                     BlockModule.BlockStateInfo info, boolean collectAnyItem) {
         this.chunkBuffer = chunkBuffer;
         this.chunkStore = world.getChunkStore();
         this.entityStore = world.getEntityStore().getStore();
@@ -66,7 +63,6 @@ final class HytaleCycleWorld implements CycleWorld {
         this.container = container;
         this.info = info;
         this.collectAnyItem = collectAnyItem;
-        this.inputSlot = inputSlot;
     }
 
     /**
@@ -218,13 +214,11 @@ final class HytaleCycleWorld implements CycleWorld {
                 def != null && def.getArmor() != null);
     }
 
-    /** Skips the last slot while it is the fertilizer input slot: the harvest can never go there. */
     @Override
     public int harvestBudget() {
         int budget = 0;
         short capacity = container.getCapacity();
-        short end = inputSlot ? (short) (capacity - 1) : capacity;
-        for (short slot = 0; slot < end; slot++) {
+        for (short slot = 0; slot < capacity; slot++) {
             ItemStack stack = container.getItemStack(slot);
             if (stack == null || stack.isEmpty()) {
                 budget += HarvestCycle.slotBudget(0, 0);

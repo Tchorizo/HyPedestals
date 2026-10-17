@@ -21,13 +21,14 @@ import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import org.joml.Vector3i;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, scan
  * position, container usage, last cycle result, installed upgrades, soil sweeps and (with the
- * fertilizer upgrade) the input slot,
+ * fertilizer upgrade) the next fertilizer bag,
  * {@code no Harvester at <x y z>}, or {@code section not loaded at <x y z>} when the section was
  * never generated (inspecting never generates terrain).
  * Loads the section from disk if it exists (never generating it) and marks it as ticking.
@@ -92,20 +93,20 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
     }
 
     /**
-     * The input slot: {@code <durability>/<max>} (with {@code xN} for a stack of N bags), {@code none}
-     * when empty, or {@code blocked} when it holds something else (e.g. harvest from before the
-     * upgrade, which the filter does not evict).
+     * The bag the next soil sweep uses (any slot; the most worn one first, see
+     * {@link FertilizerInput}): {@code <durability>/<max> (slot N)} (with {@code xN} after the
+     * durability for a stack of N bags), or {@code none} when no slot holds a usable bag.
      */
     private static String fertilizer(ItemContainerBlock containerBlock) {
-        FertilizerInput.InputStack stack = containerBlock == null ? null : HytaleFertilizerInput.read(containerBlock.getItemContainer());
-        if (stack == null) {
+        List<FertilizerInput.InputStack> slots = containerBlock == null
+                ? List.of() : HytaleFertilizerInput.read(containerBlock.getItemContainer());
+        int slot = FertilizerInput.nextSlot(slots);
+        if (slot < 0) {
             return "none";
         }
-        if (!FertilizerInput.accepts(stack.itemId())) {
-            return "blocked";
-        }
+        FertilizerInput.InputStack stack = slots.get(slot);
         return number(stack.durability()) + "/" + number(stack.maxDurability())
-                + (stack.quantity() > 1 ? "x" + stack.quantity() : "");
+                + (stack.quantity() > 1 ? "x" + stack.quantity() : "") + " (slot " + slot + ")";
     }
 
     private static String number(double d) {

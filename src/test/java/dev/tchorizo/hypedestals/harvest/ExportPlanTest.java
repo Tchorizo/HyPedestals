@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 class ExportPlanTest {
 
     private static final BlockPos CENTER = new BlockPos(10, 64, 20);
+    private static final String FERTILIZER = "Tool_Fertilizer";
 
     @Test
     void neighborsAreBelowThenTheFourSidesNeverAbove() {
@@ -27,39 +28,63 @@ class ExportPlanTest {
     }
 
     @Test
-    void theLastSlotIsNeverExportedWhileItIsTheInput() {
-        assertTrue(ExportPlan.isExportable(0, 9, true));
-        assertTrue(ExportPlan.isExportable(7, 9, true));
-        assertFalse(ExportPlan.isExportable(8, 9, true));
-        assertFalse(ExportPlan.isExportable(9, 9, true), "out of range");
-        assertFalse(ExportPlan.isExportable(-1, 9, true), "out of range");
-        assertFalse(ExportPlan.isExportable(0, 1, true), "a one-slot container has only the input slot");
-    }
-
-    @Test
-    void withoutTheInputSlotEverySlotIsExportable() {
-        assertTrue(ExportPlan.isExportable(0, 9, false));
-        assertTrue(ExportPlan.isExportable(8, 9, false));
-        assertFalse(ExportPlan.isExportable(9, 9, false), "out of range");
-        assertFalse(ExportPlan.isExportable(-1, 9, false), "out of range");
-        assertTrue(ExportPlan.isExportable(0, 1, false));
+    void fertilizerBagsStayOnlyWhileTheUpgradeIsInstalled() {
+        assertFalse(ExportPlan.isExportable("Tool_Fertilizer", true));
+        assertTrue(ExportPlan.isExportable("Tool_Fertilizer", false));
+        assertTrue(ExportPlan.isExportable("Plant_Crop_Wheat_Item", true));
+        assertTrue(ExportPlan.isExportable("Tool_Fertilizer_Crystal", true), "only the vanilla bag is kept");
     }
 
     @Test
     void emptySourceDoesNotLookAtTheWorld() {
         FakeWorld world = new FakeWorld();
-        ExportPlan.Result r = ExportPlan.run(world, new FakeSource(0, 0, 0, 5), CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, new FakeSource(0, 0, 0), CENTER, false);
         assertEquals(ExportPlan.Result.NONE, r);
-        assertEquals(List.of(), world.lookups, "only the input slot holds items");
+        assertEquals(List.of(), world.lookups);
     }
 
     @Test
-    void withoutTheUpgradeTheLastSlotIsExportedToo() {
+    void onlyFertilizerBagsWithTheUpgradeDoesNotLookAtTheWorld() {
+        FakeWorld world = new FakeWorld();
+        FakeSource source = new FakeSource(0, 1, 0, 1).item(1, FERTILIZER).item(3, FERTILIZER);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        assertEquals(ExportPlan.Result.NONE, r);
+        assertEquals(List.of(), world.lookups, "only fertilizer bags, kept by the upgrade");
+    }
+
+    @Test
+    void exportSkipsFertilizerBagsWhenUpgradeInstalled() {
+        FakeWorld world = new FakeWorld();
+        FakeSource source = new FakeSource(4, 1, 6, 1).item(1, FERTILIZER).item(3, FERTILIZER);
+        FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
+
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+
+        assertEquals(10, r.moved());
+        assertEquals(10, below.received);
+        assertArrayEquals(new int[] {0, 1, 0, 1}, source.counts, "the bags stay, whatever their slot");
+    }
+
+    @Test
+    void exportMovesFertilizerBagsWhenNoUpgrade() {
+        FakeWorld world = new FakeWorld();
+        FakeSource source = new FakeSource(4, 1, 0, 1).item(1, FERTILIZER).item(3, FERTILIZER);
+        FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
+
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, false);
+
+        assertEquals(6, r.moved());
+        assertEquals(6, below.received);
+        assertArrayEquals(new int[] {0, 0, 0, 0}, source.counts);
+    }
+
+    @Test
+    void everySlotIsExportedIncludingTheLast() {
         FakeWorld world = new FakeWorld();
         FakeSource source = new FakeSource(0, 0, 0, 5);
         FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, false);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
 
         assertEquals(5, r.moved());
         assertEquals(5, below.received);
@@ -86,11 +111,11 @@ class ExportPlanTest {
 
         ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
 
-        assertEquals(10, r.moved());
+        assertEquals(12, r.moved());
         assertEquals(below.pos, r.target(), "below comes first");
-        assertEquals(10, below.received);
+        assertEquals(12, below.received);
         assertEquals(0, side.received);
-        assertArrayEquals(new int[] {0, 0, 0, 2}, source.counts, "the input slot stays");
+        assertArrayEquals(new int[] {0, 0, 0, 0}, source.counts);
     }
 
     @Test
@@ -161,12 +186,25 @@ class ExportPlanTest {
         assertArrayEquals(expected, actual, "source counts");
     }
 
-    /** Slots with plain item counts; the last one is the input slot when the test passes {@code inputSlot=true}. */
+    /** Slots with plain item counts, of {@code "Rock_Stone_Cobble"} unless {@link #item} says otherwise. */
     private static final class FakeSource implements ExportPlan.ExportSource {
         final int[] counts;
+        final String[] ids;
 
         FakeSource(int... counts) {
             this.counts = counts;
+            this.ids = new String[counts.length];
+            Arrays.fill(ids, "Rock_Stone_Cobble");
+        }
+
+        FakeSource item(int slot, String id) {
+            ids[slot] = id;
+            return this;
+        }
+
+        @Override
+        public String itemId(int slot) {
+            return ids[slot];
         }
 
         @Override
