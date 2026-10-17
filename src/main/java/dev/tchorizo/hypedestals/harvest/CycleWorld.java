@@ -16,8 +16,8 @@ public interface CycleWorld {
     int collectDroppedItems(BlockPos center, double radius);
 
     /**
-     * How many harvests the container can take: one unit per slot that can still accept at least
-     * one item (see {@link HarvestCycle#slotBudget}).
+     * Whether no slot of the container can accept another item (see
+     * {@link HarvestCycle#slotHasRoom}). Informative only: the cycle harvests regardless.
      */
-    int harvestBudget();
+    boolean containerFull();
 }

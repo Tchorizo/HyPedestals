@@ -66,8 +66,8 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
-                last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d paused=%b exported=%s",
-                        last.harvested(), last.collected(), last.pausedFull(), export(harvester.lastExport())),
+                last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d containerFull=%b exported=%s",
+                        last.harvested(), last.collected(), last.containerFull(), export(harvester.lastExport())),
                 harvester.burstSecondsLeft(), harvester.upgrades(), soil(harvester),
                 harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "");
     }

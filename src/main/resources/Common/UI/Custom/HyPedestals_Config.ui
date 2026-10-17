@@ -197,6 +197,22 @@ $C.@PageOverlay {
 
       Group {
         LayoutMode: Left;
+        Anchor: (Bottom: 8);
+
+        Label {
+          Text: %hypedestals.ui.config.maxHarvests;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #MaxHarvestsPerCycle {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 1000, Step: 10, MaxDecimalPlaces: 0);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
         Anchor: (Bottom: 12);
 
         Label {

@@ -14,7 +14,7 @@ public final class CollectBurst {
 
     /**
      * Seconds left of the burst after a cycle: a cycle that harvested (re)starts the full window;
-     * any other cycle (nothing ripe, container full) leaves the running window as it was.
+     * any other cycle (nothing ripe) leaves the running window as it was.
      *
      * @param windowSeconds the config's {@code PostHarvestCollectSeconds}; {@code 0} turns the burst off
      */

@@ -33,6 +33,7 @@ class ModSettingsTest {
         assertTrue(ModSettings.DEFAULTS.exportToAdjacent());
         assertTrue(ModSettings.DEFAULTS.harvestParticles());
         assertEquals(3f, ModSettings.DEFAULTS.postHarvestCollectSeconds());
+        assertEquals(0, ModSettings.DEFAULTS.maxHarvestsPerCycle(), "no harvest limit by default");
         assertEquals(List.of(), ModSettings.DEFAULTS.problems(), "the defaults are valid");
     }
 
@@ -69,13 +70,14 @@ class ModSettingsTest {
     void withersAreImmutable() {
         ModSettings changed = ModSettings.DEFAULTS.withCollectAnyItem(false).withCollectMargin(0)
                 .withSoilSweepSeconds(5).withExportToAdjacent(false).withHarvestParticles(false)
-                .withPostHarvestCollectSeconds(0f);
+                .withPostHarvestCollectSeconds(0f).withMaxHarvestsPerCycle(50);
         assertFalse(changed.collectAnyItem());
         assertEquals(0, changed.collectMargin());
         assertEquals(5, changed.soilSweepSeconds());
         assertFalse(changed.exportToAdjacent());
         assertFalse(changed.harvestParticles());
         assertEquals(0f, changed.postHarvestCollectSeconds());
+        assertEquals(50, changed.maxHarvestsPerCycle());
         assertEquals(ModSettings.DEFAULTS.tiers(), changed.tiers(), "global withers keep the tiers");
         assertTrue(ModSettings.DEFAULTS.collectAnyItem());
         assertEquals(2, ModSettings.DEFAULTS.collectMargin());
@@ -88,6 +90,7 @@ class ModSettingsTest {
         assertFalse(tiered.exportToAdjacent());
         assertFalse(tiered.harvestParticles());
         assertEquals(0f, tiered.postHarvestCollectSeconds());
+        assertEquals(50, tiered.maxHarvestsPerCycle());
         assertThrows(UnsupportedOperationException.class, () -> changed.tiers().put(Tier.COPPER, new TierSettings(1, 1f, 60)));
     }
 
@@ -95,7 +98,7 @@ class ModSettingsTest {
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0));
     }
 
     @Test
@@ -109,7 +112,8 @@ class ModSettingsTest {
                 .withSoilSweepSeconds(4)
                 .withExportToAdjacent(false)
                 .withHarvestParticles(false)
-                .withPostHarvestCollectSeconds(10.5f);
+                .withPostHarvestCollectSeconds(10.5f)
+                .withMaxHarvestsPerCycle(1001);
 
         assertEquals(List.of(
                 "Copper.Radius=9 (allowed 1..8)",
@@ -121,7 +125,8 @@ class ModSettingsTest {
                 "Thorium.WateringSeconds=604801 (allowed 60..604800)",
                 "CollectMargin=5 (allowed 0..4)",
                 "SoilSweepSeconds=4 (allowed 5..600)",
-                "PostHarvestCollectSeconds=10.5 (allowed 0.0..10.0)"), raw.problems());
+                "PostHarvestCollectSeconds=10.5 (allowed 0.0..10.0)",
+                "MaxHarvestsPerCycle=1001 (allowed 0..1000)"), raw.problems());
 
         ModSettings fixed = raw.sanitized();
         assertEquals(Tier.COPPER.defaults(), fixed.tier(Tier.COPPER));
@@ -133,6 +138,11 @@ class ModSettingsTest {
         assertFalse(fixed.exportToAdjacent(), "booleans are kept");
         assertFalse(fixed.harvestParticles());
         assertEquals(3f, fixed.postHarvestCollectSeconds());
+        assertEquals(0, fixed.maxHarvestsPerCycle());
+        assertEquals(List.of("MaxHarvestsPerCycle=-1 (allowed 0..1000)"),
+                ModSettings.DEFAULTS.withMaxHarvestsPerCycle(-1).problems(), "negative is out of range");
+        assertEquals(1000, ModSettings.DEFAULTS.withMaxHarvestsPerCycle(1000).sanitized().maxHarvestsPerCycle(),
+                "upper bound is valid");
         assertEquals(3f, ModSettings.DEFAULTS.withPostHarvestCollectSeconds(Float.NaN).sanitized().postHarvestCollectSeconds(),
                 "NaN is out of range");
         assertEquals(List.of("PostHarvestCollectSeconds=-1.0 (allowed 0.0..10.0)"),
@@ -167,6 +177,10 @@ class ModSettingsTest {
         assertEquals(0f, s.set("global", "PostHarvestCollectSeconds", "0").postHarvestCollectSeconds(), "0 turns it off");
         assertEquals(10f, s.set("global", "postharvestcollectseconds", "10").postHarvestCollectSeconds());
         assertEquals(1.5f, s.set("global", "PostHarvestCollectSeconds", "1.5").postHarvestCollectSeconds());
+        assertEquals(64, s.set("global", "MaxHarvestsPerCycle", "64").maxHarvestsPerCycle());
+        assertEquals(0, s.withMaxHarvestsPerCycle(64).set("global", "maxharvestspercycle", "0").maxHarvestsPerCycle(),
+                "0 removes the limit");
+        assertEquals(1000, s.set("global", "MaxHarvestsPerCycle", "1000").maxHarvestsPerCycle());
         assertEquals(ModSettings.DEFAULTS, s, "set returns a copy");
     }
 
@@ -199,15 +213,22 @@ class ModSettingsTest {
         assertMessage("PostHarvestCollectSeconds must be 0.0..10.0, got NaN", () -> s.set("global", "PostHarvestCollectSeconds", "NaN"));
         assertMessage("not a number: soon", () -> s.set("global", "PostHarvestCollectSeconds", "soon"));
         assertMessage("unknown tier field PostHarvestCollectSeconds", () -> s.set("Copper", "PostHarvestCollectSeconds", "3"));
+        assertMessage("MaxHarvestsPerCycle must be 0..1000 (0 = no limit), got 1001",
+                () -> s.set("global", "MaxHarvestsPerCycle", "1001"));
+        assertMessage("MaxHarvestsPerCycle must be 0..1000 (0 = no limit), got -1",
+                () -> s.set("global", "MaxHarvestsPerCycle", "-1"));
+        assertMessage("not a whole number: 2.5", () -> s.set("global", "MaxHarvestsPerCycle", "2.5"));
+        assertMessage("unknown tier field MaxHarvestsPerCycle", () -> s.set("Cobalt", "MaxHarvestsPerCycle", "10"));
     }
 
     @Test
     void withChangesFromKeepsConcurrentChangesToUntouchedFields() {
         // The window opens with the defaults; meanwhile `config set Copper IntervalSeconds 3` and
-        // `config set global CollectMargin 0`; the user only changes Iron's radius and the
-        // particles checkbox, then saves.
+        // `config set global CollectMargin 0` and `config set global MaxHarvestsPerCycle 40`; the
+        // user only changes Iron's radius and the particles checkbox, then saves.
         ModSettings opened = ModSettings.DEFAULTS;
-        ModSettings current = opened.set("Copper", "IntervalSeconds", "3").set("global", "CollectMargin", "0");
+        ModSettings current = opened.set("Copper", "IntervalSeconds", "3").set("global", "CollectMargin", "0")
+                .set("global", "MaxHarvestsPerCycle", "40");
         ModSettings entered = opened.set("Iron", "Radius", "6").set("global", "HarvestParticles", "false");
 
         ModSettings saved = current.withChangesFrom(opened, entered);
@@ -215,6 +236,9 @@ class ModSettingsTest {
         assertEquals(new TierSettings(2, 3f, Tier.COPPER.defaults().wateringSeconds()), saved.tier(Tier.COPPER),
                 "the concurrent command change survives");
         assertEquals(0, saved.collectMargin(), "the concurrent command change survives");
+        assertEquals(40, saved.maxHarvestsPerCycle(), "the concurrent command change survives");
+        assertEquals(7, ModSettings.DEFAULTS.withChangesFrom(opened, opened.withMaxHarvestsPerCycle(7)).maxHarvestsPerCycle(),
+                "a change made in the window is applied");
         assertEquals(6, saved.tier(Tier.IRON).radius(), "the field the user changed is applied");
         assertFalse(saved.harvestParticles(), "the field the user changed is applied");
         assertEquals(Tier.THORIUM.defaults(), saved.tier(Tier.THORIUM));
@@ -252,7 +276,7 @@ class ModSettingsTest {
                         + " | Thorium Radius=4 IntervalSeconds=5.0 WateringSeconds=72000"
                         + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
                         + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true"
-                        + " PostHarvestCollectSeconds=3.0",
+                        + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0",
                 ModSettings.DEFAULTS.describe());
     }
 

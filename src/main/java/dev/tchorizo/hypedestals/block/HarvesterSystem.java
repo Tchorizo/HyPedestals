@@ -130,7 +130,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         harvester.lastResult = HarvestCycle.run(
                 new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem()),
                 new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
-                harvester.warnedTypes, harvester.scanIndex);
+                harvester.warnedTypes, harvester.scanIndex, global.maxHarvestsPerCycle());
         harvester.scanIndex = harvester.lastResult.nextIndex();
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {
@@ -152,7 +152,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                     new Vector3d(pos.x + 0.5, pos.y, pos.z + 0.5), world.getEntityStore().getStore());
         }
         // After the cycle's second collect, so this cycle's items leave right away; also when the
-        // cycle paused because the container was full, which is when export matters most.
+        // container is full, which is when export matters most.
         // With the fertilizer upgrade the bags are the pass's supply: they stay in the Harvester.
         harvester.lastExport = global.exportToAdjacent()
                 ? new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),

@@ -23,10 +23,10 @@ The numbers in the table are the defaults. Radius and interval can be changed pe
 
 1. Craft a Harvester at a Workbench.
 2. Place it next to (or in the middle of) your crops.
-3. Every interval it first collects dropped items around its area into its storage, then harvests ripe crops in its area, one harvest per storage slot that can still take items, then collects again. When it cannot harvest everything at once, the next cycle continues where the last one stopped, so the whole area gets harvested over a few cycles. After a cycle that harvested something it keeps collecting for `PostHarvestCollectSeconds` (3 s by default), so the new drops reach its storage within the same cycle.
+3. Every interval it first collects dropped items around its area into its storage, then harvests **every ripe crop** in its area, then collects again. After a cycle that harvested something it keeps collecting for `PostHarvestCollectSeconds` (3 s by default), so the new drops reach its storage within the same cycle.
 4. Press **Use** (F) on the Harvester to open its storage.
 
-When no storage slot can take more items, the Harvester stops harvesting (nothing is harvested onto the ground) until space frees up.
+The storage's free space does not limit the harvest: when the storage is full, the Harvester keeps harvesting and the drops stay on the ground until space frees up (e.g. through [export](#export-to-an-adjacent-container)), then they are collected. Servers that want a limit can set `MaxHarvestsPerCycle`; the next cycle then continues where the last one stopped, so the whole area still gets harvested over a few cycles.
 
 **Tip:** annual crops disappear when harvested, but the game's **Eternal** crops grow back after each harvest. Pair a Harvester with Eternal seeds for a farm that never needs replanting.
 
@@ -65,7 +65,8 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "SoilSweepSeconds": 30,
   "ExportToAdjacent": true,
   "HarvestParticles": true,
-  "PostHarvestCollectSeconds": 3.0
+  "PostHarvestCollectSeconds": 3.0,
+  "MaxHarvestsPerCycle": 0
 }
 ```
 
@@ -80,6 +81,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `ExportToAdjacent` | true/false | `true`: after each cycle the Harvester moves its items into a container touching it (see [Export](#export-to-an-adjacent-container)) |
 | `HarvestParticles` | true/false | A short puff of dust above the Harvester when a cycle harvests something |
 | `PostHarvestCollectSeconds` | 0–10 | After a cycle that harvested, the Harvester collects drops on every tick for this many seconds (the game registers new drops with a delay of a few seconds); 0 turns it off, and drops then wait for the next cycle |
+| `MaxHarvestsPerCycle` | 0–1000 | Most crops one Harvester harvests per cycle; 0 (the default) = no limit, every ripe crop. A safety cap for servers that want one; with a cap, each cycle continues the area scan where the previous one stopped |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
@@ -87,7 +89,7 @@ In game (operators):
 
 - `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle> <value>` — change one value, apply it and save the file. Also works from the server console.
 
 ## Export to an adjacent container
 
@@ -113,7 +115,7 @@ Operators, in chat (with `/`) or from the server console (without it):
 
 Permission nodes (operators hold them all through the `*` wildcard; nobody else does by default): `tchorizo.hypedestals.command.hypedestals`, plus `.inspect`, `.config`, `.config.show` and `.config.set` below it. A subcommand also needs the nodes of its parent commands, so letting a non-operator use `config set` takes `tchorizo.hypedestals.command.hypedestals`, `tchorizo.hypedestals.command.hypedestals.config` and `tchorizo.hypedestals.command.hypedestals.config.set`.
 
-`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `paused`, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the seconds left of the post-harvest collect burst (`burst=<s>`), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag the next pass uses (`fertilizer=<uses>/<max> (slot N)`, or `none` when the storage holds no usable Fertilizer bag). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
+`inspect` prints the tier, radius, interval, seconds until the next cycle, where the next harvest scan starts (`scan=<position>/<total>`), used/total slots, the last cycle (`harvested`, `collected`, `containerFull` — whether the storage had no room left at the end of the cycle —, `exported=<items>→<x y z>` with the container that received them, `→none` when nothing moved), the seconds left of the post-harvest collect burst (`burst=<s>`), the installed `upgrades=[…]`, the soil passes since the chunk loaded (`soil: watered=… total=… fertilized=… fertilizedTotal=… lastSweep=…s`, or `none` before the first one) and, with the Fertilizer upgrade, the bag the next pass uses (`fertilizer=<uses>/<max> (slot N)`, or `none` when the storage holds no usable Fertilizer bag). It loads the section from disk if it exists and never generates terrain; with nothing to inspect it replies `no Harvester at <x y z>`, or `section not loaded at <x y z>` when that part of the world has never been generated.
 
 ## Known limitations
 
@@ -122,7 +124,7 @@ Permission nodes (operators hold them all through the `*` wildcard; nobody else 
 - **Vacuums any dropped item** within radius + `CollectMargin` (2 by default), not only crops, unless `CollectAnyItem` is turned off (then tools, weapons and armor stay on the ground).
 - **Overlapping Harvesters compete.** Where areas overlap, whichever Harvester runs first takes the crop, and each dropped item goes to whichever Harvester collects it first.
 - **Annual crops are not replanted.** They are removed when harvested; replant them yourself or use Eternal crops. Bushes that reset after harvest (e.g. berries) regrow by themselves.
-- **One harvest can produce up to 2 stacks** (the crop plus Life Essence). When the storage is nearly full, whatever does not fit stays on the ground and is collected once space frees up.
+- **A full storage does not stop the harvest.** Whatever does not fit stays on the ground and is collected once space frees up. Use export, empty the storage, or set `MaxHarvestsPerCycle` if that matters on your server.
 - If harvesting a crop type keeps failing with an error, that Harvester skips that crop type until its chunk reloads (one warning is logged). A crop the game is still updating is simply retried on the next cycle.
 - **Creative mode:** installing an upgrade does not use up the item, and removing one still gives an item back, so upgrade items can be multiplied in Creative (like any item there).
 - **No owner checks.** A Harvester belongs to nobody: any player can open its storage, install upgrades, or crouch + Use to take its upgrades out, including on someone else's Harvester.

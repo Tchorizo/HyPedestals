@@ -25,10 +25,12 @@ import java.util.StringJoiner;
  * @param postHarvestCollectSeconds real seconds after a cycle that harvested during which the
  *     Harvester collects drops on every tick ({@code 0} = off; see
  *     {@link dev.tchorizo.hypedestals.harvest.CollectBurst})
+ * @param maxHarvestsPerCycle most crops one Harvester harvests per cycle ({@code 0} = no limit,
+ *     the default: every mature crop); a safety cap for servers that want one
  */
 public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem, int collectMargin,
                           int soilSweepSeconds, boolean exportToAdjacent, boolean harvestParticles,
-                          float postHarvestCollectSeconds) {
+                          float postHarvestCollectSeconds, int maxHarvestsPerCycle) {
 
     public static final int MIN_MARGIN = 0;
     public static final int MAX_MARGIN = 4;
@@ -42,6 +44,10 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     public static final float MIN_POST_HARVEST_COLLECT = 0f;
     public static final float MAX_POST_HARVEST_COLLECT = 10f;
     public static final float DEFAULT_POST_HARVEST_COLLECT = 3f;
+    public static final int MIN_MAX_HARVESTS = 0;
+    public static final int MAX_MAX_HARVESTS = 1000;
+    /** No limit: every mature crop is harvested each cycle. */
+    public static final int DEFAULT_MAX_HARVESTS = 0;
     /** {@code config set} target of the fields that are not per tier. */
     public static final String GLOBAL = "global";
 
@@ -65,7 +71,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         }
         return new ModSettings(tiers, DEFAULT_COLLECT_ANY_ITEM, DEFAULT_COLLECT_MARGIN,
                 DEFAULT_SOIL_SWEEP, DEFAULT_EXPORT_TO_ADJACENT, DEFAULT_HARVEST_PARTICLES,
-                DEFAULT_POST_HARVEST_COLLECT);
+                DEFAULT_POST_HARVEST_COLLECT, DEFAULT_MAX_HARVESTS);
     }
 
     public static boolean validMargin(int margin) {
@@ -79,6 +85,11 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     /** {@code 0..10} seconds; NaN is out of range. */
     public static boolean validPostHarvestCollect(float seconds) {
         return seconds >= MIN_POST_HARVEST_COLLECT && seconds <= MAX_POST_HARVEST_COLLECT;
+    }
+
+    /** {@code 0..1000}; {@code 0} = no limit. */
+    public static boolean validMaxHarvests(int value) {
+        return value >= MIN_MAX_HARVESTS && value <= MAX_MAX_HARVESTS;
     }
 
     public TierSettings tier(Tier tier) {
@@ -102,37 +113,42 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         EnumMap<Tier, TierSettings> copy = new EnumMap<>(tiers);
         copy.put(tier, settings);
         return new ModSettings(copy, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle);
     }
 
     public ModSettings withCollectAnyItem(boolean value) {
         return new ModSettings(tiers, value, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle);
     }
 
     public ModSettings withCollectMargin(int value) {
         return new ModSettings(tiers, collectAnyItem, value, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle);
     }
 
     public ModSettings withSoilSweepSeconds(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, value, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle);
     }
 
     public ModSettings withExportToAdjacent(boolean value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, value, harvestParticles,
-                postHarvestCollectSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle);
     }
 
     public ModSettings withHarvestParticles(boolean value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, value,
-                postHarvestCollectSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle);
     }
 
     public ModSettings withPostHarvestCollectSeconds(float value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                value);
+                value, maxHarvestsPerCycle);
+    }
+
+    public ModSettings withMaxHarvestsPerCycle(int value) {
+        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds, value);
     }
 
     /**
@@ -158,7 +174,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 entered.exportToAdjacent != opened.exportToAdjacent ? entered.exportToAdjacent : exportToAdjacent,
                 entered.harvestParticles != opened.harvestParticles ? entered.harvestParticles : harvestParticles,
                 tenths(entered.postHarvestCollectSeconds) != tenths(opened.postHarvestCollectSeconds)
-                        ? entered.postHarvestCollectSeconds : postHarvestCollectSeconds);
+                        ? entered.postHarvestCollectSeconds : postHarvestCollectSeconds,
+                entered.maxHarvestsPerCycle != opened.maxHarvestsPerCycle ? entered.maxHarvestsPerCycle : maxHarvestsPerCycle);
     }
 
     private static long tenths(float seconds) {
@@ -194,6 +211,10 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
             problems.add(String.format(Locale.ROOT, "PostHarvestCollectSeconds=%s (allowed %s..%s)",
                     postHarvestCollectSeconds, MIN_POST_HARVEST_COLLECT, MAX_POST_HARVEST_COLLECT));
         }
+        if (!validMaxHarvests(maxHarvestsPerCycle)) {
+            problems.add(String.format(Locale.ROOT, "MaxHarvestsPerCycle=%d (allowed %d..%d)",
+                    maxHarvestsPerCycle, MIN_MAX_HARVESTS, MAX_MAX_HARVESTS));
+        }
         return problems;
     }
 
@@ -212,7 +233,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 validMargin(collectMargin) ? collectMargin : DEFAULT_COLLECT_MARGIN,
                 validSoilSweep(soilSweepSeconds) ? soilSweepSeconds : DEFAULT_SOIL_SWEEP,
                 exportToAdjacent, harvestParticles,
-                validPostHarvestCollect(postHarvestCollectSeconds) ? postHarvestCollectSeconds : DEFAULT_POST_HARVEST_COLLECT);
+                validPostHarvestCollect(postHarvestCollectSeconds) ? postHarvestCollectSeconds : DEFAULT_POST_HARVEST_COLLECT,
+                validMaxHarvests(maxHarvestsPerCycle) ? maxHarvestsPerCycle : DEFAULT_MAX_HARVESTS);
     }
 
     /**
@@ -220,7 +242,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
      * {@code target} is a tier name (fields {@code Radius}, {@code IntervalSeconds},
      * {@code WateringSeconds}) or {@link #GLOBAL} (fields {@code CollectAnyItem},
      * {@code CollectMargin}, {@code SoilSweepSeconds}, {@code ExportToAdjacent},
-     * {@code HarvestParticles}, {@code PostHarvestCollectSeconds}); names ignore case.
+     * {@code HarvestParticles}, {@code PostHarvestCollectSeconds}, {@code MaxHarvestsPerCycle});
+     * names ignore case.
      *
      * @throws IllegalArgumentException with a message for the user when the target, field or
      *     value is unknown, malformed or out of range
@@ -257,9 +280,18 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                     }
                     yield withPostHarvestCollectSeconds(seconds);
                 }
+                case "maxharvestspercycle" -> {
+                    int max = parseInt(value);
+                    if (!validMaxHarvests(max)) {
+                        throw new IllegalArgumentException(String.format(Locale.ROOT,
+                                "MaxHarvestsPerCycle must be %d..%d (0 = no limit), got %s",
+                                MIN_MAX_HARVESTS, MAX_MAX_HARVESTS, value));
+                    }
+                    yield withMaxHarvestsPerCycle(max);
+                }
                 default -> throw new IllegalArgumentException("unknown global field " + field
                         + "; expected CollectAnyItem, CollectMargin, SoilSweepSeconds, ExportToAdjacent,"
-                        + " HarvestParticles or PostHarvestCollectSeconds");
+                        + " HarvestParticles, PostHarvestCollectSeconds or MaxHarvestsPerCycle");
             };
         }
         Tier tier = Tier.byName(target);
@@ -300,7 +332,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     /**
      * One line, e.g. {@code Copper Radius=2 IntervalSeconds=12.0 WateringSeconds=21600 | … |
      * CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true
-     * PostHarvestCollectSeconds=3.0}.
+     * PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0}.
      */
     public String describe() {
         StringJoiner line = new StringJoiner(" | ");
@@ -311,7 +343,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         }
         line.add("CollectAnyItem=" + collectAnyItem + " CollectMargin=" + collectMargin
                 + " SoilSweepSeconds=" + soilSweepSeconds + " ExportToAdjacent=" + exportToAdjacent
-                + " HarvestParticles=" + harvestParticles + " PostHarvestCollectSeconds=" + postHarvestCollectSeconds);
+                + " HarvestParticles=" + harvestParticles + " PostHarvestCollectSeconds=" + postHarvestCollectSeconds
+                + " MaxHarvestsPerCycle=" + maxHarvestsPerCycle);
         return line.toString();
     }
 

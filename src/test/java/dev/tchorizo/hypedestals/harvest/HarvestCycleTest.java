@@ -21,188 +21,117 @@ class HarvestCycleTest {
     private static final String WHEAT = "Plant_Crop_Wheat_Block";
     private static final String BERRY = "Plant_Crop_Berry_Block";
 
+    /** No {@code MaxHarvestsPerCycle} limit (the default). */
+    private static final int NO_LIMIT = 0;
+
     @Test
     void collectsBeforeHarvesting() {
-        // The collection uses up one of the two budget units, so only one harvest fits afterwards.
         FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 2;
-        world.slotsFilledByCollect = 1;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
-        world.mature(new BlockPos(2, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
+        HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT);
 
-        assertEquals(List.of("collect " + CENTER + " r=4.0", "harvestBudget"), world.calls.subList(0, 2),
-                "the budget is read only after collecting; extent = radius + collectMargin");
-        assertEquals(1, result.harvested(), "the budget reflects what the collection stored");
-        assertEquals(List.of("harvest " + new BlockPos(1, 64, 0)), world.harvestCalls());
+        assertEquals(List.of("collect " + CENTER + " r=4.0", "harvest " + new BlockPos(1, 64, 0),
+                        "collect " + CENTER + " r=4.0", "containerFull"), world.calls,
+                "collect, harvest, collect again, then the container is checked; extent = radius + collectMargin");
     }
 
     @Test
     void collectsAgainAfterHarvestingAndSumsBothPasses() {
         // Drops the item index already registered are picked up in the same cycle; the rest
-        // waits for the next one. Both passes use the same box extent.
+        // waits for the burst or the next cycle. Both passes use the same box extent.
         FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 5;
         world.collectedOnCollect = 3;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 5, MARGIN, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 5, MARGIN, new HashSet<>(), 0, NO_LIMIT);
 
         assertEquals(6, result.collected(), "both collect passes are summed");
-        assertEquals("collect " + CENTER + " r=7.0", world.calls.getFirst());
-        assertEquals("collect " + CENTER + " r=7.0", world.calls.getLast(),
-                "the cycle ends with a second collect after harvesting");
+        assertEquals(List.of("collect " + CENTER + " r=7.0", "collect " + CENTER + " r=7.0"), world.collectCalls());
         assertEquals(1, result.harvested());
     }
 
     @Test
     void collectExtentFollowsTheConfiguredMargin() {
         FakeCycleWorld zero = new FakeCycleWorld();
-        zero.budget = 1;
-        HarvestCycle.run(zero, CENTER, 3, 0, new HashSet<>(), 0);
-        assertEquals("collect " + CENTER + " r=3.0", zero.calls.getFirst(), "margin 0 collects the area only");
+        HarvestCycle.run(zero, CENTER, 3, 0, new HashSet<>(), 0, NO_LIMIT);
+        assertEquals(List.of("collect " + CENTER + " r=3.0", "collect " + CENTER + " r=3.0"), zero.collectCalls(),
+                "margin 0 collects the area only");
 
         FakeCycleWorld four = new FakeCycleWorld();
-        four.budget = 1;
-        HarvestCycle.run(four, CENTER, 3, 4, new HashSet<>(), 0);
-        assertEquals("collect " + CENTER + " r=7.0", four.calls.getFirst());
-        assertEquals("collect " + CENTER + " r=7.0", four.calls.getLast(), "both passes use the same extent");
+        HarvestCycle.run(four, CENTER, 3, 4, new HashSet<>(), 0, NO_LIMIT);
+        assertEquals(List.of("collect " + CENTER + " r=7.0", "collect " + CENTER + " r=7.0"), four.collectCalls(),
+                "both passes use the same extent");
     }
 
     @Test
-    void pausesWhenBudgetIsNegative() {
+    void harvestsEverythingRipeInOneCycle() {
+        // Every block of the 5x5 layer is a mature crop and the container is already full: the
+        // container's room does not limit the harvest (what does not fit stays on the ground).
         FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = -1;
-        world.mature(new BlockPos(1, 64, 0), WHEAT);
-
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
-
-        assertTrue(result.pausedFull());
-        assertEquals(List.of(), world.harvestCalls());
-    }
-
-    @Test
-    void pausesWhenBudgetIsZeroButStillCollects() {
-        FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 0;
-        world.collectedOnCollect = 7;
-        world.mature(new BlockPos(1, 64, 0), WHEAT);
-
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
-
-        assertTrue(result.pausedFull());
-        assertEquals(7, result.collected());
-        assertEquals(0, result.harvested());
-        assertEquals(List.of(), world.harvestCalls());
-    }
-
-    @Test
-    void harvestStopsWhenBudgetIsSpent() {
-        FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 2;
+        world.full = true;
+        Set<String> expected = new HashSet<>();
         for (int x = -2; x <= 2; x++) {
-            world.mature(new BlockPos(x, 64, 0), WHEAT);
+            for (int z = -2; z <= 2; z++) {
+                BlockPos crop = new BlockPos(x, 64, z);
+                world.mature(crop, WHEAT);
+                expected.add("harvest " + crop);
+            }
         }
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT);
 
-        assertEquals(2, result.harvested());
-        assertEquals(2, world.harvestCalls().size(), "stops calling harvest once the budget is spent");
-        assertFalse(result.pausedFull());
+        assertEquals(25, result.harvested());
+        assertEquals(expected, Set.copyOf(world.harvestCalls()));
+        assertEquals(25, world.harvestCalls().size(), "each crop once");
+        assertTrue(result.containerFull(), "reported, but it did not stop the harvest");
+        assertEquals(0, result.nextIndex(), "a full lap ends where it started");
     }
 
     @Test
-    void skipsNonCropsAndImmature() {
+    void containerFullIsReadAfterTheSecondCollect() {
         FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 1;
-        // From index 0 the order is y, x, z ascending: the immature crop comes before the mature one.
-        BlockPos immature = new BlockPos(-1, 64, 0);
-        BlockPos mature = new BlockPos(1, 64, 0);
-        world.immature(immature, WHEAT);
-        world.mature(mature, WHEAT);
+        world.fullAfterCollects = 2;
+        world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0);
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT);
 
-        assertEquals(1, result.harvested(), "an immature crop does not consume the budget");
-        assertEquals(List.of("harvest " + immature, "harvest " + mature), world.harvestCalls(),
-                "positions without a crop type are never harvested");
+        assertTrue(result.containerFull(), "the second collect filled the container");
+        assertEquals("containerFull", world.calls.getLast());
+        assertFalse(HarvestCycle.run(new FakeCycleWorld(), CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT).containerFull());
     }
 
     @Test
-    void isolatesExceptionPerTypeAndDedupes() {
-        BlockPos berryA = new BlockPos(-1, 64, 0);
-        BlockPos berryB = new BlockPos(0, 64, 1);
-        BlockPos wheat = new BlockPos(1, 64, 0);
-        Set<String> warnedTypes = new HashSet<>();
+    void rotationStillCoversAreaDeterministically() {
+        // Without a limit every start index harvests every mature crop once, in scan order from
+        // the start index (wrapping around), and the next cycle starts at the same index.
+        List<BlockPos> crops = List.of(new BlockPos(-2, 63, -2), new BlockPos(0, 64, 0), new BlockPos(2, 65, 2),
+                new BlockPos(1, 64, -1));
+        List<BlockPos> positions = HarvestArea.positions(CENTER, 2);
+        for (int start : new int[] {0, 30, 74, 124, 200}) {
+            FakeCycleWorld world = new FakeCycleWorld();
+            crops.forEach(c -> world.mature(c, WHEAT));
 
-        FakeCycleWorld first = new FakeCycleWorld();
-        first.budget = 9;
-        first.mature(berryA, BERRY);
-        first.mature(berryB, BERRY);
-        first.mature(wheat, WHEAT);
-        first.throwingTypes.add(BERRY);
+            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start, NO_LIMIT);
 
-        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0);
-
-        assertEquals(List.of(BERRY), firstResult.newWarnings());
-        assertEquals(List.of("harvest " + berryA, "harvest " + wheat), first.harvestCalls(),
-                "other blocks of a failing type are skipped; other types keep being harvested");
-        assertEquals(1, firstResult.harvested());
-        assertEquals(Set.of(BERRY), warnedTypes);
-
-        FakeCycleWorld second = new FakeCycleWorld();
-        second.budget = 9;
-        second.mature(berryA, BERRY);
-        second.mature(berryB, BERRY);
-        second.mature(wheat, WHEAT);
-        second.throwingTypes.add(BERRY);
-
-        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0);
-
-        assertEquals(List.of(), secondResult.newWarnings());
-        assertEquals(List.of("harvest " + wheat), second.harvestCalls());
-        assertEquals(1, secondResult.harvested());
+            int from = Math.floorMod(start, positions.size());
+            List<String> expected = new ArrayList<>();
+            for (int i = 0; i < positions.size(); i++) {
+                BlockPos p = positions.get((from + i) % positions.size());
+                if (crops.contains(p)) {
+                    expected.add("harvest " + p);
+                }
+            }
+            assertEquals(expected, world.harvestCalls(), "scan order from start " + start);
+            assertEquals(4, result.harvested());
+            assertEquals(from, result.nextIndex(), "a full lap keeps the start index");
+        }
     }
 
     @Test
-    void transientErrorIsRetriedNextCycle() {
-        BlockPos busy = new BlockPos(-1, 64, 0);
-        BlockPos other = new BlockPos(1, 64, 0);
-        Set<String> warnedTypes = new HashSet<>();
-
-        FakeCycleWorld first = new FakeCycleWorld();
-        first.budget = 1;
-        first.mature(busy, WHEAT);
-        first.mature(other, WHEAT);
-        first.transientPositions.add(busy);
-
-        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0);
-
-        assertEquals(List.of("harvest " + busy, "harvest " + other), first.harvestCalls(),
-                "a transient failure spends no budget and does not skip the type");
-        assertEquals(1, firstResult.harvested());
-        assertEquals(1, firstResult.transientFailures());
-        assertEquals(List.of(), firstResult.newWarnings());
-        assertEquals(Set.of(), warnedTypes);
-
-        FakeCycleWorld second = new FakeCycleWorld();
-        second.budget = 1;
-        second.mature(busy, WHEAT);
-
-        // As HarvesterSystem does: the next cycle starts where this one stopped (after `other`),
-        // so the busy crop is reached by wrapping around the area.
-        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, firstResult.nextIndex());
-
-        assertEquals(List.of("harvest " + busy), second.harvestCalls());
-        assertEquals(1, secondResult.harvested(), "the crop that was busy is harvested on the next cycle");
-        assertEquals(0, secondResult.transientFailures());
-    }
-
-    @Test
-    void rotatesStartAcrossCycles() {
+    void maxHarvestsCapsTheCycleAndRotatesAcrossCycles() {
         // Nine crops that stay mature after each harvest (like Eternal crops under `dev grow`),
-        // spread over the area including opposite corners, and a budget of two per cycle. Without
+        // spread over the area including opposite corners, and MaxHarvestsPerCycle = 2. Without
         // rotation the same two crops would be harvested every cycle.
         List<BlockPos> crops = new ArrayList<>();
         for (int x = -2; x <= 2; x += 2) {
@@ -214,12 +143,12 @@ class HarvestCycleTest {
         int start = 0;
         for (int cycle = 0; cycle < 5; cycle++) {
             FakeCycleWorld world = new FakeCycleWorld();
-            world.budget = 2;
             crops.forEach(c -> world.mature(c, WHEAT));
 
-            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start);
+            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start, 2);
 
             assertEquals(2, result.harvested());
+            assertEquals(2, world.harvestCalls().size(), "stops calling harvest once the limit is reached");
             harvestedInOrder.addAll(world.harvestCalls());
             start = result.nextIndex();
         }
@@ -234,14 +163,96 @@ class HarvestCycleTest {
     }
 
     @Test
-    void nextIndexFollowsTheLastHarvestedPosition() {
+    void skipsNonCropsAndImmature() {
+        // From index 0 the order is y, x, z ascending: the immature crop comes before the mature one.
+        FakeCycleWorld world = new FakeCycleWorld();
+        BlockPos immature = new BlockPos(-1, 64, 0);
+        BlockPos mature = new BlockPos(1, 64, 0);
+        world.immature(immature, WHEAT);
+        world.mature(mature, WHEAT);
+
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, 1);
+
+        assertEquals(1, result.harvested(), "an immature crop does not count towards the limit");
+        assertEquals(List.of("harvest " + immature, "harvest " + mature), world.harvestCalls(),
+                "positions without a crop type are never harvested");
+    }
+
+    @Test
+    void isolatesExceptionPerTypeAndDedupes() {
+        BlockPos berryA = new BlockPos(-1, 64, 0);
+        BlockPos berryB = new BlockPos(0, 64, 1);
+        BlockPos wheat = new BlockPos(1, 64, 0);
+        Set<String> warnedTypes = new HashSet<>();
+
+        FakeCycleWorld first = new FakeCycleWorld();
+        first.mature(berryA, BERRY);
+        first.mature(berryB, BERRY);
+        first.mature(wheat, WHEAT);
+        first.throwingTypes.add(BERRY);
+
+        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0, NO_LIMIT);
+
+        assertEquals(List.of(BERRY), firstResult.newWarnings());
+        assertEquals(List.of("harvest " + berryA, "harvest " + wheat), first.harvestCalls(),
+                "other blocks of a failing type are skipped; other types keep being harvested");
+        assertEquals(1, firstResult.harvested());
+        assertEquals(Set.of(BERRY), warnedTypes);
+
+        FakeCycleWorld second = new FakeCycleWorld();
+        second.mature(berryA, BERRY);
+        second.mature(berryB, BERRY);
+        second.mature(wheat, WHEAT);
+        second.throwingTypes.add(BERRY);
+
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0, NO_LIMIT);
+
+        assertEquals(List.of(), secondResult.newWarnings());
+        assertEquals(List.of("harvest " + wheat), second.harvestCalls());
+        assertEquals(1, secondResult.harvested());
+    }
+
+    @Test
+    void transientErrorIsRetriedNextCycle() {
+        BlockPos busy = new BlockPos(-1, 64, 0);
+        BlockPos other = new BlockPos(1, 64, 0);
+        Set<String> warnedTypes = new HashSet<>();
+
+        FakeCycleWorld first = new FakeCycleWorld();
+        first.mature(busy, WHEAT);
+        first.mature(other, WHEAT);
+        first.transientPositions.add(busy);
+
+        // With a limit of 1 the busy crop must not use it up: `other` is still harvested.
+        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0, 1);
+
+        assertEquals(List.of("harvest " + busy, "harvest " + other), first.harvestCalls(),
+                "a transient failure does not count towards the limit and does not skip the type");
+        assertEquals(1, firstResult.harvested());
+        assertEquals(1, firstResult.transientFailures());
+        assertEquals(List.of(), firstResult.newWarnings());
+        assertEquals(Set.of(), warnedTypes);
+
+        FakeCycleWorld second = new FakeCycleWorld();
+        second.mature(busy, WHEAT);
+
+        // As HarvesterSystem does: the next cycle starts where this one stopped (after `other`),
+        // so the busy crop is reached by wrapping around the area.
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, firstResult.nextIndex(), 1);
+
+        assertEquals(List.of("harvest " + busy), second.harvestCalls());
+        assertEquals(1, secondResult.harvested(), "the crop that was busy is harvested on the next cycle");
+        assertEquals(0, secondResult.transientFailures());
+    }
+
+    @Test
+    void nextIndexFollowsTheLastHarvestedPositionWhenCapped() {
         // Radius 1: 27 positions; (0, 63, 0) is index 4 and (1, 64, -1) is index 15.
         FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 1;
         world.mature(new BlockPos(0, 63, 0), WHEAT);
         world.mature(new BlockPos(1, 64, -1), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 10);
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 10, 1);
 
         assertEquals(List.of("harvest " + new BlockPos(1, 64, -1)), world.harvestCalls(),
                 "the scan starts at startIndex");
@@ -249,14 +260,14 @@ class HarvestCycleTest {
     }
 
     @Test
-    void fullLapWithBudgetLeftKeepsStartIndex() {
+    void fullLapKeepsStartIndex() {
         FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 9;
         world.mature(new BlockPos(0, 63, 0), WHEAT);
         world.mature(new BlockPos(1, 64, -1), WHEAT);
 
-        // 37 is out of range for 27 positions and wraps to 10.
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 37);
+        // 37 is out of range for 27 positions and wraps to 10. A limit above the crop count
+        // behaves like no limit.
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 37, 9);
 
         assertEquals(List.of("harvest " + new BlockPos(1, 64, -1), "harvest " + new BlockPos(0, 63, 0)),
                 world.harvestCalls(), "the scan wraps around past the last position");
@@ -265,39 +276,26 @@ class HarvestCycleTest {
     }
 
     @Test
-    void pausedCycleKeepsStartIndex() {
-        FakeCycleWorld world = new FakeCycleWorld();
-        world.budget = 0;
-
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 5);
-
-        assertTrue(result.pausedFull());
-        assertEquals(5, result.nextIndex());
+    void slotHasRoomCountsPartialStacks() {
+        assertTrue(HarvestCycle.slotHasRoom(0, 0), "an empty slot has room");
+        assertTrue(HarvestCycle.slotHasRoom(5, 100));
+        assertTrue(HarvestCycle.slotHasRoom(99, 100), "a stack one short of full has room");
+        assertFalse(HarvestCycle.slotHasRoom(100, 100));
+        assertFalse(HarvestCycle.slotHasRoom(7, 0), "an item without a known stack size counts as full");
     }
 
-    @Test
-    void budgetCountsPartialStacks() {
-        // One unit per slot that can still take at least one item: empty slots and partial stacks.
-        int[][] slots = {{0, 0}, {5, 100}, {100, 100}, {3, 25}, {25, 25}, {0, 100}};
-        int budget = 0;
-        for (int[] slot : slots) {
-            budget += HarvestCycle.slotBudget(slot[0], slot[1]);
-        }
-        assertEquals(4, budget);
-        assertEquals(1, HarvestCycle.slotBudget(99, 100), "a stack one short of full still counts");
-        assertEquals(0, HarvestCycle.slotBudget(7, 0), "an item without a known stack size counts as full");
-    }
-
-    /** Records every call in order; crop layout, maturity, failures and the budget are configurable. */
+    /** Records every call in order; crop layout, maturity, failures and the container's fullness are configurable. */
     private static final class FakeCycleWorld implements CycleWorld {
         final List<String> calls = new ArrayList<>();
         final Map<BlockPos, String> cropTypes = new HashMap<>();
         final Set<BlockPos> maturePositions = new HashSet<>();
         final Set<String> throwingTypes = new HashSet<>();
         final Set<BlockPos> transientPositions = new HashSet<>();
-        int budget;
+        boolean full;
+        /** The container reports full once this many collects ran ({@code 0} = never by collecting). */
+        int fullAfterCollects;
         int collectedOnCollect;
-        int slotsFilledByCollect;
+        private int collects;
 
         void mature(BlockPos pos, String type) {
             cropTypes.put(pos, type);
@@ -310,6 +308,10 @@ class HarvestCycleTest {
 
         List<String> harvestCalls() {
             return calls.stream().filter(call -> call.startsWith("harvest ")).toList();
+        }
+
+        List<String> collectCalls() {
+            return calls.stream().filter(call -> call.startsWith("collect ")).toList();
         }
 
         @Override
@@ -333,14 +335,14 @@ class HarvestCycleTest {
         @Override
         public int collectDroppedItems(BlockPos center, double radius) {
             calls.add("collect " + center + " r=" + radius);
-            budget -= slotsFilledByCollect;
+            collects++;
             return collectedOnCollect;
         }
 
         @Override
-        public int harvestBudget() {
-            calls.add("harvestBudget");
-            return budget;
+        public boolean containerFull() {
+            calls.add("containerFull");
+            return full || (fullAfterCollects > 0 && collects >= fullAfterCollects);
         }
     }
 }

@@ -215,18 +215,18 @@ final class HytaleCycleWorld implements CycleWorld {
     }
 
     @Override
-    public int harvestBudget() {
-        int budget = 0;
+    public boolean containerFull() {
         short capacity = container.getCapacity();
         for (short slot = 0; slot < capacity; slot++) {
             ItemStack stack = container.getItemStack(slot);
             if (stack == null || stack.isEmpty()) {
-                budget += HarvestCycle.slotBudget(0, 0);
-            } else {
-                Item item = stack.getItem();
-                budget += HarvestCycle.slotBudget(stack.getQuantity(), item == null ? 0 : item.getMaxStack());
+                return false;
+            }
+            Item item = stack.getItem();
+            if (HarvestCycle.slotHasRoom(stack.getQuantity(), item == null ? 0 : item.getMaxStack())) {
+                return false;
             }
         }
-        return budget;
+        return true;
     }
 }
