@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.1 — 2026-10-17
+
+### Changed
+
+- New emblem on top of the Harvesters: a wheel with eight straight spokes in the tier's metal. The previous curved-blade wheel could look like an offensive symbol when seen from above, so it was replaced everywhere (block textures, item icons and the mod icon).
+- The mod icon in the world's mod list now shows the pedestal-shaped Harvester instead of the old cube.
+
 ## 0.2.0 — 2026-10-17
 
 ### Added
