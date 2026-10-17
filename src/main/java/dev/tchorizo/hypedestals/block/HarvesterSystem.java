@@ -188,6 +188,9 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
         harvester.burstRemaining = CollectBurst.afterCycle(harvester.burstRemaining,
                 harvester.lastResult.harvested(), global.postHarvestCollectSeconds());
+        if (harvester.lastResult.harvested() > 0) {
+            harvester.burstTicksWithoutProgress = 0;
+        }
 
         long cycleMicros = micros(cycleStart);
         harvester.stats.addCycle(cycleMicros, harvester.lastResult.harvested(), harvester.lastResult.collected());
@@ -209,7 +212,9 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
      * Between cycles, while the post-harvest burst is running: one collect (the cycle's box) per
      * tick, added to the last cycle's {@code collected}, so drops the item index registers a few
      * seconds after the harvest reach the container within the same cycle. Nothing runs outside
-     * the burst.
+     * the burst. With the container full the tick does not collect and the burst ends (nothing
+     * could go in until the next cycle's export); it also ends after a few ticks that found items
+     * but put none in ({@link CollectBurst#afterCollect}).
      */
     private static void collectBurst(float dt, HarvesterComponent harvester, BlockModule.BlockStateInfo info,
                                      SimpleItemContainer container, Store<ChunkStore> store,
@@ -225,9 +230,14 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
         long burstStart = System.nanoTime();
         World world = store.getExternalData().getWorld();
-        int collected = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem())
-                .collectDroppedItems(new BlockPos(pos.x, pos.y, pos.z),
-                        HarvestCycle.collectExtent(settings.radius(), global.collectMargin()));
+        HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem());
+        boolean full = cycleWorld.containerFull();
+        int collected = full ? 0 : cycleWorld.collectDroppedItems(new BlockPos(pos.x, pos.y, pos.z),
+                HarvestCycle.collectExtent(settings.radius(), global.collectMargin()));
+        harvester.burstTicksWithoutProgress = CollectBurst.ticksWithoutProgress(harvester.burstTicksWithoutProgress,
+                collected, cycleWorld.itemsSeen());
+        harvester.burstRemaining = CollectBurst.afterCollect(harvester.burstRemaining, full,
+                harvester.burstTicksWithoutProgress);
         harvester.lastResult = harvester.lastResult.plusCollected(collected);
         harvester.stats.addCollected(collected);
         phase(harvester, CycleStats.Phase.BURST, micros(burstStart));

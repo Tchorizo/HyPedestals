@@ -7,8 +7,9 @@ import java.util.List;
  *
  * @param collected items put into the container by the cycle's two collects, plus those of the
  *     {@link CollectBurst} that followed it (see {@link #plusCollected})
- * @param containerFull whether the container had no room left after the cycle's second collect
- *     (informative: the harvest is not limited by it; see {@link HarvestCycle#run})
+ * @param containerFull whether the cycle stopped at a crop whose drops did not fit in the
+ *     container (it and the rest wait on the plant), or the container had no room left after the
+ *     cycle's second collect; see {@link HarvestCycle#run}
  * @param newWarnings crop types that failed to harvest for the first time in this cycle
  * @param transientFailures positions whose harvest was deferred to a later cycle ({@link HarvestOutcome#TRANSIENT_ERROR})
  * @param nextIndex index in {@link HarvestArea#positions} where the next cycle's scan starts

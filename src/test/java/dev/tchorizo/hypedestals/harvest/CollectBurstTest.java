@@ -75,4 +75,35 @@ class CollectBurstTest {
                 "only the collected count changes");
         assertSame(cycle, cycle.plusCollected(0));
     }
+
+    @Test
+    void burstEndsEarlyWithoutProgress() {
+        // Items lie in the box but none goes in (e.g. a stack too big for what is left): the
+        // window closes on the third such tick in a row instead of running its 3 s (90 ticks).
+        float remaining = CollectBurst.afterCycle(0f, 5, WINDOW);
+        int noProgress = 0;
+        int ticks = 0;
+        while (CollectBurst.collects(remaining, WINDOW)) {
+            remaining = CollectBurst.afterTick(remaining, 1f / 30f);
+            noProgress = CollectBurst.ticksWithoutProgress(noProgress, 0, 12);
+            remaining = CollectBurst.afterCollect(remaining, false, noProgress);
+            ticks++;
+        }
+
+        assertEquals(CollectBurst.MAX_TICKS_WITHOUT_PROGRESS, ticks);
+    }
+
+    @Test
+    void progressOrAnEmptyBoxKeepsTheBurstGoing() {
+        assertEquals(0, CollectBurst.ticksWithoutProgress(2, 3, 10), "something went in");
+        assertEquals(0, CollectBurst.ticksWithoutProgress(2, 0, 0),
+                "nothing in the box yet: the item index may still be registering the drops");
+        assertEquals(3, CollectBurst.ticksWithoutProgress(2, 0, 4));
+        assertEquals(2.5f, CollectBurst.afterCollect(2.5f, false, 2), "two ticks without progress are not enough");
+    }
+
+    @Test
+    void aFullContainerEndsTheBurst() {
+        assertEquals(0f, CollectBurst.afterCollect(2.5f, true, 0), "nothing can go in: the window closes");
+    }
 }

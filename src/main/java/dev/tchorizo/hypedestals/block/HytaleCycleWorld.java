@@ -8,9 +8,12 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.HarvestingDropType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.farming.FarmingData;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.farming.FarmingStageData;
 import com.hypixel.hytale.server.core.asset.type.item.config.Item;
+import com.hypixel.hytale.server.core.asset.type.item.config.ItemDrop;
+import com.hypixel.hytale.server.core.asset.type.item.config.ItemDropList;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
@@ -24,13 +27,18 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CollectFilter;
+import dev.tchorizo.hypedestals.harvest.ContainerRoom;
 import dev.tchorizo.hypedestals.harvest.CycleWorld;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.HarvestOutcome;
+import dev.tchorizo.hypedestals.harvest.ItemCount;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** {@link CycleWorld} over one Hytale world, for a single cycle of one harvester. Not reusable across ticks. */
 final class HytaleCycleWorld implements CycleWorld {
@@ -48,6 +56,10 @@ final class HytaleCycleWorld implements CycleWorld {
     private final boolean collectAnyItem;
     /** Time spent in {@link #collectDroppedItems} so far; see {@link #collectNanos()}. */
     private long collectNanos;
+    /** Items the collects found that they could take (inserted or not); see {@link #itemsSeen()}. */
+    private int itemsSeen;
+    /** {@link #maxHarvestDrops} per block type id, for this cycle. */
+    private final Map<String, List<ItemCount>> maxDropsByBlock = new HashMap<>();
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
@@ -181,6 +193,16 @@ final class HytaleCycleWorld implements CycleWorld {
         return collectNanos;
     }
 
+    /**
+     * Items the collects through this instance found in the box and could take (the item filter
+     * passed), whether they went in or not. With nothing inserted, a positive count means what is
+     * there does not fit; {@code 0} means the box was empty (or the index has not registered the
+     * drops yet).
+     */
+    int itemsSeen() {
+        return itemsSeen;
+    }
+
     private int collect(BlockPos center, double halfExtent) {
         var spatial = entityStore.getResource(EntityModule.get().getItemSpatialResourceType());
         if (spatial == null || spatial.getSpatialStructure() == null) {
@@ -203,6 +225,7 @@ final class HytaleCycleWorld implements CycleWorld {
             if (stack == null || stack.isEmpty() || !accepts(stack)) {
                 continue;
             }
+            itemsSeen += stack.getQuantity();
             // All-or-nothing (the container default is partial): a partial insert would leave the
             // full stack on the ground too and duplicate the difference. The remainder check backs
             // up succeeded(): the entity is only removed once the whole stack is in the container.
@@ -244,5 +267,82 @@ final class HytaleCycleWorld implements CycleWorld {
             }
         }
         return true;
+    }
+
+    /**
+     * Empty slots, and per item id the room left in its partial stacks. A partial stack counts only
+     * when a fresh stack of its item (as a drop is) would merge with it ({@code isStackableWith}:
+     * same durability, quality and metadata), so a worn tool or a stack with metadata does not
+     * pass for room that drops could use.
+     */
+    @Override
+    public ContainerRoom room() {
+        int free = 0;
+        Map<String, Integer> partial = new HashMap<>();
+        short capacity = container.getCapacity();
+        for (short slot = 0; slot < capacity; slot++) {
+            ItemStack stack = container.getItemStack(slot);
+            if (stack == null || stack.isEmpty()) {
+                free++;
+                continue;
+            }
+            Item item = stack.getItem();
+            int maxStack = item == null ? 0 : item.getMaxStack();
+            if (HarvestCycle.slotHasRoom(stack.getQuantity(), maxStack)
+                    && stack.isStackableWith(new ItemStack(stack.getItemId(), 1))) {
+                partial.merge(stack.getItemId(), maxStack - stack.getQuantity(), Integer::sum);
+            }
+        }
+        return new ContainerRoom(free, partial, HytaleCycleWorld::maxStack);
+    }
+
+    private static int maxStack(String itemId) {
+        Item item = Item.getAssetMap().getAsset(itemId);
+        return item == null ? 0 : item.getMaxStack();
+    }
+
+    @Override
+    public List<ItemCount> maxDrops(BlockPos p) {
+        BlockType block = BlockType.getAssetMap().getAsset(reader.getBlock(p.x(), p.y(), p.z()));
+        if (block == null) {
+            return List.of();
+        }
+        return maxDropsByBlock.computeIfAbsent(block.getId(), id -> maxHarvestDrops(block));
+    }
+
+    /**
+     * The most a harvest of {@code block} drops, following {@code FarmingUtil.harvest}: it gives
+     * {@code BlockHarvestUtils.getDrops(block, 1, harvest.getItemId(), harvest.getDropListId())}
+     * [JAR], that is one roll of the drop list plus one of the item, or one of the block's own item
+     * when the harvest names neither. Every item the drop list can roll counts, at its
+     * {@code QuantityMax} ({@code getAllDrops}): an upper bound for the {@code Multiple}/
+     * {@code Single} lists of the vanilla crops [ASSET]. A {@code Choice} list with more than one
+     * roll would be under-counted ({@code getAllDrops} lists each choice once); no crop uses one.
+     */
+    private static List<ItemCount> maxHarvestDrops(BlockType block) {
+        BlockGathering gathering = block.getGathering();
+        HarvestingDropType harvest = gathering == null ? null : gathering.getHarvest();
+        if (harvest == null) {
+            return List.of(); // harvest returns false without dropping anything
+        }
+        if (harvest.getItemId() == null && harvest.getDropListId() == null) {
+            Item item = block.getItem();
+            return item == null ? List.of() : List.of(new ItemCount(item.getId(), 1));
+        }
+        List<ItemCount> drops = new ArrayList<>();
+        ItemDropList list = harvest.getDropListId() == null ? null
+                : ItemDropList.getAssetMap().getAsset(harvest.getDropListId());
+        if (list != null && list.getContainer() != null) {
+            for (ItemDrop drop : list.getContainer().getAllDrops(new ArrayList<>())) {
+                if (drop != null && drop.getItemId() != null) {
+                    drops.add(new ItemCount(drop.getItemId(),
+                            Math.max(1, Math.max(drop.getQuantityMin(), drop.getQuantityMax()))));
+                }
+            }
+        }
+        if (harvest.getItemId() != null) {
+            drops.add(new ItemCount(harvest.getItemId(), 1));
+        }
+        return List.copyOf(drops);
     }
 }

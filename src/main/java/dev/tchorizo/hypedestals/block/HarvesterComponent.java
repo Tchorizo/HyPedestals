@@ -94,6 +94,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      * {@code HarvesterSystem} collects drops on every tick between cycles. {@code 0} after a load.
      */
     float burstRemaining;
+    /** Consecutive burst ticks that saw items in the box but put none in ({@code CollectBurst.ticksWithoutProgress}). */
+    int burstTicksWithoutProgress;
     /** Timings and counters since the load ({@code inspect}'s {@code perf:}; {@code HarvesterSystem} fills them). */
     final CycleStats stats = new CycleStats();
 

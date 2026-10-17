@@ -4,19 +4,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/** One harvester cycle: collect last cycle's drops, then harvest every mature crop in the area. */
+/** One harvester cycle: collect last cycle's drops, then harvest every mature crop in the area that fits. */
 public final class HarvestCycle {
 
     private HarvestCycle() {}
 
     /**
      * Runs one cycle. Drops are collected first (box half-extent {@code radius + collectMargin}),
-     * then every mature crop of the area is harvested, then drops are collected again to pick up
-     * whatever the item index has already registered; the game's index lags behind spawns, so the
-     * rest is picked up by the post-harvest burst or the next cycle. The container's free space
-     * does not limit the harvest: what does not fit stays on the ground and is collected once room
-     * frees up (e.g. by the export). {@link CycleResult#containerFull()} tells, after the second
-     * collect, whether the container had no room left.
+     * then every mature crop of the area is harvested while the container has room for its drops,
+     * then drops are collected again to pick up whatever the item index has already registered;
+     * the game's index lags behind spawns, so the rest is picked up by the post-harvest burst or
+     * the next cycle. Neither collect runs while the container is full (nothing could go in).
+     *
+     * <p>No item is dropped for lack of room: after the first collect the container's
+     * {@link ContainerRoom} is read once, and before each harvest the most that crop can drop
+     * ({@link CycleWorld#maxDrops}) must fit in what is left of it; it is then reserved. The first
+     * crop whose drops do not fit ends the scan, {@link CycleResult#containerFull()} is
+     * {@code true}, and that crop and the rest stay ripe on the plant until room frees up (e.g.
+     * by the export); the next cycle starts at that crop.
      *
      * <p>The scan is circular over {@link HarvestArea#positions}: it starts at {@code startIndex}
      * (taken modulo the area size, so a stale index after a radius change is harmless) and visits
@@ -40,38 +45,54 @@ public final class HarvestCycle {
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
         int start = Math.floorMod(startIndex, size);
-        int collected = world.collectDroppedItems(center, collectExtent);
+        int collected = world.containerFull() ? 0 : world.collectDroppedItems(center, collectExtent);
+        ContainerRoom room = world.room();
 
         int harvested = 0;
         int transientFailures = 0;
         int next = start;
+        boolean noRoom = false;
         List<String> newWarnings = new ArrayList<>();
         for (int i = 0; i < size && (maxHarvests <= 0 || harvested < maxHarvests); i++) {
             int index = (start + i) % size;
-            next = (index + 1) % size;
             BlockPos pos = positions.get(index);
             String type = world.cropTypeAt(pos);
-            if (type == null || warnedTypes.contains(type)) {
-                continue;
-            }
-            HarvestOutcome outcome;
-            try {
-                outcome = world.harvest(pos);
-            } catch (RuntimeException e) {
-                outcome = HarvestOutcome.TYPE_ERROR;
-            }
-            switch (outcome) {
-                case HARVESTED -> harvested++;
-                case NOT_READY -> { }
-                case TRANSIENT_ERROR -> transientFailures++;
-                case TYPE_ERROR -> {
-                    warnedTypes.add(type);
-                    newWarnings.add(type);
+            if (type != null && !warnedTypes.contains(type)) {
+                List<ItemCount> drops = world.maxDrops(pos);
+                if (!room.fits(drops)) {
+                    // Checked before knowing whether the crop is ripe: without room for its drops
+                    // it could not be harvested anyway. This crop starts the next cycle.
+                    noRoom = true;
+                    next = index;
+                    break;
+                }
+                HarvestOutcome outcome;
+                try {
+                    outcome = world.harvest(pos);
+                } catch (RuntimeException e) {
+                    outcome = HarvestOutcome.TYPE_ERROR;
+                }
+                switch (outcome) {
+                    case HARVESTED -> {
+                        harvested++;
+                        room.reserve(drops);
+                    }
+                    case NOT_READY -> { }
+                    case TRANSIENT_ERROR -> transientFailures++;
+                    case TYPE_ERROR -> {
+                        warnedTypes.add(type);
+                        newWarnings.add(type);
+                    }
                 }
             }
+            next = (index + 1) % size;
         }
-        collected += world.collectDroppedItems(center, collectExtent);
-        return new CycleResult(harvested, collected, world.containerFull(), List.copyOf(newWarnings),
+        boolean full = world.containerFull();
+        if (!full) {
+            collected += world.collectDroppedItems(center, collectExtent);
+            full = world.containerFull();
+        }
+        return new CycleResult(harvested, collected, noRoom || full, List.copyOf(newWarnings),
                 transientFailures, next);
     }
 
