@@ -153,6 +153,12 @@ Requires JDK 25.
 
 The plugin jar is written to `build/libs/`. The Hytale server API (`com.hypixel.hytale:Server:0.7.2`) is resolved from `https://maven.hytale.com/release` at compile time only; the jar has no bundled dependencies.
 
+## Support
+
+HyPedestals is free and always will be. If you enjoy it, you can [buy me a coffee on Ko-fi](https://ko-fi.com/tchori). Bugs and ideas go to the [issues](https://github.com/Tchorizo/HyPedestals/issues).
+
+I build my mods with AI assistance: every change is reviewed and tested on a real server, and all the source code is in this repository. The textures and icons are AI-generated.
+
 ## License
 
 [GPL-3.0](LICENSE).
