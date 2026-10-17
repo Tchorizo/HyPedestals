@@ -38,6 +38,7 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleIds;
 import dev.tchorizo.hypedestals.block.HytaleSoilWorld;
+import dev.tchorizo.hypedestals.config.Tier;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
@@ -101,6 +102,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SoilCommand());
         addSubCommand(new SetItemCommand());
         addSubCommand(new PinCommand());
+        addSubCommand(new StressCommand());
     }
 
     @Override
@@ -111,7 +113,7 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
                         + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
-                        + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z>"
+                        + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z> | stress <x y z> <count> [--factor F]"
                         + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
@@ -508,6 +510,88 @@ final class DevCommands extends AbstractAsyncCommand {
             Vector3i pos = position(context);
             return runAt(context, world -> HyPedestalsCommand.reply(context, "pin at %s: pinned=%b",
                     HyPedestalsCommand.format(pos), pin(world, pos)), pos);
+        }
+    }
+
+    /**
+     * {@code stress <x y z> <count> [--factor F]}: performance scene for {@code /hypedestals perf}.
+     * {@code count} Cobalt Harvesters in a row along +x from the position, {@code 2R+3} blocks
+     * apart (the area plus its fence ring), at height {@code y}: grass platform at {@code y-1}
+     * (tilled soil under the crops), air from {@code y} up 3 blocks, every cell of every area
+     * planted with Eternal wheat and ripened, the fence ring at {@code R+1}, {@code grow} at
+     * {@code F} (default 2000: a harvested crop is ripe again within about a second, so every
+     * 3 s cycle finds the whole area mature), no chest (the containers fill up and the rest stays
+     * on the ground), and every chunk under the row pinned. Rebuilds in place when run again.
+     * Pick a free spot: the platform overwrites what is there.
+     */
+    private static final class StressCommand extends HyPedestalsCommand.PositionCommand {
+        private static final String COBALT = "Cobalt";
+        private final RequiredArg<Integer> count =
+                withRequiredArg("count", "Number of Cobalt Harvesters (1..16)", ArgTypes.INTEGER);
+        private final DefaultArg<Double> factor = withDefaultArg("factor",
+                "grow factor of each area", ArgTypes.DOUBLE, 2000.0, "2000");
+
+        StressCommand() {
+            super("stress", "Build a row of Cobalt Harvesters over fully ripe Eternal wheat (performance test)");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i origin = position(context);
+            int n = context.get(count);
+            double f = context.get(factor);
+            if (n < 1 || n > 16) {
+                HyPedestalsCommand.reply(context, "stress: count must be 1..16");
+                return CompletableFuture.completedFuture(null);
+            }
+            int r = HyPedestalsPlugin.settings().tier(Tier.COBALT).radius();
+            int step = 2 * (r + SceneCommand.FENCE_DISTANCE) + 1;
+            int d = r + SceneCommand.FENCE_DISTANCE;
+            SceneCommand.Platform platform = new SceneCommand.Platform(origin.x - d, origin.x + (n - 1) * step + d,
+                    origin.z - d, origin.z + d, origin.y);
+            Set<Vector3i> sections = new LinkedHashSet<>();
+            SceneCommand.addSections(sections, platform.minX(), platform.maxX(), origin.y - 1,
+                    origin.y + SceneCommand.AIR_ABOVE, platform.minZ(), platform.maxZ());
+            Vector3i[] loads = sections.stream()
+                    .map(k -> new Vector3i(k.x * ChunkUtil.SIZE, k.y * ChunkUtil.SIZE, k.z * ChunkUtil.SIZE))
+                    .toArray(Vector3i[]::new);
+            return runAt(context, world -> {
+                BlockType type = BlockType.getAssetMap().getAsset(HARVESTER_PREFIX + COBALT);
+                if (type == null) {
+                    HyPedestalsCommand.reply(context, "stress: block %s is not loaded", HARVESTER_PREFIX + COBALT);
+                    return;
+                }
+                int grass = SceneCommand.platform(world, new SectionReader(world.getChunkStore()), platform);
+                int pinned = 0;
+                for (int cx = Math.floorDiv(platform.minX(), ChunkUtil.SIZE); cx <= Math.floorDiv(platform.maxX(), ChunkUtil.SIZE); cx++) {
+                    for (int cz = Math.floorDiv(platform.minZ(), ChunkUtil.SIZE); cz <= Math.floorDiv(platform.maxZ(), ChunkUtil.SIZE); cz++) {
+                        pinned += pin(world, new Vector3i(cx * ChunkUtil.SIZE, origin.y, cz * ChunkUtil.SIZE)) ? 1 : 0;
+                    }
+                }
+                HyPedestalsCommand.reply(context, "stress platform x %d..%d z %d..%d y=%d: grass=%d pinnedChunks=%d",
+                        platform.minX(), platform.maxX(), platform.minZ(), platform.maxZ(), origin.y - 1, grass, pinned);
+                for (int i = 0; i < n; i++) {
+                    Vector3i p = new Vector3i(origin.x + i * step, origin.y, origin.z);
+                    int cells = 0, planted = 0, ripe = 0;
+                    for (int dx = -r; dx <= r; dx++) {
+                        for (int dz = -r; dz <= r; dz++) {
+                            if (dx == 0 && dz == 0) {
+                                continue;
+                            }
+                            Vector3i c = new Vector3i(p.x + dx, p.y, p.z + dz);
+                            cells++;
+                            planted += plant(world, c, WHEAT_ETERNAL) ? 1 : 0;
+                            ripe += ripen(world, c).contains(FINAL_STAGE_STATE) ? 1 : 0;
+                        }
+                    }
+                    boolean set = setBlock(world, p, HARVESTER_PREFIX + COBALT, type);
+                    pin(world, p);
+                    int fence = SceneCommand.fence(world, p, r);
+                    HyPedestalsCommand.reply(context, "stress Cobalt at %s r=%d: setBlock=%b planted=%d/%d ripe=%d fence=%d; %s",
+                            HyPedestalsCommand.format(p), r, set, planted, cells, ripe, fence, grow(world, p, r, f));
+                }
+                HyPedestalsCommand.reply(context, "stress done");
+            }, loads);
         }
     }
 

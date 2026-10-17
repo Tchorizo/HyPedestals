@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * {@code /hypedestals}: {@code inspect} and {@code config} always; {@code dev …} only when the server enables it.
+ * {@code /hypedestals}: {@code inspect}, {@code config} and {@code perf} always; {@code dev …} only when the server enables it.
  *
  * <p>Every node is operator-only: nobody holds them by default and {@code hytale:Admin} (ops) passes
  * through its {@code *} wildcard. A subcommand also needs its parents' nodes (the engine's
@@ -42,6 +42,7 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
         this.dev = dev;
         addSubCommand(new InspectCommand());
         addSubCommand(new ConfigCommand());
+        addSubCommand(new PerfCommand());
         if (dev) {
             addSubCommand(new DevCommands());
         }
@@ -50,8 +51,8 @@ public final class HyPedestalsCommand extends AbstractAsyncCommand {
     @Override
     protected CompletableFuture<Void> executeAsync(CommandContext context) {
         reply(context, dev
-                ? "usage: hypedestals inspect <x y z> | hypedestals config [show|set ...] | hypedestals dev place|plant|ripen|break|collect ..."
-                : "usage: hypedestals inspect <x y z> | hypedestals config [show|set ...]");
+                ? "usage: hypedestals inspect <x y z> | hypedestals config [show|set ...] | hypedestals perf [reset] | hypedestals dev place|plant|ripen|break|collect ..."
+                : "usage: hypedestals inspect <x y z> | hypedestals config [show|set ...] | hypedestals perf [reset]");
         return CompletableFuture.completedFuture(null);
     }
 

@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Post-harvest collect burst (`PostHarvestCollectSeconds`, 3 s by default, 0–10, 0 = off): after a cycle that harvested something the Harvester collects drops on every tick for that long, so the harvest reaches its storage within the same cycle instead of the next one; `/hypedestals inspect` shows the time left as `burst=<s>`.
 - `/hypedestals inspect` shows whether the storage was full at the end of the last cycle (`containerFull=true|false`, replacing `paused`), where the next harvest scan starts (`scan=<position>/<total>`), the last export (`exported=<items>→<x y z>`, or `→none`), the installed `upgrades=[…]`, the soil passes (`soil: watered=… fertilized=…`) and, with the fertilizer upgrade, the bag the next pass uses (`fertilizer=<uses>/<max> (slot N)` or `none`).
 
+- `/hypedestals perf` (operators): world-thread time the Harvesters use, per tier and in total, since the server started or the last `/hypedestals perf reset` — the mod's time per second and its share of a tick, cycles per second, harvests, p50/p95/max cycle duration, time per phase (scan, collect, burst, soil, export, visual) and the Harvester with the worst p95. `/hypedestals inspect` ends with that Harvester's own cycle timings (`perf: last= p50= p95= max= (n=)`).
+
 ### Changed
 
 - Each cycle harvests **every ripe crop** in the Harvester's area. The storage's free space no longer limits or pauses the harvest: what does not fit stays on the ground and is collected once room frees up (export, emptying the storage). With `MaxHarvestsPerCycle` set, each cycle continues the area scan where the previous one stopped.

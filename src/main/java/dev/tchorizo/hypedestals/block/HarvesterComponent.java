@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
+import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
@@ -93,6 +94,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      * {@code HarvesterSystem} collects drops on every tick between cycles. {@code 0} after a load.
      */
     float burstRemaining;
+    /** Timings and counters since the load ({@code inspect}'s {@code perf:}; {@code HarvesterSystem} fills them). */
+    final CycleStats stats = new CycleStats();
 
     public HarvesterComponent() {}
 
@@ -180,6 +183,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     /** Seconds left of the post-harvest collect burst; {@code 0} when none is running. */
     public float burstSecondsLeft() {
         return burstRemaining;
+    }
+
+    /** Performance counters since the load; see {@link CycleStats}. */
+    public CycleStats stats() {
+        return stats;
     }
 
     public float secondsToNextCycle() {

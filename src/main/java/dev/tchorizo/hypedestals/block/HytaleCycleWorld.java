@@ -46,6 +46,8 @@ final class HytaleCycleWorld implements CycleWorld {
     /** Block state of the Harvester that owns {@link #container}. */
     private final BlockModule.BlockStateInfo info;
     private final boolean collectAnyItem;
+    /** Time spent in {@link #collectDroppedItems} so far; see {@link #collectNanos()}. */
+    private long collectNanos;
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
@@ -166,6 +168,20 @@ final class HytaleCycleWorld implements CycleWorld {
      */
     @Override
     public int collectDroppedItems(BlockPos center, double halfExtent) {
+        long start = System.nanoTime();
+        try {
+            return collect(center, halfExtent);
+        } finally {
+            collectNanos += System.nanoTime() - start;
+        }
+    }
+
+    /** Nanoseconds spent collecting through this instance (both collects of a cycle). */
+    long collectNanos() {
+        return collectNanos;
+    }
+
+    private int collect(BlockPos center, double halfExtent) {
         var spatial = entityStore.getResource(EntityModule.get().getItemSpatialResourceType());
         if (spatial == null || spatial.getSpatialStructure() == null) {
             return 0;

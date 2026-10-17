@@ -14,6 +14,7 @@ import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleFertilizerInput;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
+import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
@@ -27,8 +28,10 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, scan
- * position, container usage, last cycle result, installed upgrades, soil sweeps and (with the
- * fertilizer upgrade) the next fertilizer bag,
+ * position, container usage, last cycle result, installed upgrades, soil sweeps, (with the
+ * fertilizer upgrade) the next fertilizer bag and the cycle timings since the load
+ * ({@code perf: last=<us> p50=<us> p95=<us> max=<us> (n=<cycles>)}; percentiles over the last
+ * {@link CycleStats#WINDOW} cycles),
  * {@code no Harvester at <x y z>}, or {@code section not loaded at <x y z>} when the section was
  * never generated (inspecting never generates terrain).
  * Loads the section from disk if it exists (never generating it) and marks it as ticking.
@@ -62,14 +65,17 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         }
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs upgrades=%s soil: %s%s",
+        CycleStats stats = harvester.stats();
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs upgrades=%s soil: %s%s"
+                        + " perf: last=%dus p50=%dus p95=%dus max=%dus (n=%d)",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
                 last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d containerFull=%b exported=%s",
                         last.harvested(), last.collected(), last.containerFull(), export(harvester.lastExport())),
                 harvester.burstSecondsLeft(), harvester.upgrades(), soil(harvester),
-                harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "");
+                harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "",
+                stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
     }
 
     /** {@code <moved>→<x y z>} of the last container that received items, or {@code <moved>→none}. */

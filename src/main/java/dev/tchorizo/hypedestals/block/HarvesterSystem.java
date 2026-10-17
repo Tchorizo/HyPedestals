@@ -16,6 +16,7 @@ import dev.tchorizo.hypedestals.config.ModSettings;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CollectBurst;
+import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
@@ -42,6 +43,10 @@ import java.util.List;
  * the burst and the soil settings are read from the global config on every tick, so changes made
  * with {@code /hypedestals config} (command or window) apply right away; hand edits to the config
  * file are read at server start only.
+ *
+ * <p>Every tick of every Harvester is timed with {@code System.nanoTime()} (two calls per phase,
+ * tens of nanoseconds each): the phases and cycles go to the Harvester's {@link CycleStats}
+ * ({@code inspect}) and, with the whole tick, to {@link PerfRegistry} ({@code /hypedestals perf}).
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -62,7 +67,17 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
     @Override
     public void tick(float dt, int index, ArchetypeChunk<ChunkStore> chunk,
                      Store<ChunkStore> store, CommandBuffer<ChunkStore> cb) {
+        long start = System.nanoTime();
         HarvesterComponent harvester = chunk.getComponent(index, HarvesterComponent.TYPE);
+        try {
+            run(dt, harvester, index, chunk, store, cb);
+        } finally {
+            PerfRegistry.global().tick(harvester.tier, micros(start));
+        }
+    }
+
+    private static void run(float dt, HarvesterComponent harvester, int index, ArchetypeChunk<ChunkStore> chunk,
+                            Store<ChunkStore> store, CommandBuffer<ChunkStore> cb) {
         BlockModule.BlockStateInfo info = chunk.getComponent(index, BlockModule.BlockStateInfo.getComponentType());
 
         if (!harvester.ignoredUpgradesWarned && !harvester.ignoredUpgrades.isEmpty()) {
@@ -97,7 +112,9 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         if (harvester.soilElapsed >= global.soilSweepSeconds()) {
             harvester.soilElapsed = 0;
             if (harvester.hasUpgrade(UpgradeType.WATERING) || harvester.hasUpgrade(UpgradeType.FERTILIZER)) {
+                long soilStart = System.nanoTime();
                 sweepSoil(harvester, info, container, store, cb, settings);
+                phase(harvester, CycleStats.Phase.SOIL, micros(soilStart));
             }
         }
 
@@ -108,6 +125,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
         harvester.elapsed = 0;
 
+        long cycleStart = System.nanoTime();
         Vector3i pos = new Vector3i();
         if (!info.fillWorldPos(cb, pos)) {
             return;
@@ -118,6 +136,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         if (!UpgradeVisual.stateFor(harvester.upgrades()).equals(HarvesterVisual.currentState(world, pos))) {
             HarvesterVisual.request(world, pos);
         }
+        phase(harvester, CycleStats.Phase.VISUAL, micros(cycleStart));
 
         if (container == null) {
             if (!harvester.missingContainerWarned) {
@@ -127,10 +146,15 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             return;
         }
 
-        harvester.lastResult = HarvestCycle.run(
-                new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem()),
+        long runStart = System.nanoTime();
+        HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem());
+        harvester.lastResult = HarvestCycle.run(cycleWorld,
                 new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
                 harvester.warnedTypes, harvester.scanIndex, global.maxHarvestsPerCycle());
+        long runMicros = micros(runStart);
+        long collectMicros = cycleWorld.collectNanos() / 1000;
+        phase(harvester, CycleStats.Phase.COLLECT, collectMicros);
+        phase(harvester, CycleStats.Phase.SCAN, Math.max(0, runMicros - collectMicros));
         harvester.scanIndex = harvester.lastResult.nextIndex();
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {
@@ -154,12 +178,31 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         // After the cycle's second collect, so this cycle's items leave right away; also when the
         // container is full, which is when export matters most.
         // With the fertilizer upgrade the bags are the pass's supply: they stay in the Harvester.
-        harvester.lastExport = global.exportToAdjacent()
-                ? new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),
-                        harvester.hasUpgrade(UpgradeType.FERTILIZER))
-                : ExportPlan.Result.NONE;
+        if (global.exportToAdjacent()) {
+            long exportStart = System.nanoTime();
+            harvester.lastExport = new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),
+                    harvester.hasUpgrade(UpgradeType.FERTILIZER));
+            phase(harvester, CycleStats.Phase.EXPORT, micros(exportStart));
+        } else {
+            harvester.lastExport = ExportPlan.Result.NONE;
+        }
         harvester.burstRemaining = CollectBurst.afterCycle(harvester.burstRemaining,
                 harvester.lastResult.harvested(), global.postHarvestCollectSeconds());
+
+        long cycleMicros = micros(cycleStart);
+        harvester.stats.addCycle(cycleMicros, harvester.lastResult.harvested(), harvester.lastResult.collected());
+        PerfRegistry.global().cycle(harvester.tier, world.getName() + " " + pos.x + " " + pos.y + " " + pos.z,
+                cycleMicros, harvester.lastResult.harvested(), harvester.stats);
+    }
+
+    private static long micros(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1000;
+    }
+
+    /** Adds a phase to the Harvester's counters and the server totals. */
+    private static void phase(HarvesterComponent harvester, CycleStats.Phase phase, long micros) {
+        harvester.stats.addPhase(phase, micros);
+        PerfRegistry.global().phase(harvester.tier, phase, micros);
     }
 
     /**
@@ -180,11 +223,14 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         if (container == null || harvester.lastResult == null || !info.fillWorldPos(cb, pos)) {
             return;
         }
+        long burstStart = System.nanoTime();
         World world = store.getExternalData().getWorld();
         int collected = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem())
                 .collectDroppedItems(new BlockPos(pos.x, pos.y, pos.z),
                         HarvestCycle.collectExtent(settings.radius(), global.collectMargin()));
         harvester.lastResult = harvester.lastResult.plusCollected(collected);
+        harvester.stats.addCollected(collected);
+        phase(harvester, CycleStats.Phase.BURST, micros(burstStart));
     }
 
     /**
