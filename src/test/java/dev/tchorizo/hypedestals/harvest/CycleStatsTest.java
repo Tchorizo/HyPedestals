@@ -55,28 +55,16 @@ class CycleStatsTest {
     }
 
     @Test
-    void cycleStatsCountPhasesCyclesAndPercentiles() {
+    void cycleStatsCountCyclesAndPercentiles() {
         CycleStats s = new CycleStats();
         assertEquals(0, s.p95());
         assertEquals(0, s.lastCycleMicros());
         for (int i = 1; i <= 70; i++) {
-            s.addPhase(CycleStats.Phase.SCAN, 10);
-            s.addPhase(CycleStats.Phase.COLLECT, 5);
-            s.addCycle(i * 100L, 2, 3);
+            s.addCycle(i * 100L);
         }
-        s.addPhase(CycleStats.Phase.BURST, 7);
-        s.addCollected(4);
 
         assertEquals(70, s.cycles());
-        assertEquals(140, s.harvested());
-        assertEquals(214, s.collected(), "cycles plus the burst");
         assertEquals(7000, s.lastCycleMicros());
-        assertEquals(700, s.phaseMicros(CycleStats.Phase.SCAN));
-        assertEquals(70, s.phaseCount(CycleStats.Phase.COLLECT));
-        assertEquals(7, s.phaseMicros(CycleStats.Phase.BURST));
-        assertEquals(0, s.phaseCount(CycleStats.Phase.SOIL));
-        assertEquals(100L * (70 * 71 / 2), s.cycleMicros());
-        // The window keeps cycles 7..70 (64 of them): 700..7000 us.
         assertEquals(CycleStats.WINDOW, s.windowSize());
         assertEquals(7000, s.max());
         assertEquals(3800, s.p50(), "rank 32 of 700..7000 step 100");

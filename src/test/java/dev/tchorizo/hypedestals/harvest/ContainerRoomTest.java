@@ -50,4 +50,28 @@ class ContainerRoomTest {
                 "an unknown stack size counts as 1");
         assertTrue(new ContainerRoom(0, Map.of(), id -> 1).fits(List.of()), "nothing to drop always fits");
     }
+
+    @Test
+    void claimTakesRoomLikeAReservation() {
+        ContainerRoom room = new ContainerRoom(2, Map.of(), id -> 4);
+        room.claim(WHEAT_CROP);
+
+        assertTrue(room.reserve(WHEAT_CROP), "the claimed stacks still take 2 more of each");
+        assertFalse(room.fits(WHEAT_CROP));
+    }
+
+    @Test
+    void claimThatDoesNotFitLeavesNoNewSlots() {
+        // 1 wheat on its way, no empty slot: no new wheat stack exists to hold more wheat later.
+        ContainerRoom room = new ContainerRoom(0, Map.of("Essence", 3), id -> 100);
+        room.claim(List.of(new ItemCount("Wheat", 1), new ItemCount("Essence", 1)));
+
+        assertFalse(room.fits(List.of(new ItemCount("Wheat", 1))));
+        assertTrue(room.fits(List.of(new ItemCount("Essence", 2))), "the partial essence stack keeps what the claim left");
+        assertFalse(room.fits(List.of(new ItemCount("Essence", 3))));
+
+        ContainerRoom some = new ContainerRoom(1, Map.of(), id -> 100);
+        some.claim(WHEAT_CROP);
+        assertFalse(some.fits(List.of(new ItemCount("Seed", 1))), "the one free slot went to the claim");
+    }
 }

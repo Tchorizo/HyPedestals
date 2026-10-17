@@ -11,6 +11,7 @@ import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
+import dev.tchorizo.hypedestals.harvest.PendingDrops;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
@@ -98,6 +99,11 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int burstTicksWithoutProgress;
     /** Timings and counters since the load ({@code inspect}'s {@code perf:}; {@code HarvesterSystem} fills them). */
     final CycleStats stats = new CycleStats();
+    /**
+     * Drops reserved by recent cycles that the collects have not put in yet, claimed in the next
+     * cycles' container room ({@code HarvestCycle.run}). Empty after a load.
+     */
+    final PendingDrops pendingDrops = new PendingDrops();
 
     public HarvesterComponent() {}
 

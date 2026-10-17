@@ -52,6 +52,30 @@ public final class ContainerRoom {
             return false;
         }
         freeSlots -= slots;
+        take(merged);
+        return true;
+    }
+
+    /**
+     * Takes room for {@code items} that are already on their way (reserved by an earlier cycle,
+     * see {@link PendingDrops}), whether or not it is all there. When they do not all fit, no
+     * empty slot is left and no new stack is counted for them: their items can only stand for
+     * the room of the partial stacks.
+     */
+    public void claim(List<ItemCount> items) {
+        Map<String, Integer> merged = merge(items);
+        int slots = slotsNeeded(merged);
+        if (slots <= freeSlots) {
+            freeSlots -= slots;
+            take(merged);
+            return;
+        }
+        freeSlots = 0;
+        merged.forEach((id, quantity) -> partial.put(id, Math.max(0, partial.getOrDefault(id, 0) - quantity)));
+    }
+
+    /** Takes {@code merged} out of the partial stacks, then out of new slots (already counted off {@link #freeSlots}). */
+    private void take(Map<String, Integer> merged) {
         merged.forEach((id, quantity) -> {
             int room = partial.getOrDefault(id, 0);
             int intoPartial = Math.min(quantity, room);
@@ -60,7 +84,6 @@ public final class ContainerRoom {
             // What is left in the partial stacks plus what the new slots can still take.
             partial.put(id, room - intoPartial + ceilDiv(rest, stack) * stack - rest);
         });
-        return true;
     }
 
     private int slotsNeeded(Map<String, Integer> merged) {

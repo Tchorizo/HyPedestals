@@ -7,9 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- A Harvester harvests every ripe crop **only while its storage has room for the drops**: before each crop it checks that the most that crop can drop still fits (counting what the cycle already harvested), and the first crop that does not fit ends the cycle; it and the rest stay ripe on the plant until space frees up. Nothing is dropped on the ground for lack of space anymore (0.2.0 kept harvesting into a pile on the ground that despawned after 600 s).
+- A Harvester harvests every ripe crop **only while its storage has room for the drops**: before each crop it checks that the most that crop can drop still fits (counting what the cycle already harvested, and what the last two cycles harvested that has not reached the storage yet), and the first crop that does not fit ends the cycle; it and the rest stay ripe on the plant until space frees up. Nothing is dropped on the ground for lack of space anymore (0.2.0 kept harvesting into a pile on the ground that despawned after 600 s). A crop whose harvest drop list cannot be found counts as dropping a full stack of its item, with a warning in the log once per crop.
 - While the storage is full the Harvester skips both collects of its cycle and the post-harvest collect burst; the burst also stops after 3 ticks in a row that found items but could put none in. This removes the server-time cost of a full Harvester trying to collect a pile around it.
 - `/hypedestals inspect`: `containerFull=true` also when the cycle stopped at a crop whose drops did not fit.
+- `/hypedestals perf`: `harvesters=` and the worst Harvester only count Harvesters that ran a cycle in the last minute; unloaded or removed ones are forgotten.
 
 ## 0.2.1 — 2026-10-17
 

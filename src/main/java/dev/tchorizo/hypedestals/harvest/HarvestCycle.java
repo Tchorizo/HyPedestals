@@ -17,11 +17,13 @@ public final class HarvestCycle {
      * the next cycle. Neither collect runs while the container is full (nothing could go in).
      *
      * <p>No item is dropped for lack of room: after the first collect the container's
-     * {@link ContainerRoom} is read once, and before each harvest the most that crop can drop
-     * ({@link CycleWorld#maxDrops}) must fit in what is left of it; it is then reserved. The first
-     * crop whose drops do not fit ends the scan, {@link CycleResult#containerFull()} is
-     * {@code true}, and that crop and the rest stay ripe on the plant until room frees up (e.g.
-     * by the export); the next cycle starts at that crop.
+     * {@link ContainerRoom} is read once, the drops earlier cycles reserved room for and the
+     * collects have not put in yet ({@link PendingDrops#outstanding()}) are claimed in it, and
+     * before each harvest the most that crop can drop ({@link CycleWorld#maxDrops}) must fit in
+     * what is left; it is then reserved, in the room and in {@code pending}. The first crop whose
+     * drops do not fit ends the scan, {@link CycleResult#containerFull()} is {@code true}, and that
+     * crop and the rest stay ripe on the plant until room frees up (e.g. by the export); the next
+     * cycle starts at that crop.
      *
      * <p>The scan is circular over {@link HarvestArea#positions}: it starts at {@code startIndex}
      * (taken modulo the area size, so a stale index after a radius change is harmless) and visits
@@ -38,15 +40,19 @@ public final class HarvestCycle {
      *     {@code maxHarvests} and is only counted in {@link CycleResult#transientFailures()}, so the
      *     crop is retried next cycle
      * @param maxHarvests the config's {@code MaxHarvestsPerCycle}; {@code 0} (or less) = no limit
+     * @param pending the Harvester's reservations still on their way; the collects through
+     *     {@code world} must report what they put in to it ({@link PendingDrops#collected})
      */
     public static CycleResult run(CycleWorld world, BlockPos center, int radius, int collectMargin,
-                                  Set<String> warnedTypes, int startIndex, int maxHarvests) {
+                                  Set<String> warnedTypes, int startIndex, int maxHarvests, PendingDrops pending) {
         double collectExtent = collectExtent(radius, collectMargin);
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
         int start = Math.floorMod(startIndex, size);
         int collected = world.containerFull() ? 0 : world.collectDroppedItems(center, collectExtent);
+        pending.startCycle();
         ContainerRoom room = world.room();
+        room.claim(pending.outstanding());
 
         int harvested = 0;
         int transientFailures = 0;
@@ -76,6 +82,7 @@ public final class HarvestCycle {
                     case HARVESTED -> {
                         harvested++;
                         room.reserve(drops);
+                        pending.reserved(drops);
                     }
                     case NOT_READY -> { }
                     case TRANSIENT_ERROR -> transientFailures++;

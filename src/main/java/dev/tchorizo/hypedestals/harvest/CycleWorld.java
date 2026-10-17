@@ -20,7 +20,10 @@ public interface CycleWorld {
      */
     HarvestOutcome harvest(BlockPos p);
 
-    /** Pulls dropped items within {@code radius} of {@code center} into the container; returns items inserted. */
+    /**
+     * Pulls dropped items within {@code radius} of {@code center} into the container, reporting
+     * each stack put in to the Harvester's {@link PendingDrops#collected}; returns items inserted.
+     */
     int collectDroppedItems(BlockPos center, double radius);
 
     /** Whether no slot of the container can accept another item (see {@link HarvestCycle#slotHasRoom}). */

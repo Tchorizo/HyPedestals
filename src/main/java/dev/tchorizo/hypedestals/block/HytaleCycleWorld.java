@@ -32,6 +32,7 @@ import dev.tchorizo.hypedestals.harvest.CycleWorld;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.HarvestOutcome;
 import dev.tchorizo.hypedestals.harvest.ItemCount;
+import dev.tchorizo.hypedestals.harvest.PendingDrops;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -39,12 +40,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** {@link CycleWorld} over one Hytale world, for a single cycle of one harvester. Not reusable across ticks. */
 final class HytaleCycleWorld implements CycleWorld {
 
     /** Message of the {@link IllegalStateException} thrown by {@code Store.assertWriteProcessing}. */
     private static final String STORE_PROCESSING = "Store is currently processing";
+    /** Block types whose harvest drop list did not resolve; warned about once each (worlds tick on their own threads). */
+    private static final Set<String> UNRESOLVED_DROPS_WARNED = ConcurrentHashMap.newKeySet();
 
     private final CommandBuffer<ChunkStore> chunkBuffer;
     private final ChunkStore chunkStore;
@@ -54,12 +59,14 @@ final class HytaleCycleWorld implements CycleWorld {
     /** Block state of the Harvester that owns {@link #container}. */
     private final BlockModule.BlockStateInfo info;
     private final boolean collectAnyItem;
+    /** The Harvester's reservations still on their way; told about everything the collects put in. */
+    private final PendingDrops pending;
     /** Time spent in {@link #collectDroppedItems} so far; see {@link #collectNanos()}. */
     private long collectNanos;
     /** Items the collects found that they could take (inserted or not); see {@link #itemsSeen()}. */
     private int itemsSeen;
-    /** {@link #maxHarvestDrops} per block type id, for this cycle. */
-    private final Map<String, List<ItemCount>> maxDropsByBlock = new HashMap<>();
+    /** {@link #maxHarvestDrops} per block type id, for this cycle; created on first use (a burst tick never needs it). */
+    private Map<String, List<ItemCount>> maxDropsByBlock;
 
     /**
      * @param chunkBuffer the command buffer of the current {@code ChunkStore} tick; harvesting
@@ -67,9 +74,10 @@ final class HytaleCycleWorld implements CycleWorld {
      * @param info block state of the Harvester whose container this is; marked for saving
      *     whenever collected items go into the container
      * @param collectAnyItem the config's {@code CollectAnyItem}; see {@link CollectFilter}
+     * @param pending the Harvester's {@link PendingDrops}
      */
     HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container,
-                     BlockModule.BlockStateInfo info, boolean collectAnyItem) {
+                     BlockModule.BlockStateInfo info, boolean collectAnyItem, PendingDrops pending) {
         this.chunkBuffer = chunkBuffer;
         this.chunkStore = world.getChunkStore();
         this.entityStore = world.getEntityStore().getStore();
@@ -77,6 +85,7 @@ final class HytaleCycleWorld implements CycleWorld {
         this.container = container;
         this.info = info;
         this.collectAnyItem = collectAnyItem;
+        this.pending = pending;
     }
 
     /**
@@ -236,6 +245,7 @@ final class HytaleCycleWorld implements CycleWorld {
             }
             entityStore.removeEntity(ref, RemoveReason.REMOVE);
             inserted += stack.getQuantity();
+            pending.collected(stack.getItemId(), stack.getQuantity());
         }
         refs.clear();
         if (inserted > 0) {
@@ -307,7 +317,15 @@ final class HytaleCycleWorld implements CycleWorld {
         if (block == null) {
             return List.of();
         }
-        return maxDropsByBlock.computeIfAbsent(block.getId(), id -> maxHarvestDrops(block));
+        List<ItemCount> drops = maxDropsByBlock == null ? null : maxDropsByBlock.get(block.getId());
+        if (drops == null) {
+            drops = maxHarvestDrops(block);
+            if (maxDropsByBlock == null) {
+                maxDropsByBlock = new HashMap<>();
+            }
+            maxDropsByBlock.put(block.getId(), drops);
+        }
+        return drops;
     }
 
     /**
@@ -318,6 +336,10 @@ final class HytaleCycleWorld implements CycleWorld {
      * {@code QuantityMax} ({@code getAllDrops}): an upper bound for the {@code Multiple}/
      * {@code Single} lists of the vanilla crops [ASSET]. A {@code Choice} list with more than one
      * roll would be under-counted ({@code getAllDrops} lists each choice once); no crop uses one.
+     *
+     * <p>A drop list that does not resolve (unknown id, or no container) on a harvest without an
+     * {@code ItemId} does not mean "drops nothing": what the game drops is unknown, so a full stack
+     * of the block's item is reserved (one slot of its own) and the type is warned about once.
      */
     private static List<ItemCount> maxHarvestDrops(BlockType block) {
         BlockGathering gathering = block.getGathering();
@@ -339,10 +361,27 @@ final class HytaleCycleWorld implements CycleWorld {
                             Math.max(1, Math.max(drop.getQuantityMin(), drop.getQuantityMax()))));
                 }
             }
+        } else if (harvest.getItemId() == null) {
+            return unresolvedDropList(block, harvest.getDropListId());
         }
         if (harvest.getItemId() != null) {
             drops.add(new ItemCount(harvest.getItemId(), 1));
         }
         return List.copyOf(drops);
+    }
+
+    /**
+     * Conservative bound for a harvest whose drop list did not resolve: one full stack of the
+     * block's item, or one slot (unknown stack size, see {@link ContainerRoom}) under the block's
+     * id when it has no item.
+     */
+    private static List<ItemCount> unresolvedDropList(BlockType block, String dropListId) {
+        if (UNRESOLVED_DROPS_WARNED.add(block.getId())) {
+            HyPedestalsPlugin.warn("harvest drop list %s of %s did not resolve; reserving a full stack of room per harvest",
+                    dropListId, block.getId());
+        }
+        Item item = block.getItem();
+        return item == null ? List.of(new ItemCount(block.getId(), 1))
+                : List.of(new ItemCount(item.getId(), Math.max(1, item.getMaxStack())));
     }
 }

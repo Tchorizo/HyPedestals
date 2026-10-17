@@ -1,6 +1,7 @@
 package dev.tchorizo.hypedestals.block;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import java.util.List;
@@ -20,12 +21,12 @@ class PerfRegistryTest {
         // whole duration (cycle ticks included) to the mod time.
         perf.tick(1, 300);
         perf.phase(1, CycleStats.Phase.SCAN, 200);
-        copper.addCycle(300, 2, 0);
+        copper.addCycle(300);
         perf.cycle(1, "default 1 2 3", 300, 2, copper);
         for (int i = 1; i <= 4; i++) {
             perf.tick(4, i * 1000L);
             perf.phase(4, CycleStats.Phase.COLLECT, 500);
-            cobalt.addCycle(i * 1000L, 10, 0);
+            cobalt.addCycle(i * 1000L);
             perf.cycle(4, "default 9 9 9", i * 1000L, 10, cobalt);
         }
         perf.tick(4, 700); // a burst tick between cycles
@@ -53,25 +54,32 @@ class PerfRegistryTest {
     }
 
     @Test
-    void worstSkipsHarvestersNotSeenLately() {
+    void staleHarvestersAreForgotten() {
         PerfRegistry perf = new PerfRegistry(() -> now);
         CycleStats slow = new CycleStats();
-        slow.addCycle(9000, 0, 0);
+        slow.addCycle(9000);
         perf.cycle(4, "default 1 1 1", 9000, 0, slow);
-        now += PerfRegistry.WORST_STALE_NANOS + 1;
+        now += PerfRegistry.STALE_NANOS + 1;
         CycleStats fast = new CycleStats();
-        fast.addCycle(100, 0, 0);
+        fast.addCycle(100);
         perf.cycle(1, "default 2 2 2", 100, 0, fast);
 
-        assertEquals("worst: Copper at default 2 2 2 p95=100 us (window 1 of 1 cycles)", perf.report(30).getLast(),
+        List<String> lines = perf.report(30);
+        assertEquals("worst: Copper at default 2 2 2 p95=100 us (window 1 of 1 cycles)", lines.getLast(),
                 "an unloaded Harvester's old p95 does not hide the live ones");
+        assertTrue(lines.get(1).startsWith("Copper: harvesters=1 "), lines.get(1));
+        assertTrue(lines.get(2).startsWith("Cobalt: harvesters=0 "), "the stale Cobalt is no longer counted: " + lines.get(2));
+        assertTrue(lines.get(3).startsWith("total: harvesters=1 "), lines.get(3));
+
+        now += PerfRegistry.STALE_NANOS + 1;
+        assertEquals("worst: none", perf.report(30).getLast(), "every Harvester is stale: none is reported");
     }
 
     @Test
     void resetStartsOver() {
         PerfRegistry perf = new PerfRegistry(() -> now);
         CycleStats s = new CycleStats();
-        s.addCycle(500, 1, 0);
+        s.addCycle(500);
         perf.tick(2, 500);
         perf.cycle(2, "default 0 0 0", 500, 1, s);
         now = 5_000_000_000L;

@@ -28,8 +28,11 @@ public final class PerfRegistry {
 
     /** Cycles per tier (and overall) kept for the percentiles. */
     static final int WINDOW = 512;
-    /** A Harvester not seen for this long no longer counts as the worst one (unloaded or removed). */
-    static final long WORST_STALE_NANOS = 60_000_000_000L;
+    /**
+     * A Harvester without a cycle for this long (unloaded or removed) is forgotten: it no longer
+     * counts in {@code harvesters=} nor as the worst one.
+     */
+    static final long STALE_NANOS = 60_000_000_000L;
 
     private static final PerfRegistry GLOBAL = new PerfRegistry(System::nanoTime);
 
@@ -38,10 +41,13 @@ public final class PerfRegistry {
     private final Totals all = new Totals();
     private final Map<String, Seen> harvesters = new HashMap<>();
     private long since;
+    /** When {@link #harvesters} was last pruned; {@link #cycle} prunes at most once per {@link #STALE_NANOS}. */
+    private long pruned;
 
     PerfRegistry(LongSupplier clock) {
         this.clock = clock;
         this.since = clock.getAsLong();
+        this.pruned = since;
     }
 
     public static PerfRegistry global() {
@@ -69,7 +75,12 @@ public final class PerfRegistry {
             t.harvested += harvested;
             t.window.add(micros);
         }
-        harvesters.put(where, new Seen(tier, where, stats.p95(), stats.windowSize(), stats.cycles(), clock.getAsLong()));
+        long now = clock.getAsLong();
+        if (now - pruned >= STALE_NANOS) {
+            // Not on every cycle: that would walk every Harvester once per cycle of each.
+            pruneStale(now);
+        }
+        harvesters.put(where, new Seen(tier, where, stats.p95(), stats.windowSize(), stats.cycles(), now));
     }
 
     public synchronized void reset() {
@@ -85,7 +96,9 @@ public final class PerfRegistry {
      * @param tps the world's ticks per second (the tick budget is {@code 1 / tps})
      */
     public synchronized List<String> report(int tps) {
-        double seconds = Math.max((clock.getAsLong() - since) / 1e9, 1e-9);
+        long now = clock.getAsLong();
+        pruneStale(now);
+        double seconds = Math.max((now - since) / 1e9, 1e-9);
         double tickBudgetMicros = 1e6 / tps;
         List<String> lines = new ArrayList<>();
         lines.add(String.format(Locale.ROOT,
@@ -117,20 +130,21 @@ public final class PerfRegistry {
                 t.window.percentile(50), t.window.percentile(95), t.window.max(), phases);
     }
 
-    /** Highest p95 among the Harvesters seen within {@link #WORST_STALE_NANOS}; else among all; {@code null} when none. */
+    /** Highest p95 among the Harvesters seen within {@link #STALE_NANOS}; {@code null} when none. */
     private Seen worst() {
-        long now = clock.getAsLong();
         Seen worst = null;
-        Seen worstAny = null;
         for (Seen s : harvesters.values()) {
-            if (worstAny == null || s.p95() > worstAny.p95()) {
-                worstAny = s;
-            }
-            if (now - s.at() <= WORST_STALE_NANOS && (worst == null || s.p95() > worst.p95())) {
+            if (worst == null || s.p95() > worst.p95()) {
                 worst = s;
             }
         }
-        return worst != null ? worst : worstAny;
+        return worst;
+    }
+
+    /** Forgets the Harvesters not seen within {@link #STALE_NANOS}, so the map does not keep every position ever loaded. */
+    private void pruneStale(long now) {
+        harvesters.values().removeIf(s -> now - s.at() > STALE_NANOS);
+        pruned = now;
     }
 
     private int count(int tier) {

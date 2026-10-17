@@ -45,8 +45,8 @@ import java.util.List;
  * file are read at server start only.
  *
  * <p>Every tick of every Harvester is timed with {@code System.nanoTime()} (two calls per phase,
- * tens of nanoseconds each): the phases and cycles go to the Harvester's {@link CycleStats}
- * ({@code inspect}) and, with the whole tick, to {@link PerfRegistry} ({@code /hypedestals perf}).
+ * tens of nanoseconds each): the cycles go to the Harvester's {@link CycleStats} ({@code inspect})
+ * and, with the phases and the whole tick, to {@link PerfRegistry} ({@code /hypedestals perf}).
  */
 public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -147,10 +147,11 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
 
         long runStart = System.nanoTime();
-        HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem());
+        HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(),
+                harvester.pendingDrops);
         harvester.lastResult = HarvestCycle.run(cycleWorld,
                 new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
-                harvester.warnedTypes, harvester.scanIndex, global.maxHarvestsPerCycle());
+                harvester.warnedTypes, harvester.scanIndex, global.maxHarvestsPerCycle(), harvester.pendingDrops);
         long runMicros = micros(runStart);
         long collectMicros = cycleWorld.collectNanos() / 1000;
         phase(harvester, CycleStats.Phase.COLLECT, collectMicros);
@@ -193,7 +194,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
 
         long cycleMicros = micros(cycleStart);
-        harvester.stats.addCycle(cycleMicros, harvester.lastResult.harvested(), harvester.lastResult.collected());
+        harvester.stats.addCycle(cycleMicros);
         PerfRegistry.global().cycle(harvester.tier, world.getName() + " " + pos.x + " " + pos.y + " " + pos.z,
                 cycleMicros, harvester.lastResult.harvested(), harvester.stats);
     }
@@ -202,9 +203,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         return (System.nanoTime() - startNanos) / 1000;
     }
 
-    /** Adds a phase to the Harvester's counters and the server totals. */
+    /** Adds a phase to the server totals. */
     private static void phase(HarvesterComponent harvester, CycleStats.Phase phase, long micros) {
-        harvester.stats.addPhase(phase, micros);
         PerfRegistry.global().phase(harvester.tier, phase, micros);
     }
 
@@ -230,7 +230,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         }
         long burstStart = System.nanoTime();
         World world = store.getExternalData().getWorld();
-        HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem());
+        HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(),
+                harvester.pendingDrops);
         boolean full = cycleWorld.containerFull();
         int collected = full ? 0 : cycleWorld.collectDroppedItems(new BlockPos(pos.x, pos.y, pos.z),
                 HarvestCycle.collectExtent(settings.radius(), global.collectMargin()));
@@ -239,7 +240,6 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         harvester.burstRemaining = CollectBurst.afterCollect(harvester.burstRemaining, full,
                 harvester.burstTicksWithoutProgress);
         harvester.lastResult = harvester.lastResult.plusCollected(collected);
-        harvester.stats.addCollected(collected);
         phase(harvester, CycleStats.Phase.BURST, micros(burstStart));
     }
 

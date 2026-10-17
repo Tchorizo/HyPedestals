@@ -1,11 +1,12 @@
 package dev.tchorizo.hypedestals.harvest;
 
 /**
- * Performance counters of one Harvester since its block entity was loaded (transient; they reset
- * with the chunk). Durations are microseconds of the world thread spent in the mod's own code,
- * measured with {@code System.nanoTime()} around each {@link Phase}; work the game defers to the
- * end of the tick (command buffer) is not included. Pure and not thread-safe: one Harvester is
- * only ticked by its world's thread.
+ * Cycle durations of one Harvester since its block entity was loaded (transient; they reset with
+ * the chunk), for {@code inspect}. Durations are microseconds of the world thread spent in the
+ * mod's own code during a cycle, measured with {@code System.nanoTime()}; work the game defers to
+ * the end of the tick (command buffer) is not included. The time per {@link Phase} is only kept
+ * server-wide ({@code PerfRegistry}). Pure and not thread-safe: one Harvester is only ticked by
+ * its world's thread.
  */
 public final class CycleStats {
 
@@ -38,67 +39,24 @@ public final class CycleStats {
         }
     }
 
-    private final long[] phaseMicros = new long[Phase.values().length];
-    private final long[] phaseCount = new long[Phase.values().length];
     private final DurationWindow window = new DurationWindow(WINDOW);
     private long cycles;
-    private long cycleMicros;
     private long lastCycleMicros;
-    private long harvested;
-    private long collected;
 
-    /** Adds one run of {@code phase} that took {@code micros}. */
-    public void addPhase(Phase phase, long micros) {
-        phaseMicros[phase.ordinal()] += micros;
-        phaseCount[phase.ordinal()]++;
-    }
-
-    /**
-     * Adds one whole cycle (its phases are added separately with {@link #addPhase}): its total
-     * duration and what it harvested and collected.
-     */
-    public void addCycle(long micros, int harvestedNow, int collectedNow) {
+    /** Adds one whole cycle that took {@code micros}. */
+    public void addCycle(long micros) {
         cycles++;
-        cycleMicros += micros;
         lastCycleMicros = micros;
         window.add(micros);
-        harvested += harvestedNow;
-        collected += collectedNow;
-    }
-
-    /** Items collected outside a cycle (the post-harvest burst). */
-    public void addCollected(int items) {
-        collected += items;
     }
 
     public long cycles() {
         return cycles;
     }
 
-    /** Sum of every cycle's duration. */
-    public long cycleMicros() {
-        return cycleMicros;
-    }
-
     /** Duration of the most recent cycle; {@code 0} before the first one. */
     public long lastCycleMicros() {
         return lastCycleMicros;
-    }
-
-    public long harvested() {
-        return harvested;
-    }
-
-    public long collected() {
-        return collected;
-    }
-
-    public long phaseMicros(Phase phase) {
-        return phaseMicros[phase.ordinal()];
-    }
-
-    public long phaseCount(Phase phase) {
-        return phaseCount[phase.ordinal()];
     }
 
     /** Median cycle duration over the last {@link #WINDOW} cycles; {@code 0} before the first. */
