@@ -3,15 +3,17 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.2.2 — 2026-10-18
 
 ### Added
 
 - `UpgradeParticlesSeconds` (global, 0–60, 2 by default, 0 = off; in the config file, the settings window and `config set global`): a Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds, each burst lasting until the next one, so the effect shows even where the block's own particles do not.
+- Harvesters also pick ripe apples on apple trees, which regrow.
 
 ### Fixed
 
 - The upgrade particles could not be seen in game: the watering sparks (the mana plant sparks, at most 4 tiny particles within 0.2 blocks of the block's center) most likely stayed inside the pedestal's shaft, under its cap. Both upgrades now show glowing orbs (the vanilla temple lantern effect, tinted) on a ring over the pedestal, just above its cap: saturated blue for watering, bright green for the fertilizer, both with both (the two rings at slightly different heights so they do not overlap).
+- The Harvester no longer harvests tree saplings, cacti or spreading mushrooms (which it could destroy or stop from growing), nor tilled soil itself. A grown cactus was harvested and lost the part that keeps it growing.
 
 ### Changed
 

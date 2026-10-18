@@ -1,6 +1,8 @@
 package dev.tchorizo.hypedestals.block;
 
 import com.hypixel.hytale.builtin.adventure.farming.FarmingUtil;
+import com.hypixel.hytale.builtin.adventure.farming.config.stages.PrefabFarmingStageData;
+import com.hypixel.hytale.builtin.adventure.farming.config.stages.spread.SpreadFarmingStageData;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
@@ -31,6 +33,7 @@ import dev.tchorizo.hypedestals.harvest.ContainerRoom;
 import dev.tchorizo.hypedestals.harvest.CycleWorld;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.HarvestOutcome;
+import dev.tchorizo.hypedestals.harvest.HarvestTargetRule;
 import dev.tchorizo.hypedestals.harvest.ItemCount;
 import dev.tchorizo.hypedestals.harvest.PendingDrops;
 import org.joml.Vector3d;
@@ -101,7 +104,7 @@ final class HytaleCycleWorld implements CycleWorld {
         return cropTypeAt(reader, p);
     }
 
-    /** {@link #cropTypeAt(BlockPos)} over any reader; also the soil pass's "crop above" test. */
+    /** {@link #cropTypeAt(BlockPos)} over any reader, for the harvest scan only. */
     static String cropTypeAt(SectionReader reader, BlockPos p) {
         if (reader.getFiller(p.x(), p.y(), p.z()) != 0) {
             return null;
@@ -111,11 +114,64 @@ final class HytaleCycleWorld implements CycleWorld {
             return null;
         }
         String baseId = HytaleIds.baseBlockId(block.getId());
-        if (block.getFarming() != null) {
-            return baseId;
+        return isHarvestTarget(farmingData(block, baseId)) ? baseId : null;
+    }
+
+    /** Whether a growing farming block occupies the origin position, including Prefab and Spread growers. */
+    static boolean growingFarmingBlockAt(SectionReader reader, BlockPos p) {
+        if (reader.getFiller(p.x(), p.y(), p.z()) != 0) {
+            return false;
+        }
+        BlockType block = BlockType.getAssetMap().getAsset(reader.getBlock(p.x(), p.y(), p.z()));
+        if (block == null) {
+            return false;
+        }
+        FarmingData farming = farmingData(block, HytaleIds.baseBlockId(block.getId()));
+        return HarvestTargetRule.isGrowing(farming != null, hasGrowthStages(farming));
+    }
+
+    /** Finds farming metadata on a state variant or its base asset. */
+    private static FarmingData farmingData(BlockType block, String baseId) {
+        FarmingData farming = block.getFarming();
+        if (farming != null) {
+            return farming;
         }
         BlockType base = BlockType.getAssetMap().getAsset(baseId);
-        return base != null && base.getFarming() != null ? baseId : null;
+        return base == null ? null : base.getFarming();
+    }
+
+    /** Excludes farming infrastructure and growth seeds that harvesting would destroy. */
+    private static boolean isHarvestTarget(FarmingData farming) {
+        boolean hasStages = false;
+        boolean hasPrefabOrSpread = false;
+        if (farming != null && farming.getStages() != null) {
+            for (FarmingStageData[] stages : farming.getStages().values()) {
+                if (stages == null || stages.length == 0) {
+                    continue;
+                }
+                hasStages = true;
+                for (FarmingStageData stage : stages) {
+                    if (stage instanceof PrefabFarmingStageData || stage instanceof SpreadFarmingStageData) {
+                        hasPrefabOrSpread = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return HarvestTargetRule.isTarget(farming != null, hasStages, hasPrefabOrSpread);
+    }
+
+    /** Whether a farming asset exposes at least one non-empty growth stage set. */
+    private static boolean hasGrowthStages(FarmingData farming) {
+        if (farming == null || farming.getStages() == null) {
+            return false;
+        }
+        for (FarmingStageData[] stages : farming.getStages().values()) {
+            if (stages != null && stages.length > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

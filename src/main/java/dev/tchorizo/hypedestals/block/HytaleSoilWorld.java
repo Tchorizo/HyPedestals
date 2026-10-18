@@ -72,13 +72,16 @@ public final class HytaleSoilWorld implements SoilWorld {
         markNeedsSaving(ref);
     }
 
-    /** Same crop detection as the harvest ({@code HytaleCycleWorld.cropTypeAt}). */
+    /**
+     * Whether a growing farming block (including saplings and spreaders) is directly above this
+     * soil. This deliberately differs from the Harvester's harvest-target classification.
+     */
     @Override
     public boolean cropAt(BlockPos p) {
         if (reader == null) {
             reader = new SectionReader(chunkStore);
         }
-        return HytaleCycleWorld.cropTypeAt(reader, p) != null;
+        return HytaleCycleWorld.growingFarmingBlockAt(reader, p);
     }
 
     /**

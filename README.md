@@ -30,6 +30,8 @@ A Harvester only harvests what its storage has room for, so nothing is dropped o
 
 **Tip:** annual crops disappear when harvested, but the game's **Eternal** crops grow back after each harvest. Pair a Harvester with Eternal seeds for a farm that never needs replanting.
 
+**Also harvests:** ripe apples on apple trees; the apples regrow after harvest. It leaves tree saplings, cacti and spreading mushrooms alone.
+
 ## Upgrades
 
 A Harvester holds up to two upgrades, one of each kind. They are stored in the Harvester itself, not in its storage slots, so automation never takes them out.
