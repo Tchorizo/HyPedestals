@@ -1,0 +1,24 @@
+#!/bin/sh
+# Bloqueia push com segredos (TruffleHog) nos commits que vão sair. Ativar uma vez por clone:
+#   git config core.hooksPath .githooks
+set -e
+
+if ! command -v trufflehog >/dev/null 2>&1; then
+    echo "pre-push: trufflehog não encontrado no PATH; instale (https://github.com/trufflesecurity/trufflehog#installation)." >&2
+    exit 1
+fi
+
+# SHA nulo do git (ref inexistente), no mesmo tamanho dos SHAs do repositório.
+NULL_SHA=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+
+# stdin do git: "<ref local> <sha local> <ref remoto> <sha remoto>" por ref enviada.
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$NULL_SHA" ] && continue # remoção de ref: nada a escanear
+    if [ "$remote_sha" = "$NULL_SHA" ]; then
+        # Ref nova no remoto: todo o histórico que leva a ela.
+        trufflehog git file://. --branch "$local_sha" --results=verified,unknown --fail --no-update
+    else
+        trufflehog git file://. --branch "$local_sha" --since-commit "$remote_sha" \
+            --results=verified,unknown --fail --no-update
+    fi
+done
