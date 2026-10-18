@@ -51,9 +51,21 @@ class UpgradeVisualTest {
         assertTrue(UpgradeVisual.particlesFor(new UpgradeSet()).isEmpty());
         assertEquals(List.of(UpgradeVisual.WATERING_PARTICLE), UpgradeVisual.particlesFor(of(UpgradeType.WATERING)));
         assertEquals(List.of(UpgradeVisual.FERTILIZER_PARTICLE), UpgradeVisual.particlesFor(of(UpgradeType.FERTILIZER)));
-        List<UpgradeVisual.Particle> both = List.of(UpgradeVisual.WATERING_PARTICLE, UpgradeVisual.FERTILIZER_PARTICLE);
+        List<UpgradeVisual.Particle> both = List.of(UpgradeVisual.WATERING_BOTH_PARTICLE, UpgradeVisual.FERTILIZER_BOTH_PARTICLE);
         assertEquals(both, UpgradeVisual.particlesFor(of(UpgradeType.WATERING, UpgradeType.FERTILIZER)));
         assertEquals(both, UpgradeVisual.particlesFor(of(UpgradeType.FERTILIZER, UpgradeType.WATERING)));
+    }
+
+    @Test
+    void particlesSitAboveTheCapAndApartWithBoth() {
+        // The cap ends at about 0.97 of the block (Harvester.blockymodel).
+        for (UpgradeVisual.Particle particle : List.of(UpgradeVisual.WATERING_PARTICLE, UpgradeVisual.FERTILIZER_PARTICLE,
+                UpgradeVisual.WATERING_BOTH_PARTICLE, UpgradeVisual.FERTILIZER_BOTH_PARTICLE)) {
+            assertTrue(particle.offsetY() > 1.0, particle.toString());
+        }
+        assertTrue(UpgradeVisual.FERTILIZER_BOTH_PARTICLE.offsetY() - UpgradeVisual.WATERING_BOTH_PARTICLE.offsetY() >= 0.1);
+        assertEquals(UpgradeVisual.WATERING_COLOR, UpgradeVisual.WATERING_BOTH_PARTICLE.color());
+        assertEquals(UpgradeVisual.FERTILIZER_COLOR, UpgradeVisual.FERTILIZER_BOTH_PARTICLE.color());
     }
 
     @Test
@@ -71,6 +83,6 @@ class UpgradeVisualTest {
         for (String bad : new String[] {null, "", "#fff", "#64c1fg", "-12345", "+12345", "#64c1ff00"}) {
             assertThrows(IllegalArgumentException.class, () -> UpgradeVisual.rgb(bad), String.valueOf(bad));
         }
-        assertThrows(IllegalArgumentException.class, () -> new UpgradeVisual.Particle("X", "blue"));
+        assertThrows(IllegalArgumentException.class, () -> new UpgradeVisual.Particle("X", "blue", 1.0));
     }
 }

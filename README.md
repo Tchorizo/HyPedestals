@@ -42,7 +42,7 @@ A Harvester holds up to two upgrades, one of each kind. They are stored in the H
 - **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
 - **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
 - **Breaking** a Harvester drops its installed upgrades together with the block and its storage contents. Unloading the chunk or restarting the server keeps them installed.
-- **Particles** show what is installed: glowing blue orbs around the Harvester for watering, green orbs for the fertilizer, both colors when it has both. They come from the block itself and, every `UpgradeParticlesSeconds` (2 s by default), from the server as well. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
+- **Particles** show what is installed: glowing blue orbs over the Harvester for watering, green orbs for the fertilizer, both colors when it has both. They come from the block itself and, every `UpgradeParticlesSeconds` (2 s by default), from the server as well. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
 
 Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s by default), separate from the harvest interval and also while the storage is full. The pass covers the same area as the harvest; soil one block below the Harvester's level (under crops on the Harvester's own level) is included.
 

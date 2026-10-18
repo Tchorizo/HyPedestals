@@ -9,7 +9,6 @@ import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
-import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -26,8 +25,8 @@ import java.util.List;
 public final class UpgradeParticles {
 
     /** Shared by every packet and never mutated. */
-    private static final Color WATERING_COLOR = color(UpgradeVisual.WATERING_PARTICLE.rgb());
-    private static final Color FERTILIZER_COLOR = color(UpgradeVisual.FERTILIZER_PARTICLE.rgb());
+    private static final Color WATERING_COLOR = color(UpgradeVisual.rgb(UpgradeVisual.WATERING_COLOR));
+    private static final Color FERTILIZER_COLOR = color(UpgradeVisual.rgb(UpgradeVisual.FERTILIZER_COLOR));
 
     private UpgradeParticles() {}
 
@@ -36,12 +35,10 @@ public final class UpgradeParticles {
      * Harvester at {@code pos}, lasting {@code seconds}; must run on the world thread.
      */
     static void spawn(World world, Vector3i pos, UpgradeSet upgrades, float seconds) {
-        Vector3d at = new Vector3d(pos.x + 0.5, pos.y + UpgradeVisual.PARTICLE_OFFSET_Y, pos.z + 0.5);
-        if (upgrades.has(UpgradeType.WATERING)) {
-            spawn(world, UpgradeVisual.WATERING_PARTICLE.systemId(), at, UpgradeVisual.PARTICLE_SCALE, WATERING_COLOR, seconds);
-        }
-        if (upgrades.has(UpgradeType.FERTILIZER)) {
-            spawn(world, UpgradeVisual.FERTILIZER_PARTICLE.systemId(), at, UpgradeVisual.PARTICLE_SCALE, FERTILIZER_COLOR, seconds);
+        for (UpgradeVisual.Particle particle : UpgradeVisual.particlesFor(upgrades)) {
+            Vector3d at = new Vector3d(pos.x + 0.5, pos.y + particle.offsetY(), pos.z + 0.5);
+            Color color = particle.color().equals(UpgradeVisual.WATERING_COLOR) ? WATERING_COLOR : FERTILIZER_COLOR;
+            spawn(world, particle.systemId(), at, UpgradeVisual.PARTICLE_SCALE, color, seconds);
         }
     }
 

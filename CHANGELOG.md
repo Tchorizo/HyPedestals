@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- The upgrade particles could not be seen in game: the watering sparks (the mana plant sparks, at most 4 tiny particles within 0.2 blocks of the block's center) most likely stayed inside the pedestal's shaft, under its cap. Both upgrades now show glowing orbs (the vanilla temple lantern effect, tinted) on a ring around the pedestal, outside the shaft: blue for watering, green for the fertilizer, both with both.
+- The upgrade particles could not be seen in game: the watering sparks (the mana plant sparks, at most 4 tiny particles within 0.2 blocks of the block's center) most likely stayed inside the pedestal's shaft, under its cap. Both upgrades now show glowing orbs (the vanilla temple lantern effect, tinted) on a ring over the pedestal, just above its cap: saturated blue for watering, bright green for the fertilizer, both with both (the two rings at slightly different heights so they do not overlap).
 
 ### Changed
 

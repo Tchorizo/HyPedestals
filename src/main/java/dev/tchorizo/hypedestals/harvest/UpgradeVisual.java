@@ -1,15 +1,15 @@
 package dev.tchorizo.hypedestals.harvest;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * How a Harvester shows its installed upgrades. Each tier's asset repeats the
  * {@code State.Definitions} entries named here (an inherited {@code State} would point at the
  * Template's own variant blocks); they differ only in {@code Particles}: {@link #WATERING_PARTICLE}
- * for watering, {@link #FERTILIZER_PARTICLE} for the fertilizer, both for both, none in the
- * default state. {@link #particlesFor} lists the same effects for the periodic spawn
- * ({@code UpgradeParticlesSeconds}), which does not depend on the client drawing state particles.
+ * for watering, {@link #FERTILIZER_PARTICLE} for the fertilizer, {@link #WATERING_BOTH_PARTICLE}
+ * and {@link #FERTILIZER_BOTH_PARTICLE} for both, none in the default state. {@link #particlesFor}
+ * lists the same effects for the periodic spawn ({@code UpgradeParticlesSeconds}), which does not
+ * depend on the client drawing state particles.
  */
 public final class UpgradeVisual {
 
@@ -28,21 +28,43 @@ public final class UpgradeVisual {
      * {@code Furniture_Temple_Scarak_Brazier}.
      */
     public static final String PARTICLE_SYSTEM = "Temple_Light_Lantern";
-    /** Size multiplier, as on the vanilla brazier: a ring of radius 0.6, outside the 0.875-wide cap. */
-    public static final float PARTICLE_SCALE = 1.2f;
-    /** Height of the ring above the block's base: around the shaft, under the cap. */
-    public static final double PARTICLE_OFFSET_Y = 0.6;
-    /** Blue of the vanilla {@code Rock_Gem_Sapphire} sparkles. */
-    public static final Particle WATERING_PARTICLE = new Particle(PARTICLE_SYSTEM, "#64c1ff");
-    /** Green of the vanilla {@code Rock_Gem_Emerald} sparkles. */
-    public static final Particle FERTILIZER_PARTICLE = new Particle(PARTICLE_SYSTEM, "#60d682");
+    /**
+     * Size multiplier: a ring of radius 0.75, outside the 0.875-wide cap, with balls of 0.15–0.5
+     * (the user found {@code 1.2} too faint).
+     */
+    public static final float PARTICLE_SCALE = 1.5f;
+    /**
+     * Height of the ring above the block's base with one upgrade: over the pedestal, just above
+     * the cap (which ends at about 0.97), so the effect is not hidden under it.
+     */
+    public static final double PARTICLE_OFFSET_Y = 1.1;
+    /** Heights of the two rings with both upgrades, apart so they do not overlap. */
+    public static final double WATERING_BOTH_OFFSET_Y = 1.05;
+    public static final double FERTILIZER_BOTH_OFFSET_Y = 1.2;
+    /**
+     * Saturated blue and green: the balls are additive ({@code BlendAdd}) and at most 55% opaque,
+     * so a pale tint (the former {@code #64c1ff}/{@code #60d682}) washes out to white-ish.
+     */
+    public static final String WATERING_COLOR = "#2a7cff";
+    public static final String FERTILIZER_COLOR = "#3cff5a";
+    public static final Particle WATERING_PARTICLE = new Particle(PARTICLE_SYSTEM, WATERING_COLOR, PARTICLE_OFFSET_Y);
+    public static final Particle FERTILIZER_PARTICLE = new Particle(PARTICLE_SYSTEM, FERTILIZER_COLOR, PARTICLE_OFFSET_Y);
+    public static final Particle WATERING_BOTH_PARTICLE =
+            new Particle(PARTICLE_SYSTEM, WATERING_COLOR, WATERING_BOTH_OFFSET_Y);
+    public static final Particle FERTILIZER_BOTH_PARTICLE =
+            new Particle(PARTICLE_SYSTEM, FERTILIZER_COLOR, FERTILIZER_BOTH_OFFSET_Y);
+
+    private static final List<Particle> WATERING_ONLY = List.of(WATERING_PARTICLE);
+    private static final List<Particle> FERTILIZER_ONLY = List.of(FERTILIZER_PARTICLE);
+    private static final List<Particle> BOTH_PARTICLES = List.of(WATERING_BOTH_PARTICLE, FERTILIZER_BOTH_PARTICLE);
 
     /**
-     * One particle effect: a vanilla particle system and the {@code #rrggbb} color it is tinted with.
+     * One particle effect: a vanilla particle system, the {@code #rrggbb} color it is tinted with
+     * and its height above the block's base (at the block's center).
      *
      * @throws IllegalArgumentException if {@code color} is not {@code #rrggbb}
      */
-    public record Particle(String systemId, String color) {
+    public record Particle(String systemId, String color, double offsetY) {
         public Particle {
             UpgradeVisual.rgb(color);
         }
@@ -68,16 +90,20 @@ public final class UpgradeVisual {
         return fertilizer ? FERTILIZER : DEFAULT;
     }
 
-    /** The effects of {@code upgrades}, watering first, independent of installation order; empty for none. */
+    /**
+     * The effects of {@code upgrades}, watering first, independent of installation order; empty
+     * for none. Shared immutable lists.
+     */
     public static List<Particle> particlesFor(UpgradeSet upgrades) {
-        List<Particle> particles = new ArrayList<>(2);
-        if (upgrades.has(UpgradeType.WATERING)) {
-            particles.add(WATERING_PARTICLE);
+        boolean watering = upgrades.has(UpgradeType.WATERING);
+        boolean fertilizer = upgrades.has(UpgradeType.FERTILIZER);
+        if (watering && fertilizer) {
+            return BOTH_PARTICLES;
         }
-        if (upgrades.has(UpgradeType.FERTILIZER)) {
-            particles.add(FERTILIZER_PARTICLE);
+        if (watering) {
+            return WATERING_ONLY;
         }
-        return particles;
+        return fertilizer ? FERTILIZER_ONLY : List.of();
     }
 
     /**

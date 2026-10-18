@@ -37,10 +37,10 @@
           "Particles": [
             {
               "SystemId": "Temple_Light_Lantern",
-              "Color": "#64c1ff",
-              "Scale": 1.2,
+              "Color": "#2a7cff",
+              "Scale": 1.5,
               "PositionOffset": {
-                "Y": 0.6
+                "Y": 1.1
               }
             }
           ]
@@ -49,10 +49,10 @@
           "Particles": [
             {
               "SystemId": "Temple_Light_Lantern",
-              "Color": "#60d682",
-              "Scale": 1.2,
+              "Color": "#3cff5a",
+              "Scale": 1.5,
               "PositionOffset": {
-                "Y": 0.6
+                "Y": 1.1
               }
             }
           ]
@@ -61,18 +61,18 @@
           "Particles": [
             {
               "SystemId": "Temple_Light_Lantern",
-              "Color": "#64c1ff",
-              "Scale": 1.2,
+              "Color": "#2a7cff",
+              "Scale": 1.5,
               "PositionOffset": {
-                "Y": 0.6
+                "Y": 1.05
               }
             },
             {
               "SystemId": "Temple_Light_Lantern",
-              "Color": "#60d682",
-              "Scale": 1.2,
+              "Color": "#3cff5a",
+              "Scale": 1.5,
               "PositionOffset": {
-                "Y": 0.6
+                "Y": 1.2
               }
             }
           ]
