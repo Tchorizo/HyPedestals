@@ -213,7 +213,7 @@ $C.@PageOverlay {
 
       Group {
         LayoutMode: Left;
-        Anchor: (Bottom: 12);
+        Anchor: (Bottom: 8);
 
         Label {
           Text: %hypedestals.ui.config.soilSweep;
@@ -224,6 +224,22 @@ $C.@PageOverlay {
         $C.@NumberField #SoilSweepSeconds {
           @Anchor = (Width: 120);
           Format: (MinValue: 5, MaxValue: 600, Step: 5, MaxDecimalPlaces: 0);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.manure;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #ManurePerApplication {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 64, Step: 1, MaxDecimalPlaces: 0);
         }
       }
 

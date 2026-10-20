@@ -16,6 +16,9 @@ class ExportPlanTest {
 
     private static final BlockPos CENTER = new BlockPos(10, 64, 20);
     private static final String FERTILIZER = "Tool_Fertilizer";
+    private static final String POOP = "Ingredient_Poop";
+    /** The default {@code ManurePerApplication}. */
+    private static final int K = 2;
 
     @Test
     void neighborsAreBelowThenTheFourSidesNeverAbove() {
@@ -29,16 +32,41 @@ class ExportPlanTest {
 
     @Test
     void fertilizerBagsStayOnlyWhileTheUpgradeIsInstalled() {
-        assertFalse(ExportPlan.isExportable("Tool_Fertilizer", true));
-        assertTrue(ExportPlan.isExportable("Tool_Fertilizer", false));
-        assertTrue(ExportPlan.isExportable("Plant_Crop_Wheat_Item", true));
-        assertTrue(ExportPlan.isExportable("Tool_Fertilizer_Crystal", true), "only the vanilla bag is kept");
+        assertFalse(ExportPlan.isExportable("Tool_Fertilizer", true, K));
+        assertTrue(ExportPlan.isExportable("Tool_Fertilizer", false, K));
+        assertFalse(ExportPlan.isExportable("Tool_Fertilizer", true, 0), "bags stay even with poop off");
+        assertTrue(ExportPlan.isExportable("Plant_Crop_Wheat_Item", true, K));
+        assertTrue(ExportPlan.isExportable("Tool_Fertilizer_Crystal", true, K), "only the vanilla bag is kept");
+    }
+
+    @Test
+    void poopStaysWhileTheUpgradeIsInstalledAndPoopIsFuel() {
+        assertFalse(ExportPlan.isExportable(POOP, true, K));
+        assertTrue(ExportPlan.isExportable(POOP, false, K), "without the upgrade poop is an ordinary item");
+        assertTrue(ExportPlan.isExportable(POOP, true, 0), "ManurePerApplication 0: poop is not fuel");
+    }
+
+    @Test
+    void exportSkipsPoopWhenUpgradeInstalled() {
+        FakeWorld world = new FakeWorld();
+        FakeSource source = new FakeSource(4, 5, 1, 3).item(1, POOP).item(2, FERTILIZER).item(3, POOP);
+        FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
+
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
+
+        assertEquals(4, r.moved());
+        assertEquals(4, below.received);
+        assertArrayEquals(new int[] {0, 5, 1, 3}, source.counts, "every poop slot and the bag stay");
+
+        FakeSource off = new FakeSource(4, 5, 1, 3).item(1, POOP).item(2, FERTILIZER).item(3, POOP);
+        ExportPlan.run(world, off, CENTER, true, 0);
+        assertArrayEquals(new int[] {0, 0, 1, 0}, off.counts, "with poop off only the bag stays");
     }
 
     @Test
     void emptySourceDoesNotLookAtTheWorld() {
         FakeWorld world = new FakeWorld();
-        ExportPlan.Result r = ExportPlan.run(world, new FakeSource(0, 0, 0), CENTER, false);
+        ExportPlan.Result r = ExportPlan.run(world, new FakeSource(0, 0, 0), CENTER, false, K);
         assertEquals(ExportPlan.Result.NONE, r);
         assertEquals(List.of(), world.lookups);
     }
@@ -47,7 +75,7 @@ class ExportPlanTest {
     void onlyFertilizerBagsWithTheUpgradeDoesNotLookAtTheWorld() {
         FakeWorld world = new FakeWorld();
         FakeSource source = new FakeSource(0, 1, 0, 1).item(1, FERTILIZER).item(3, FERTILIZER);
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
         assertEquals(ExportPlan.Result.NONE, r);
         assertEquals(List.of(), world.lookups, "only fertilizer bags, kept by the upgrade");
     }
@@ -58,7 +86,7 @@ class ExportPlanTest {
         FakeSource source = new FakeSource(4, 1, 6, 1).item(1, FERTILIZER).item(3, FERTILIZER);
         FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(10, r.moved());
         assertEquals(10, below.received);
@@ -71,7 +99,7 @@ class ExportPlanTest {
         FakeSource source = new FakeSource(4, 1, 0, 1).item(1, FERTILIZER).item(3, FERTILIZER);
         FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, false);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, false, K);
 
         assertEquals(6, r.moved());
         assertEquals(6, below.received);
@@ -84,7 +112,7 @@ class ExportPlanTest {
         FakeSource source = new FakeSource(0, 0, 0, 5);
         FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(5, r.moved());
         assertEquals(5, below.received);
@@ -95,7 +123,7 @@ class ExportPlanTest {
     void noContainerAroundMovesNothing() {
         FakeWorld world = new FakeWorld();
         FakeSource source = new FakeSource(4, 0, 0);
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
         assertEquals(0, r.moved());
         assertNull(r.target());
         assertEquals(ExportPlan.neighbors(CENTER), world.lookups, "every neighbor is looked up once, in order");
@@ -109,7 +137,7 @@ class ExportPlanTest {
         FakeTarget side = world.put(new BlockPos(11, 64, 20), new FakeTarget(100));
         FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(100));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(12, r.moved());
         assertEquals(below.pos, r.target(), "below comes first");
@@ -126,7 +154,7 @@ class ExportPlanTest {
         FakeTarget small = world.put(new BlockPos(11, 64, 20), new FakeTarget(2));
         FakeTarget big = world.put(new BlockPos(10, 64, 19), new FakeTarget(100));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(8, r.moved());
         assertEquals(0, full.received);
@@ -143,7 +171,7 @@ class ExportPlanTest {
         FakeSource source = new FakeSource(5, 0);
         FakeTarget small = world.put(new BlockPos(9, 64, 20), new FakeTarget(3));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(3, r.moved());
         assertEquals(small.pos, r.target());
@@ -156,7 +184,7 @@ class ExportPlanTest {
         FakeSource source = new FakeSource(5, 0);
         FakeTarget other = world.put(new BlockPos(10, 63, 20), new FakeTarget(100, true));
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(0, r.moved());
         assertEquals(0, other.moveCalls);
@@ -172,7 +200,7 @@ class ExportPlanTest {
         world.put(new BlockPos(10, 63, 20), chest);
         world.put(new BlockPos(11, 64, 20), chest); // same origin through a filler block
 
-        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true);
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, true, K);
 
         assertEquals(2, r.moved());
         assertEquals(1, chest.moveCalls, "deduplicated by origin position");

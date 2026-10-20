@@ -10,7 +10,7 @@ public final class SoilPass {
     /**
      * @param watered soil blocks watered
      * @param fertilized soil blocks fertilized
-     * @param applicationsUsed fertilizer applications to take from the container's bags; equal to
+     * @param applicationsUsed fertilizer applications to take from the container's fuel; equal to
      *     {@code fertilized} (one application per block, upgrades spec §3.3), kept apart so the
      *     caller's consumption does not depend on that rule
      */
@@ -22,13 +22,13 @@ public final class SoilPass {
      *   <li>with {@code water}, waters it to {@code now + wateringSeconds} where
      *       {@link SoilCare#decideWater} says it needs it;</li>
      *   <li>while fertilizer applications are left, fertilizes it if it is not fertilized yet and a
-     *       crop stands right above it (soil without a crop is not worth a bag).</li>
+     *       crop stands right above it (soil without a crop is not worth the fuel).</li>
      * </ul>
      *
      * @param now world game time
      * @param water whether the watering upgrade is installed
      * @param wateringSeconds the tier's {@code WateringSeconds}, in game seconds; unused without {@code water}
-     * @param fertilizerApplications applications the container's bags can give ({@link FertilizerInput#totalApplications}); 0 = none
+     * @param fertilizerApplications applications the container's fuel (poop, bags) can give ({@link FertilizerInput#totalApplications}); 0 = none
      */
     public static Result run(SoilWorld world, BlockPos center, int radius, Instant now,
                              boolean water, long wateringSeconds, int fertilizerApplications) {

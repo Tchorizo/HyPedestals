@@ -21,7 +21,8 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *   "HarvestParticles": true,
  *   "PostHarvestCollectSeconds": 3.0,
  *   "MaxHarvestsPerCycle": 0,
- *   "UpgradeParticlesSeconds": 2.0
+ *   "UpgradeParticlesSeconds": 2.0,
+ *   "ManurePerApplication": 2
  * }
  * }</pre>
  *
@@ -87,6 +88,10 @@ public final class HyPedestalsConfig {
                 .append(new KeyedCodec<>("UpgradeParticlesSeconds", Codec.FLOAT),
                         (c, v) -> c.settings = c.settings.withUpgradeParticlesSeconds(v),
                         c -> c.settings.upgradeParticlesSeconds())
+                .add()
+                .append(new KeyedCodec<>("ManurePerApplication", Codec.INTEGER),
+                        (c, v) -> c.settings = c.settings.withManurePerApplication(v),
+                        c -> c.settings.manurePerApplication())
                 .add()
                 .build();
     }

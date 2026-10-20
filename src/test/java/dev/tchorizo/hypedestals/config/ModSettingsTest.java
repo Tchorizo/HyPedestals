@@ -101,7 +101,25 @@ class ModSettingsTest {
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f, 2));
+    }
+
+    @Test
+    void manurePerApplication() {
+        assertEquals(2, ModSettings.DEFAULTS.manurePerApplication(), "2 poop per application, like the vanilla bag");
+        ModSettings s = ModSettings.DEFAULTS;
+        assertEquals(0, s.set("global", "ManurePerApplication", "0").manurePerApplication(), "0 turns poop off");
+        assertEquals(64, s.set("global", "manureperapplication", "64").manurePerApplication());
+        assertMessage("ManurePerApplication must be 0..64 (0 = off), got 65", () -> s.set("global", "ManurePerApplication", "65"));
+        assertMessage("ManurePerApplication must be 0..64 (0 = off), got -1", () -> s.set("global", "ManurePerApplication", "-1"));
+        assertMessage("not a whole number: 1.5", () -> s.set("global", "ManurePerApplication", "1.5"));
+        assertMessage("unknown tier field ManurePerApplication", () -> s.set("Iron", "ManurePerApplication", "2"));
+        assertEquals(List.of("ManurePerApplication=65 (allowed 0..64)"), s.withManurePerApplication(65).problems());
+        assertEquals(2, s.withManurePerApplication(65).sanitized().manurePerApplication());
+        assertEquals(0, s.withManurePerApplication(0).sanitized().manurePerApplication(), "0 (off) is valid");
+        assertEquals(5, s.withChangesFrom(s, s.withManurePerApplication(5)).manurePerApplication(), "a change is applied");
+        assertEquals(7, s.withManurePerApplication(7).withChangesFrom(s, s).manurePerApplication(),
+                "untouched in the window: a value set by command survives");
     }
 
     @Test
@@ -305,7 +323,7 @@ class ModSettingsTest {
                         + " | Thorium Radius=4 IntervalSeconds=5.0 WateringSeconds=72000"
                         + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
                         + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true"
-                        + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=2.0",
+                        + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=2.0 ManurePerApplication=2",
                 ModSettings.DEFAULTS.describe());
     }
 

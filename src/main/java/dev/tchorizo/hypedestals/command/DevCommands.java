@@ -365,13 +365,17 @@ final class DevCommands extends AbstractAsyncCommand {
         return stage.getDuration() == null ? 0 : (stage.getDuration().min + stage.getDuration().max) / 2.0;
     }
 
-    /** {@code id x qty} for each non-empty slot, comma separated. */
+    /**
+     * {@code id x qty} for each non-empty slot, comma separated, with {@code (durability/max)} after
+     * items that have durability (e.g. {@code Tool_Fertilizer x1 (2.0/5.0)}).
+     */
     private static String contents(ItemContainer container) {
         List<String> stacks = new ArrayList<>();
         for (short slot = 0; slot < container.getCapacity(); slot++) {
             ItemStack stack = container.getItemStack(slot);
             if (stack != null && !stack.isEmpty()) {
-                stacks.add(stack.getItemId() + " x" + stack.getQuantity());
+                stacks.add(stack.getItemId() + " x" + stack.getQuantity() + (stack.getMaxDurability() > 0
+                        ? " (" + stack.getDurability() + "/" + stack.getMaxDurability() + ")" : ""));
             }
         }
         return String.join(", ", stacks);
@@ -1521,7 +1525,8 @@ final class DevCommands extends AbstractAsyncCommand {
      * fertilizer bag into any slot of a Harvester without a client. The write goes through the
      * container's slot filters like a player's, so it is refused ({@code succeeded=false}) where
      * a filter rejects the item; {@code empty} clears the slot. {@code --durability} defaults to the
-     * item's maximum. A successful write marks the block for saving.
+     * item's maximum. A successful write marks the block for saving. The reply ends with the item's
+     * effective {@code maxStack} (after the engine resolves an undeclared {@code MaxStack}).
      */
     private static final class SetItemCommand extends HyPedestalsCommand.PositionCommand {
         private final RequiredArg<String> slot =
@@ -1591,8 +1596,9 @@ final class DevCommands extends AbstractAsyncCommand {
             }
             ItemStack now = container.getItemStack(s);
             return String.format(Locale.ROOT, "setitem %d at %s: succeeded=%b slot=%s", s, at, succeeded,
-                    now == null || now.isEmpty() ? "empty" : String.format(Locale.ROOT, "%s x%d durability=%s/%s",
-                            now.getItemId(), now.getQuantity(), now.getDurability(), now.getMaxDurability()));
+                    now == null || now.isEmpty() ? "empty" : String.format(Locale.ROOT, "%s x%d durability=%s/%s maxStack=%d",
+                            now.getItemId(), now.getQuantity(), now.getDurability(), now.getMaxDurability(),
+                            now.getItem().getMaxStack()));
         }
     }
 }

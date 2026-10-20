@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBloc
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
+import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleFertilizerInput;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
@@ -29,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * {@code /hypedestals inspect <x y z>}: one line with the harvester's settings, timer, scan
  * position, container usage, last cycle result, installed upgrades, soil sweeps, (with the
- * fertilizer upgrade) the next fertilizer bag and the cycle timings since the load
+ * fertilizer upgrade) the fuel left and the cycle timings since the load
  * ({@code perf: last=<us> p50=<us> p95=<us> max=<us> (n=<cycles>)}; percentiles over the last
  * {@link CycleStats#WINDOW} cycles),
  * {@code no Harvester at <x y z>}, or {@code section not loaded at <x y z>} when the section was
@@ -110,24 +111,20 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
     }
 
     /**
-     * The bag the next soil sweep uses (any slot; the most worn one first, see
-     * {@link FertilizerInput}): {@code <durability>/<max> (slot N)} (with {@code xN} after the
-     * durability for a stack of N bags), or {@code none} when no slot holds a usable bag.
+     * The fuel the soil sweeps can still use (any slot, see {@link FertilizerInput}):
+     * {@code poop <n> (K=<k>) + bags <uses>}, with {@code n} the poop in the container, {@code k}
+     * the config's {@code ManurePerApplication} (poop per application, 0 = poop off) and
+     * {@code uses} the applications left in the bags; or {@code none} when there is neither.
      */
     private static String fertilizer(ItemContainerBlock containerBlock) {
         List<FertilizerInput.InputStack> slots = containerBlock == null
                 ? List.of() : HytaleFertilizerInput.read(containerBlock.getItemContainer());
-        int slot = FertilizerInput.nextSlot(slots);
-        if (slot < 0) {
+        int poop = FertilizerInput.poop(slots);
+        int bags = FertilizerInput.bagApplications(slots);
+        if (poop == 0 && bags == 0) {
             return "none";
         }
-        FertilizerInput.InputStack stack = slots.get(slot);
-        return number(stack.durability()) + "/" + number(stack.maxDurability())
-                + (stack.quantity() > 1 ? "x" + stack.quantity() : "") + " (slot " + slot + ")";
-    }
-
-    private static String number(double d) {
-        return d == Math.rint(d) ? Long.toString((long) d) : String.format(Locale.ROOT, "%.1f", d);
+        return "poop " + poop + " (K=" + HyPedestalsPlugin.settings().manurePerApplication() + ") + bags " + bags;
     }
 
     /** {@code <used>/<capacity>}, counting slots that hold a non-empty stack. */

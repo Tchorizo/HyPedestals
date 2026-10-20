@@ -21,6 +21,7 @@ ui.config.collectMargin = Margem de coleta (blocos além da área)
 ui.config.postHarvestCollect = Coletar a cada tick após colher durante (s, 0 = desligado)
 ui.config.maxHarvests = Máx. de colheitas por ciclo (0 = sem limite)
 ui.config.soilSweep = Passada no solo a cada (s)
+ui.config.manure = Cocô por aplicação de fertilizante (0 = só sacos)
 ui.config.exportToAdjacent = Exportar para um container embaixo ou ao lado da colheitadeira
 ui.config.harvestParticles = Efeito de partículas quando o ciclo colhe
 ui.config.upgradeParticles = Partículas dos upgrades a cada (s, 0 = só o estado do bloco)
@@ -34,7 +35,7 @@ ui.config.writeFailed = Aplicado, mas a gravação do arquivo de configuração 
 items.Upgrade_Watering.name = Upgrade de Rega
 items.Upgrade_Watering.description = Clique com o botão direito numa colheitadeira para instalar: ela mantém regado o solo arado da área. Agachado + F remove o último upgrade.
 items.Upgrade_Fertilizer.name = Upgrade de Fertilizante
-items.Upgrade_Fertilizer.description = Clique com o botão direito numa colheitadeira para instalar: ela aduba o solo plantado da área com os sacos de Fertilizante de qualquer espaço da colheitadeira (e não os exporta). Agachado + F remove o último upgrade.
+items.Upgrade_Fertilizer.description = Clique com o botão direito numa colheitadeira para instalar: ela aduba o solo plantado da área com Cocô (2 por bloco de solo no padrão) e depois com os sacos de Fertilizante de qualquer espaço da colheitadeira (e não exporta nenhum dos dois). Agachado + F remove o último upgrade.
 upgrade.installed = {upgrade} instalado.
 upgrade.alreadyInstalled = Esta colheitadeira já tem o {upgrade}.
 upgrade.removed = {upgrade} removido.

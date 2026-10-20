@@ -49,12 +49,14 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
      * {@link ExportPlan.Result#NONE} and a warning; what already moved is still marked for saving,
      * and the next cycle tries again.
      *
-     * @param keepFertilizer whether the fertilizer upgrade is installed (fertilizer bags stay)
+     * @param keepFertilizer whether the fertilizer upgrade is installed (its fuel stays)
+     * @param manurePerApplication the config's {@code ManurePerApplication} ({@code 0}: poop is not fuel and leaves)
      */
-    ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center, boolean keepFertilizer) {
+    ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center,
+                          boolean keepFertilizer, int manurePerApplication) {
         ExportPlan.Result result;
         try {
-            result = ExportPlan.run(this, new Source(container), center, keepFertilizer);
+            result = ExportPlan.run(this, new Source(container), center, keepFertilizer, manurePerApplication);
         } catch (RuntimeException e) {
             HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
                     center.x(), center.y(), center.z(), e.toString());

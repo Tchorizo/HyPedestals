@@ -10,9 +10,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * The fertilizer bags in a Harvester's container over the game's {@link ItemContainer}: reading
- * every slot and consuming from the bags there. Any slot may hold a bag; the rules (which bag goes
- * first, how a bag wears) are in {@link FertilizerInput}.
+ * The fertilizer upgrade's fuel in a Harvester's container (poop, then fertilizer bags) over the
+ * game's {@link ItemContainer}: reading every slot and consuming from the fuel there. Any slot may
+ * hold fuel; the rules (poop before bags, which bag goes first, how a bag wears) are in
+ * {@link FertilizerInput}.
  */
 public final class HytaleFertilizerInput {
 
@@ -32,25 +33,30 @@ public final class HytaleFertilizerInput {
     }
 
     /**
-     * Takes {@code uses} applications from the bags in {@code container} ({@link FertilizerInput#draw}):
-     * writes each worn bag back, or empties its slot when it is used up. {@code slots} must be
+     * Takes {@code uses} applications from the fuel in {@code container}
+     * ({@link FertilizerInput#draw}, {@code k} poop per application): writes each slot back with
+     * less poop or a worn bag, or empties it when nothing is left. {@code slots} must be
      * {@link #read} from the same container in the same tick. A write the container refuses
-     * leaves that bag as it was (the soil was fertilized for free); logged once per server run.
+     * leaves that slot as it was (the soil was fertilized for free); logged once per server run.
+     * The caller marks the container for saving.
      */
-    static void consume(ItemContainer container, List<FertilizerInput.InputStack> slots, int uses) {
-        for (FertilizerInput.Draw draw : FertilizerInput.draw(slots, uses)) {
+    static void consume(ItemContainer container, List<FertilizerInput.InputStack> slots, int uses, int k) {
+        for (FertilizerInput.Draw draw : FertilizerInput.draw(slots, uses, k)) {
             short slot = (short) draw.slot();
             FertilizerInput.InputStack after = draw.after();
             boolean written;
             if (after == null) {
                 written = container.removeItemStackFromSlot(slot).succeeded();
             } else {
-                ItemStack bag = container.getItemStack(slot);
-                written = container.setItemStackForSlot(slot,
-                        bag.withQuantity(after.quantity()).withDurability(after.durability())).succeeded();
+                ItemStack stack = container.getItemStack(slot).withQuantity(after.quantity());
+                // Poop has no durability; only a bag wears.
+                if (FertilizerInput.accepts(after.itemId())) {
+                    stack = stack.withDurability(after.durability());
+                }
+                written = container.setItemStackForSlot(slot, stack).succeeded();
             }
             if (!written && WRITE_FAILURE_WARNED.compareAndSet(false, true)) {
-                HyPedestalsPlugin.warn("container refused the worn fertilizer bag in slot %d (not charged); further failures are not logged",
+                HyPedestalsPlugin.warn("container refused the used fertilizer fuel in slot %d (not charged); further failures are not logged",
                         slot);
             }
         }

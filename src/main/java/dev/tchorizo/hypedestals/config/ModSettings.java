@@ -29,10 +29,14 @@ import java.util.StringJoiner;
  *     the default: every mature crop); a safety cap for servers that want one
  * @param upgradeParticlesSeconds real seconds between two spawns of the upgrade particles of a
  *     Harvester with upgrades, on top of its block state's particles ({@code 0} = off)
+ * @param manurePerApplication poop ({@code Ingredient_Poop}) in the Harvester's container that
+ *     makes one fertilizer application with the fertilizer upgrade ({@code 0} = poop is not fuel;
+ *     see {@link dev.tchorizo.hypedestals.harvest.FertilizerInput})
  */
 public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem, int collectMargin,
                           int soilSweepSeconds, boolean exportToAdjacent, boolean harvestParticles,
-                          float postHarvestCollectSeconds, int maxHarvestsPerCycle, float upgradeParticlesSeconds) {
+                          float postHarvestCollectSeconds, int maxHarvestsPerCycle, float upgradeParticlesSeconds,
+                          int manurePerApplication) {
 
     public static final int MIN_MARGIN = 0;
     public static final int MAX_MARGIN = 4;
@@ -53,6 +57,10 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     public static final float MIN_UPGRADE_PARTICLES = 0f;
     public static final float MAX_UPGRADE_PARTICLES = 60f;
     public static final float DEFAULT_UPGRADE_PARTICLES = 2f;
+    public static final int MIN_MANURE = 0;
+    public static final int MAX_MANURE = 64;
+    /** Same poop per application as the vanilla bag (10 poop for 5 uses), without its other ingredients. */
+    public static final int DEFAULT_MANURE = 2;
     /** {@code config set} target of the fields that are not per tier. */
     public static final String GLOBAL = "global";
 
@@ -76,7 +84,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         }
         return new ModSettings(tiers, DEFAULT_COLLECT_ANY_ITEM, DEFAULT_COLLECT_MARGIN,
                 DEFAULT_SOIL_SWEEP, DEFAULT_EXPORT_TO_ADJACENT, DEFAULT_HARVEST_PARTICLES,
-                DEFAULT_POST_HARVEST_COLLECT, DEFAULT_MAX_HARVESTS, DEFAULT_UPGRADE_PARTICLES);
+                DEFAULT_POST_HARVEST_COLLECT, DEFAULT_MAX_HARVESTS, DEFAULT_UPGRADE_PARTICLES, DEFAULT_MANURE);
     }
 
     public static boolean validMargin(int margin) {
@@ -102,6 +110,11 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         return seconds >= MIN_UPGRADE_PARTICLES && seconds <= MAX_UPGRADE_PARTICLES;
     }
 
+    /** {@code 0..64} poop per application, {@code 0} = poop is not fuel. */
+    public static boolean validManure(int value) {
+        return value >= MIN_MANURE && value <= MAX_MANURE;
+    }
+
     public TierSettings tier(Tier tier) {
         return tiers.get(tier);
     }
@@ -123,47 +136,52 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         EnumMap<Tier, TierSettings> copy = new EnumMap<>(tiers);
         copy.put(tier, settings);
         return new ModSettings(copy, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withCollectAnyItem(boolean value) {
         return new ModSettings(tiers, value, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withCollectMargin(int value) {
         return new ModSettings(tiers, collectAnyItem, value, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withSoilSweepSeconds(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, value, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withExportToAdjacent(boolean value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, value, harvestParticles,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withHarvestParticles(boolean value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, value,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withPostHarvestCollectSeconds(float value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                value, maxHarvestsPerCycle, upgradeParticlesSeconds);
+                value, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withMaxHarvestsPerCycle(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds, value, upgradeParticlesSeconds);
+                postHarvestCollectSeconds, value, upgradeParticlesSeconds, manurePerApplication);
     }
 
     public ModSettings withUpgradeParticlesSeconds(float value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
-                postHarvestCollectSeconds, maxHarvestsPerCycle, value);
+                postHarvestCollectSeconds, maxHarvestsPerCycle, value, manurePerApplication);
+    }
+
+    public ModSettings withManurePerApplication(int value) {
+        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, value);
     }
 
     /**
@@ -193,7 +211,9 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                         ? entered.postHarvestCollectSeconds : postHarvestCollectSeconds,
                 entered.maxHarvestsPerCycle != opened.maxHarvestsPerCycle ? entered.maxHarvestsPerCycle : maxHarvestsPerCycle,
                 tenths(entered.upgradeParticlesSeconds) != tenths(opened.upgradeParticlesSeconds)
-                        ? entered.upgradeParticlesSeconds : upgradeParticlesSeconds);
+                        ? entered.upgradeParticlesSeconds : upgradeParticlesSeconds,
+                entered.manurePerApplication != opened.manurePerApplication
+                        ? entered.manurePerApplication : manurePerApplication);
     }
 
     private static long tenths(float seconds) {
@@ -237,6 +257,10 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
             problems.add(String.format(Locale.ROOT, "UpgradeParticlesSeconds=%s (allowed %s..%s)",
                     upgradeParticlesSeconds, MIN_UPGRADE_PARTICLES, MAX_UPGRADE_PARTICLES));
         }
+        if (!validManure(manurePerApplication)) {
+            problems.add(String.format(Locale.ROOT, "ManurePerApplication=%d (allowed %d..%d)",
+                    manurePerApplication, MIN_MANURE, MAX_MANURE));
+        }
         return problems;
     }
 
@@ -257,7 +281,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 exportToAdjacent, harvestParticles,
                 validPostHarvestCollect(postHarvestCollectSeconds) ? postHarvestCollectSeconds : DEFAULT_POST_HARVEST_COLLECT,
                 validMaxHarvests(maxHarvestsPerCycle) ? maxHarvestsPerCycle : DEFAULT_MAX_HARVESTS,
-                validUpgradeParticles(upgradeParticlesSeconds) ? upgradeParticlesSeconds : DEFAULT_UPGRADE_PARTICLES);
+                validUpgradeParticles(upgradeParticlesSeconds) ? upgradeParticlesSeconds : DEFAULT_UPGRADE_PARTICLES,
+                validManure(manurePerApplication) ? manurePerApplication : DEFAULT_MANURE);
     }
 
     /**
@@ -266,7 +291,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
      * {@code WateringSeconds}) or {@link #GLOBAL} (fields {@code CollectAnyItem},
      * {@code CollectMargin}, {@code SoilSweepSeconds}, {@code ExportToAdjacent},
      * {@code HarvestParticles}, {@code PostHarvestCollectSeconds}, {@code MaxHarvestsPerCycle},
-     * {@code UpgradeParticlesSeconds}); names ignore case.
+     * {@code UpgradeParticlesSeconds}, {@code ManurePerApplication}); names ignore case.
      *
      * @throws IllegalArgumentException with a message for the user when the target, field or
      *     value is unknown, malformed or out of range
@@ -321,9 +346,18 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                     }
                     yield withUpgradeParticlesSeconds(seconds);
                 }
+                case "manureperapplication" -> {
+                    int manure = parseInt(value);
+                    if (!validManure(manure)) {
+                        throw new IllegalArgumentException(String.format(Locale.ROOT,
+                                "ManurePerApplication must be %d..%d (0 = off), got %s", MIN_MANURE, MAX_MANURE, value));
+                    }
+                    yield withManurePerApplication(manure);
+                }
                 default -> throw new IllegalArgumentException("unknown global field " + field
                         + "; expected CollectAnyItem, CollectMargin, SoilSweepSeconds, ExportToAdjacent,"
-                        + " HarvestParticles, PostHarvestCollectSeconds, MaxHarvestsPerCycle or UpgradeParticlesSeconds");
+                        + " HarvestParticles, PostHarvestCollectSeconds, MaxHarvestsPerCycle, UpgradeParticlesSeconds"
+                        + " or ManurePerApplication");
             };
         }
         Tier tier = Tier.byName(target);
@@ -364,7 +398,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     /**
      * One line, e.g. {@code Copper Radius=2 IntervalSeconds=12.0 WateringSeconds=21600 | … |
      * CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true
-     * PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=2.0}.
+     * PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=2.0 ManurePerApplication=2}.
      */
     public String describe() {
         StringJoiner line = new StringJoiner(" | ");
@@ -376,7 +410,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         line.add("CollectAnyItem=" + collectAnyItem + " CollectMargin=" + collectMargin
                 + " SoilSweepSeconds=" + soilSweepSeconds + " ExportToAdjacent=" + exportToAdjacent
                 + " HarvestParticles=" + harvestParticles + " PostHarvestCollectSeconds=" + postHarvestCollectSeconds
-                + " MaxHarvestsPerCycle=" + maxHarvestsPerCycle + " UpgradeParticlesSeconds=" + upgradeParticlesSeconds);
+                + " MaxHarvestsPerCycle=" + maxHarvestsPerCycle + " UpgradeParticlesSeconds=" + upgradeParticlesSeconds
+                + " ManurePerApplication=" + manurePerApplication);
         return line.toString();
     }
 

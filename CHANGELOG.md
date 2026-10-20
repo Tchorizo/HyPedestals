@@ -3,6 +3,17 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **Animal manure fuels the Fertilizer upgrade.** Poop (`Ingredient_Poop`) in the Harvester's storage, from any slot, is used before Fertilizer bags: `ManurePerApplication` poop per soil block (global, 0–64, 2 by default, the same poop per use as a crafted bag; 0 = bags only; in the config file, the settings window and `config set global`). Poop from several slots adds up; a rest below that number waits for more. Keep livestock inside the fenced field and the Harvester collects their poop.
+
+### Changed
+
+- With the Fertilizer upgrade installed, poop is not exported either (while `ManurePerApplication` is above 0).
+- `/hypedestals inspect`: `fertilizer=poop <n> (K=<ManurePerApplication>) + bags <uses>` (or `none`) instead of the next bag's durability and slot.
+
 ## 0.2.2 — 2026-10-18
 
 ### Added
