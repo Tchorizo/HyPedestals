@@ -104,6 +104,12 @@ final class HytaleCycleWorld implements CycleWorld {
         return cropTypeAt(reader, p);
     }
 
+    /** {@code SectionReader.getBlock} reads 0 (empty) where {@code hasStorageInMemory} is false [JAR]. */
+    @Override
+    public boolean loaded(BlockPos p) {
+        return reader.hasStorageInMemory(p.x(), p.y(), p.z());
+    }
+
     /** {@link #cropTypeAt(BlockPos)} over any reader, for the harvest scan only. */
     static String cropTypeAt(SectionReader reader, BlockPos p) {
         if (reader.getFiller(p.x(), p.y(), p.z()) != 0) {

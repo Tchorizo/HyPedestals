@@ -172,7 +172,12 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         long collectMicros = cycleWorld.collectNanos() / 1000;
         phase(harvester, CycleStats.Phase.COLLECT, collectMicros);
         phase(harvester, CycleStats.Phase.SCAN, Math.max(0, runMicros - collectMicros));
-        harvester.scanIndex = harvester.lastResult.nextIndex();
+        if (harvester.lastResult.nextIndex() != harvester.scanIndex) {
+            // Persisted field: without the mark a reload of the section (or a restart) would bring
+            // back the old index and restart the rotation there.
+            harvester.scanIndex = harvester.lastResult.nextIndex();
+            info.markNeedsSaving(cb);
+        }
         harvester.lastCycleTick = world.getTick();
         for (String type : harvester.lastResult.newWarnings()) {
             HyPedestalsPlugin.warn("crop type %s at %s skipped until chunk reload", type, pos);

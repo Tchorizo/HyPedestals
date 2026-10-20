@@ -106,6 +106,7 @@ class HarvestCycleTest {
         assertEquals(List.of("harvest " + crops.get(0), "harvest " + crops.get(1)), world.harvestCalls(),
                 "the third and fourth crops are never harvested: they wait on the plant");
         assertTrue(result.containerFull(), "stopped for lack of room");
+        assertTrue(result.cropsWaiting(), "inspect tells the ripe crops are waiting for room");
         assertEquals(positions.indexOf(crops.get(2)), result.nextIndex(), "the next cycle starts at the crop that did not fit");
 
         FakeCycleWorld oneSlot = new FakeCycleWorld();
@@ -159,6 +160,7 @@ class HarvestCycleTest {
         CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
 
         assertTrue(result.containerFull(), "the second collect filled the container");
+        assertFalse(result.cropsWaiting(), "every ripe crop was harvested; nothing waits");
         assertEquals("containerFull", world.calls.getLast());
         assertFalse(HarvestCycle.run(new FakeCycleWorld(), CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops()).containerFull());
     }
@@ -222,6 +224,70 @@ class HarvestCycleTest {
         assertEquals(9, Set.copyOf(firstLap).size(), "no crop is harvested twice before the lap completes");
         assertEquals(harvestedInOrder.getFirst(), harvestedInOrder.getLast(),
                 "the fifth cycle wraps around to the first crop of the lap");
+    }
+
+    @Test
+    void roomForTwoCropsPerCycleCoversTheIron7x7OnlyWhenTheIndexCarriesOver() {
+        // Task 33: a 7x7 field of crops that stay ripe, and room for two crops' drops per cycle
+        // (the export empties the container between cycles). Carrying nextIndex over (persisted
+        // since Task 33) covers the whole field; restarting at 0 every cycle, as the transient
+        // index did after each reload of the section, keeps harvesting the same two crops.
+        List<BlockPos> crops = new ArrayList<>();
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                if (x != 0 || z != 0) {
+                    crops.add(new BlockPos(x, 64, z));
+                }
+            }
+        }
+        Set<String> carried = new HashSet<>();
+        Set<String> reset = new HashSet<>();
+        int start = 0;
+        for (int cycle = 0; cycle < 24; cycle++) {
+            FakeCycleWorld world = eternalCrops(crops, 2);
+            CycleResult result = HarvestCycle.run(world, CENTER, 3, MARGIN, new HashSet<>(), start, NO_LIMIT, new PendingDrops());
+            assertEquals(2, result.harvested());
+            assertTrue(result.cropsWaiting());
+            carried.addAll(world.harvestCalls());
+            start = result.nextIndex();
+
+            FakeCycleWorld fresh = eternalCrops(crops, 2);
+            HarvestCycle.run(fresh, CENTER, 3, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+            reset.addAll(fresh.harvestCalls());
+        }
+
+        assertEquals(48, carried.size(), "24 cycles of two cover all 48 crops");
+        assertEquals(2, reset.size(), "from index 0 every cycle: always the same two crops");
+    }
+
+    @Test
+    void positionsInAnUnloadedSectionAreSkippedAndCounted() {
+        // An area crossing into a neighbouring chunk nobody keeps loaded: those positions read as
+        // empty. They are counted, the rest is harvested, and a later cycle that finds them loaded
+        // harvests them.
+        BlockPos near = new BlockPos(1, 64, 0);
+        BlockPos across = new BlockPos(2, 64, 0);
+        FakeCycleWorld world = new FakeCycleWorld();
+        world.mature(near, WHEAT);
+        world.mature(across, WHEAT);
+        for (int y = 63; y <= 65; y++) {
+            for (int z = -2; z <= 2; z++) {
+                world.unloadedPositions.add(new BlockPos(2, y, z));
+            }
+        }
+
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+
+        assertEquals(List.of("harvest " + near), world.harvestCalls());
+        assertEquals(15, result.unloaded(), "one column of 5 positions per layer, 3 layers");
+        assertFalse(result.containerFull());
+
+        world.unloadedPositions.clear();
+        world.calls.clear();
+        CycleResult loaded = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), result.nextIndex(), NO_LIMIT,
+                new PendingDrops());
+        assertEquals(0, loaded.unloaded());
+        assertEquals(Set.of("harvest " + near, "harvest " + across), Set.copyOf(world.harvestCalls()));
     }
 
     @Test
@@ -417,6 +483,8 @@ class HarvestCycleTest {
         final Set<BlockPos> maturePositions = new HashSet<>();
         final Set<String> throwingTypes = new HashSet<>();
         final Set<BlockPos> transientPositions = new HashSet<>();
+        /** Positions whose chunk section is not in memory: they read as empty, like {@code SectionReader}. */
+        final Set<BlockPos> unloadedPositions = new HashSet<>();
         boolean full;
         /** The container reports full once this many collects ran ({@code 0} = never by collecting). */
         int fullAfterCollects;
@@ -451,7 +519,12 @@ class HarvestCycleTest {
 
         @Override
         public String cropTypeAt(BlockPos p) {
-            return cropTypes.get(p);
+            return unloadedPositions.contains(p) ? null : cropTypes.get(p);
+        }
+
+        @Override
+        public boolean loaded(BlockPos p) {
+            return !unloadedPositions.contains(p);
         }
 
         @Override

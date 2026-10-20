@@ -69,9 +69,9 @@ class CollectBurstTest {
 
     @Test
     void burstCollectsAddUpInTheCycleResult() {
-        CycleResult cycle = new CycleResult(2, 1, false, List.of(), 0, 5);
+        CycleResult cycle = new CycleResult(2, 1, false, false, List.of(), 0, 0, 5);
 
-        assertEquals(new CycleResult(2, 4, false, List.of(), 0, 5), cycle.plusCollected(3),
+        assertEquals(new CycleResult(2, 4, false, false, List.of(), 0, 0, 5), cycle.plusCollected(3),
                 "only the collected count changes");
         assertSame(cycle, cycle.plusCollected(0));
     }

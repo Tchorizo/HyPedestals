@@ -21,9 +21,16 @@ public final class HarvestCycle {
      * collects have not put in yet ({@link PendingDrops#outstanding()}) are claimed in it, and
      * before each harvest the most that crop can drop ({@link CycleWorld#maxDrops}) must fit in
      * what is left; it is then reserved, in the room and in {@code pending}. The first crop whose
-     * drops do not fit ends the scan, {@link CycleResult#containerFull()} is {@code true}, and that
-     * crop and the rest stay ripe on the plant until room frees up (e.g. by the export); the next
-     * cycle starts at that crop.
+     * drops do not fit ends the scan, {@link CycleResult#containerFull()} and
+     * {@link CycleResult#cropsWaiting()} are {@code true}, and that crop and the rest stay ripe on
+     * the plant until room frees up (e.g. by the export); the next cycle starts at that crop (the
+     * caller persists {@link CycleResult#nextIndex()}, so a chunk reload does not send the scan
+     * back to the first positions).
+     *
+     * <p>A position whose chunk section is not in memory ({@link CycleWorld#loaded}) reads as
+     * empty: it is skipped and counted in {@link CycleResult#unloaded()}. The Harvester's own
+     * section is loaded (it is ticking), so this is the part of an area that crosses into a
+     * neighbouring chunk nobody keeps loaded.
      *
      * <p>The scan is circular over {@link HarvestArea#positions}: it starts at {@code startIndex}
      * (taken modulo the area size, so a stale index after a radius change is harmless) and visits
@@ -56,6 +63,7 @@ public final class HarvestCycle {
 
         int harvested = 0;
         int transientFailures = 0;
+        int unloaded = 0;
         int next = start;
         boolean noRoom = false;
         List<String> newWarnings = new ArrayList<>();
@@ -63,7 +71,9 @@ public final class HarvestCycle {
             int index = (start + i) % size;
             BlockPos pos = positions.get(index);
             String type = world.cropTypeAt(pos);
-            if (type != null && !warnedTypes.contains(type)) {
+            if (type == null && !world.loaded(pos)) {
+                unloaded++;
+            } else if (type != null && !warnedTypes.contains(type)) {
                 List<ItemCount> drops = world.maxDrops(pos);
                 if (!room.fits(drops)) {
                     // Checked before knowing whether the crop is ripe: without room for its drops
@@ -99,8 +109,8 @@ public final class HarvestCycle {
             collected += world.collectDroppedItems(center, collectExtent);
             full = world.containerFull();
         }
-        return new CycleResult(harvested, collected, noRoom || full, List.copyOf(newWarnings),
-                transientFailures, next);
+        return new CycleResult(harvested, collected, noRoom || full, noRoom, List.copyOf(newWarnings),
+                transientFailures, unloaded, next);
     }
 
     /**

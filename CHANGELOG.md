@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The upgrade particles could not be seen in game: the watering sparks (the mana plant sparks, at most 4 tiny particles within 0.2 blocks of the block's center) most likely stayed inside the pedestal's shaft, under its cap. Both upgrades now show glowing orbs (the vanilla temple lantern effect, tinted) on a ring over the pedestal, just above its cap: saturated blue for watering, bright green for the fertilizer, both with both (the two rings at slightly different heights so they do not overlap).
 - The Harvester no longer harvests tree saplings, cacti or spreading mushrooms (which it could destroy or stop from growing), nor tilled soil itself. A grown cactus was harvested and lost the part that keeps it growing.
+- A Harvester whose storage was nearly full could keep harvesting only the first positions of its area. When a crop's drops did not fit, the next cycle was meant to resume at that crop, but that position was forgotten whenever the chunk reloaded, so the harvest started over at the same corner while the rest of the field stayed ripe. The position is now saved with the block and survives chunk reloads and restarts.
+- `/hypedestals inspect` says why ripe crops are not being picked: `containerFull=true (crops waiting)` when the cycle stopped at a crop whose drops did not fit (the crop and the rest of the area wait on the plant until the storage has room), and `unloaded=<n>` when part of the area lies in a chunk that is not loaded (those positions are skipped until it is).
 
 ### Changed
 

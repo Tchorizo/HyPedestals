@@ -9,6 +9,12 @@ public interface CycleWorld {
     String cropTypeAt(BlockPos p);
 
     /**
+     * Whether the chunk section holding {@code p} is in memory. One that is not reads as empty, so
+     * {@link #cropTypeAt} is {@code null} there whatever grows on it.
+     */
+    boolean loaded(BlockPos p);
+
+    /**
      * The most a harvest at {@code p} can drop, per item id (every item its drop list can roll, at
      * its maximum quantity); empty when the block drops nothing on harvest.
      */

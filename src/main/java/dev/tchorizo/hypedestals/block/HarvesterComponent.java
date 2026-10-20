@@ -23,8 +23,10 @@ import java.util.Set;
 /**
  * Harvester block state. {@code Tier}, {@code Radius} and {@code IntervalSeconds} come from the
  * tier's block JSON; {@code Upgrades} (item ids, installation order) is absent there, so a placed
- * Harvester starts without upgrades, and is persisted with the block. Everything else is
- * runtime-only and resets on load. The radius and interval a Harvester runs with come from the
+ * Harvester starts without upgrades, and is persisted with the block. {@code ScanIndex} (where the
+ * next harvest scan starts) is also persisted, so a chunk reload resumes the rotation instead of
+ * restarting it at the area's first positions. Everything else is runtime-only and resets on load.
+ * The radius and interval a Harvester runs with come from the
  * global config for its {@code Tier} ({@link #settings()}); the JSON values are only the fallback
  * for a tier the config does not know.
  */
@@ -47,6 +49,9 @@ public final class HarvesterComponent implements Component<ChunkStore> {
                     .append(new KeyedCodec<>("Upgrades", Codec.STRING_ARRAY),
                             HarvesterComponent::readUpgrades, c -> c.upgrades.toArray())
                     .add()
+                    .append(new KeyedCodec<>("ScanIndex", Codec.INTEGER),
+                            (c, v) -> c.scanIndex = v, c -> c.scanIndex)
+                    .add()
                     .build();
 
     // Persisted.
@@ -58,12 +63,17 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     /** Installed upgrades; mutate through {@link #upgrades()} and mark the block for saving. */
     UpgradeSet upgrades = new UpgradeSet();
 
+    /**
+     * Where the next cycle's scan of {@code HarvestArea.positions} starts; see
+     * {@code HarvestCycle.run}. Persisted: {@code HarvesterSystem} marks the block for saving when
+     * it changes. Any value is safe (taken modulo the area size); absent in older saves = 0.
+     */
+    int scanIndex;
+
     // Transient.
     float elapsed;
     CycleResult lastResult;
     long lastCycleTick;
-    /** Where the next cycle's scan of {@code HarvestArea.positions} starts; see {@code HarvestCycle.run}. */
-    int scanIndex;
     /** Crop types whose harvest threw at this block; skipped from then on. */
     final Set<String> warnedTypes = new HashSet<>();
     boolean inactiveWarned;
@@ -150,7 +160,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         return lastCycleTick;
     }
 
-    /** Index in {@code HarvestArea.positions} where the next cycle's scan starts; {@code 0} after a load. */
+    /** Index in {@code HarvestArea.positions} where the next cycle's scan starts (persisted with the block). */
     public int scanIndex() {
         return scanIndex;
     }
@@ -215,6 +225,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
         copy.radius = HarvesterSettings.sanitizeRadius(radius);
         copy.intervalSeconds = HarvesterSettings.sanitizeInterval(intervalSeconds);
         copy.upgrades = upgrades.copy();
+        copy.scanIndex = scanIndex;
         copy.ignoredUpgrades = ignoredUpgrades;
         copy.ignoredUpgradesWarned = ignoredUpgradesWarned;
         return copy;
