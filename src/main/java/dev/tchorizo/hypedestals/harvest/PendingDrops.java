@@ -3,9 +3,11 @@ package dev.tchorizo.hypedestals.harvest;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Room reserved by past cycles for drops that have not reached the container yet. The game's item
@@ -26,8 +28,13 @@ import java.util.Map;
  * was collected, shared among the batch's crop types in proportion to the most each can drop
  * (exact for a batch of one type). A batch during which a collect could not put an item in, or was
  * skipped because the container was full, does not count: its drops may still be on the ground. A
- * batch that collected all of an item it reserved less than the maximum for may have dropped more
- * than that: its types go back to the maximum ({@link DropCalibration#saturated}).
+ * batch whose leftover of an item reached {@code 0} while it was still the running cycle's batch
+ * (the newest: only its own harvests and older late arrivals had come in) may have dropped more
+ * than it reserved: the types whose reservation of that item was below their maximum go back to
+ * the maximum ({@link DropCalibration#saturated}). Once a newer batch exists, the oldest-first
+ * collect fills an older leftover with the newer cycle's drops, so a leftover filled then says
+ * nothing about the older batch's harvests: in steady state with a reduced reservation every
+ * batch ends with some leftover that the next cycle fills.
  *
  * <p>Runtime-only (resets with the chunk). Pure and not thread-safe: one Harvester is only ticked
  * by its world's thread.
@@ -83,14 +90,31 @@ public final class PendingDrops {
             if (item.quantity() > 0) {
                 batch.leftover.merge(item.itemId(), item.quantity(), Integer::sum);
                 batch.reserved.merge(item.itemId(), item.quantity(), Integer::sum);
+                // Waiting again: an earlier fill no longer describes the whole reservation.
+                batch.filledWhileLast.remove(item.itemId());
             }
         }
+        TypeHarvests type = batch.harvests.computeIfAbsent(cropType, t -> new TypeHarvests(max));
+        type.count++;
         for (ItemCount item : max) {
             if (item.quantity() > 0) {
                 batch.maxTotal.merge(item.itemId(), item.quantity(), Integer::sum);
+                if (quantityOf(reservation, item.itemId()) < item.quantity()) {
+                    type.reduced.add(item.itemId());
+                }
             }
         }
-        batch.harvests.computeIfAbsent(cropType, type -> new TypeHarvests(max)).count++;
+    }
+
+    /** {@code items}' quantity of {@code itemId}, summed over repeated ids. */
+    private static int quantityOf(List<ItemCount> items, String itemId) {
+        int sum = 0;
+        for (ItemCount item : items) {
+            if (item.itemId().equals(itemId)) {
+                sum += item.quantity();
+            }
+        }
+        return sum;
     }
 
     /**
@@ -98,6 +122,7 @@ public final class PendingDrops {
      * batches first. Items no batch is waiting for (e.g. dropped by a player) are ignored.
      */
     public void collected(String itemId, int quantity) {
+        Batch newest = batches.peekLast();
         int left = quantity;
         for (Iterator<Batch> it = batches.iterator(); it.hasNext() && left > 0; ) {
             Batch batch = it.next();
@@ -109,6 +134,9 @@ public final class PendingDrops {
             left -= taken;
             if (taken == waiting) {
                 batch.leftover.remove(itemId);
+                if (batch == newest) {
+                    batch.filledWhileLast.add(itemId);
+                }
             } else {
                 batch.leftover.put(itemId, waiting - taken);
             }
@@ -146,7 +174,10 @@ public final class PendingDrops {
                 String id = item.itemId();
                 int reserved = batch.reserved.getOrDefault(id, 0);
                 int collected = reserved - batch.leftover.getOrDefault(id, 0);
-                if (reserved > 0 && reserved < batch.maxTotal.getOrDefault(id, 0) && collected >= reserved) {
+                // Only a type that reserved less than its maximum of this item can have dropped
+                // more than it reserved; a type still at the maximum is left alone.
+                if (reserved > 0 && collected >= reserved && batch.filledWhileLast.contains(id)
+                        && type.reduced.contains(id)) {
                     saturated = true;
                     break;
                 }
@@ -171,6 +202,11 @@ public final class PendingDrops {
         final Map<String, Integer> maxTotal = new HashMap<>();
         /** Crop type → its harvests in this batch. */
         final Map<String, TypeHarvests> harvests = new HashMap<>();
+        /**
+         * Item ids whose leftover reached {@code 0} while this was the newest batch and has not
+         * been reserved again since; see the class comment.
+         */
+        final Set<String> filledWhileLast = new HashSet<>();
         /** A collect left items on the ground while this batch was open; see {@link #collectBlocked}. */
         boolean blocked;
         /** Later cycles this batch has been carried into. */
@@ -179,6 +215,8 @@ public final class PendingDrops {
 
     private static final class TypeHarvests {
         final List<ItemCount> max;
+        /** Item ids some of this type's harvests reserved less than {@link #max} of. */
+        final Set<String> reduced = new HashSet<>();
         int count;
 
         TypeHarvests(List<ItemCount> max) {

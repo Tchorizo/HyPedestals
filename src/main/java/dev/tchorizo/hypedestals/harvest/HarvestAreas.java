@@ -21,9 +21,9 @@ import java.util.Map;
  * drop that rolled over the border into a neighbour's area goes to the neighbour.
  *
  * <p>Each Harvester refreshes its area on every tick ({@link #refresh}); an area not refreshed for
- * {@link #TTL_TICKS} world ticks (Harvester broken, section unloaded or no longer ticking) is no
- * longer active and is forgotten. Runtime-only, one instance per world, used by that world's
- * thread only: not thread-safe.
+ * {@link #TTL_TICKS} world ticks (section unloaded or no longer ticking) is no longer active and is
+ * forgotten. A broken Harvester's area is forgotten right away ({@link #remove}). Runtime-only, one
+ * instance per world, used by that world's thread only: not thread-safe.
  */
 public final class HarvestAreas {
 
@@ -61,6 +61,11 @@ public final class HarvestAreas {
         }
         area.radius = radius;
         area.tick = tick;
+    }
+
+    /** The Harvester at {@code center} was broken: its neighbours may take the drops in its area now. */
+    public void remove(BlockPos center) {
+        byCenter.remove(center);
     }
 
     /**

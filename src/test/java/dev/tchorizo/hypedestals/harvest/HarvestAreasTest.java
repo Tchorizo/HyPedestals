@@ -74,6 +74,17 @@ class HarvestAreasTest {
     }
 
     @Test
+    void aRemovedAreaIsNoLongerActive() {
+        HarvestAreas areas = new HarvestAreas();
+        areas.refresh(A, R, 10);
+        areas.refresh(B, R, 10);
+        areas.remove(B);
+
+        assertEquals(List.of(), neighbours(areas, A, 10), "B was broken: its drops are A's to take at once");
+        assertTrue(HarvestAreas.mayCollect(A, R, neighbours(areas, A, 10), 104.5, 64.2, 100.5));
+    }
+
+    @Test
     void farHarvestersAreNotNeighbours() {
         HarvestAreas areas = new HarvestAreas();
         areas.refresh(A, R, 10);

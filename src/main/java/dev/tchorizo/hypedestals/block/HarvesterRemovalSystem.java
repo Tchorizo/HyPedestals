@@ -24,10 +24,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Drops one item per installed upgrade at the block when a Harvester is broken. Only
- * {@link RemoveReason#REMOVE} drops: {@code UNLOAD} (chunk unload, shutdown) keeps the upgrades in
- * the saved block, and {@code BUILDER_TOOLS_UNDO} restores a previous world state. The container
- * content is left to the engine, like any block container.
+ * When a Harvester is broken, forgets its area ({@link dev.tchorizo.hypedestals.harvest.HarvestAreas#remove})
+ * so its neighbours may take the drops in it right away, and drops one item per installed upgrade
+ * at the block. Only {@link RemoveReason#REMOVE}: {@code UNLOAD} (chunk unload, shutdown) keeps the
+ * upgrades in the saved block (its area expires on its own), and {@code BUILDER_TOOLS_UNDO}
+ * restores a previous world state. The container content is left to the engine, like any block
+ * container.
  */
 public final class HarvesterRemovalSystem extends RefSystem<ChunkStore> {
 
@@ -47,7 +49,15 @@ public final class HarvesterRemovalSystem extends RefSystem<ChunkStore> {
         }
         HarvesterComponent harvester = cb.getComponent(ref, HarvesterComponent.TYPE);
         BlockModule.BlockStateInfo info = cb.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
-        if (harvester == null || info == null || harvester.upgrades.isEmpty()) {
+        if (harvester == null) {
+            return;
+        }
+        World world = store.getExternalData().getWorld();
+        if (harvester.center != null) {
+            // Set on its first tick, when the area was first refreshed: without it there is none.
+            HarvesterSystem.areas(world).remove(harvester.center);
+        }
+        if (info == null || harvester.upgrades.isEmpty()) {
             return;
         }
         Vector3i pos = new Vector3i();
@@ -66,7 +76,6 @@ public final class HarvesterRemovalSystem extends RefSystem<ChunkStore> {
         HyPedestalsPlugin.log("Harvester at %d %d %d broken: dropping upgrades %s",
                 pos.x, pos.y, pos.z, String.join(", ", itemIds));
 
-        World world = store.getExternalData().getWorld();
         Store<EntityStore> entityStore = world.getEntityStore().getStore();
         Holder<EntityStore>[] holders = ItemComponent.generateItemDrops(entityStore, drops,
                 new Vector3d(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5), Rotation3f.IDENTITY);

@@ -21,7 +21,7 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *   "HarvestParticles": true,
  *   "PostHarvestCollectSeconds": 3.0,
  *   "MaxHarvestsPerCycle": 0,
- *   "UpgradeParticlesSeconds": 2.0,
+ *   "UpgradeParticlesSeconds": 0.0,
  *   "ManurePerApplication": 2,
  *   "ManureStock": 100
  * }

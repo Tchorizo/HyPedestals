@@ -28,7 +28,9 @@ import java.util.StringJoiner;
  * @param maxHarvestsPerCycle most crops one Harvester harvests per cycle ({@code 0} = no limit,
  *     the default: every mature crop); a safety cap for servers that want one
  * @param upgradeParticlesSeconds real seconds between two spawns of the upgrade particles of a
- *     Harvester with upgrades, on top of its block state's particles ({@code 0} = off)
+ *     Harvester with upgrades, on top of its block state's particles ({@code 0} = off, the
+ *     default: opt-in until the client is confirmed to end each looping spawn at its
+ *     {@code maxDuration}, otherwise every spawn would keep running on the clients)
  * @param manurePerApplication poop ({@code Ingredient_Poop}) in the Harvester's container that
  *     makes one fertilizer application with the fertilizer upgrade ({@code 0} = poop is not fuel;
  *     see {@link dev.tchorizo.hypedestals.harvest.FertilizerInput})
@@ -59,7 +61,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     public static final int DEFAULT_MAX_HARVESTS = 0;
     public static final float MIN_UPGRADE_PARTICLES = 0f;
     public static final float MAX_UPGRADE_PARTICLES = 60f;
-    public static final float DEFAULT_UPGRADE_PARTICLES = 2f;
+    public static final float DEFAULT_UPGRADE_PARTICLES = 0f;
     public static final int MIN_MANURE = 0;
     public static final int MAX_MANURE = 64;
     /** Same poop per application as the vanilla bag (10 poop for 5 uses), without its other ingredients. */
@@ -430,7 +432,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
     /**
      * One line, e.g. {@code Copper Radius=2 IntervalSeconds=12.0 WateringSeconds=21600 | … |
      * CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true
-     * PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=2.0 ManurePerApplication=2
+     * PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=0.0 ManurePerApplication=2
      * ManureStock=100}.
      */
     public String describe() {

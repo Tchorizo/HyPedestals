@@ -26,7 +26,7 @@ The numbers in the table are the defaults. Radius and interval can be changed pe
 3. Every interval it first collects dropped items around its area into its storage, then harvests **every ripe crop** in its area whose drops fit in its storage, then collects again. After a cycle that harvested something it keeps collecting for `PostHarvestCollectSeconds` (3 s by default), so the new drops reach its storage within the same cycle.
 4. Press **Use** (F) on the Harvester to open its storage.
 
-A Harvester only harvests what its storage has room for, so nothing is dropped on the ground for lack of space. Before each crop it checks that the most that crop can drop (e.g. wheat and Life Essence: two new stacks, or one plus a stack of either with room) still fits, counting what this cycle already harvested and what the last two cycles harvested that has not reached the storage yet (the game takes a moment to make new drops collectable). The first crop that does not fit ends the cycle: it and the rest stay ripe on the plant until space frees up (e.g. through [export](#export-to-an-adjacent-container)), and the next cycle starts with it. While the storage is full the Harvester does not collect at all. Servers that want a limit on harvests per cycle can set `MaxHarvestsPerCycle`; the next cycle then continues where the last one stopped, so the whole area still gets harvested over a few cycles.
+A Harvester only harvests a crop while its storage has room for its reservation (see [Known limitations](#known-limitations)). Before each crop it checks that the reservation still fits: at first the most that crop can drop (e.g. wheat and Life Essence: two new stacks, or one plus a stack of either with room), after a few harvests of that crop type 1.5 × what it was seen to drop (never more than the maximum). The check counts what this cycle already harvested and what the last two cycles harvested that has not reached the storage yet (the game takes a moment to make new drops collectable). The first crop that does not fit ends the cycle: it and the rest stay ripe on the plant until space frees up (e.g. through [export](#export-to-an-adjacent-container)), and the next cycle starts with it. While the storage is full the Harvester does not collect at all. Servers that want a limit on harvests per cycle can set `MaxHarvestsPerCycle`; the next cycle then continues where the last one stopped, so the whole area still gets harvested over a few cycles.
 
 **Tip:** annual crops disappear when harvested, but the game's **Eternal** crops grow back after each harvest. Pair a Harvester with Eternal seeds for a farm that never needs replanting.
 
@@ -44,7 +44,7 @@ A Harvester holds up to two upgrades, one of each kind. They are stored in the H
 - **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
 - **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
 - **Breaking** a Harvester drops its installed upgrades together with the block and its storage contents. Unloading the chunk or restarting the server keeps them installed.
-- **Particles** show what is installed: glowing blue orbs over the Harvester for watering, green orbs for the fertilizer, both colors when it has both. They come from the block itself and, every `UpgradeParticlesSeconds` (2 s by default), from the server as well. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
+- **Particles** show what is installed: glowing blue orbs over the Harvester for watering, green orbs for the fertilizer, both colors when it has both. They come from the block itself; with `UpgradeParticlesSeconds` above 0 (off by default; enable it if the block's own particles do not show on your client) the server also sends them every that many seconds. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
 
 Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s by default), separate from the harvest interval and also while the storage is full. The pass covers the same area as the harvest; soil one block below the Harvester's level (under crops on the Harvester's own level) is included.
 
@@ -69,7 +69,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "HarvestParticles": true,
   "PostHarvestCollectSeconds": 3.0,
   "MaxHarvestsPerCycle": 0,
-  "UpgradeParticlesSeconds": 2.0,
+  "UpgradeParticlesSeconds": 0.0,
   "ManurePerApplication": 2,
   "ManureStock": 100
 }
@@ -87,7 +87,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `HarvestParticles` | true/false | A short puff of dust above the Harvester when a cycle harvests something |
 | `PostHarvestCollectSeconds` | 0–10 | After a cycle that harvested, the Harvester collects drops on every tick for this many seconds (the game registers new drops with a delay of a few seconds); 0 turns it off, and drops then wait for the next cycle. The burst stops early when the storage is full, or after 3 ticks in a row that found items but could put none in |
 | `MaxHarvestsPerCycle` | 0–1000 | Most crops one Harvester harvests per cycle; 0 (the default) = no limit, every ripe crop. A safety cap for servers that want one; with a cap, each cycle continues the area scan where the previous one stopped |
-| `UpgradeParticlesSeconds` | 0–60 | A Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds (each burst lasts that long), on top of the particles of the block itself; 0 turns this off and leaves only the block's own particles |
+| `UpgradeParticlesSeconds` | 0–60 | 0 (the default) = off: only the block's own particles show the upgrades. Above 0, a Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds (each burst lasts that long); enable it if the block's own particles do not show on your client |
 | `ManurePerApplication` | 0–64 | Poop the Fertilizer upgrade burns per soil block, before it uses Fertilizer bags; 0 turns poop off (bags only, and poop is exported like any other item) |
 | `ManureStock` | 0–1000 | Most Poop a Harvester with the Fertilizer upgrade keeps as fuel (100 by default, one stack); the Poop above it is exported like any other item, from the highest slot down, so manure collected from livestock does not fill the storage. 0 keeps none |
 

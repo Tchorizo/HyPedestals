@@ -25,7 +25,7 @@ ui.config.manure = Poop per fertilizer application (0 = bags only)
 ui.config.manureStock = Poop kept as fuel (the rest is exported)
 ui.config.exportToAdjacent = Export to a container below or beside the Harvester
 ui.config.harvestParticles = Particle effect when a cycle harvests
-ui.config.upgradeParticles = Upgrade particles every (s, 0 = block state only)
+ui.config.upgradeParticles = Extra upgrade particles every (s, 0 = off, default)
 ui.config.save = Save
 ui.config.reset = Reset defaults
 ui.config.close = Close

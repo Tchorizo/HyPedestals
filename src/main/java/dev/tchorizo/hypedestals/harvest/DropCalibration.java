@@ -19,8 +19,9 @@ import java.util.Map;
  * the excess waits on the ground for the post-harvest burst or the next cycle's collect, which
  * claims everything still outstanding before reserving anything new. The floor of one item keeps
  * every item the list can drop (even one never seen yet) a stack to go into. A batch whose drops
- * reached the reduced reservation (the harvests may have dropped more than it, see
- * {@link PendingDrops}) sends the type back to the maximum and the learning starts over.
+ * reached the reduced reservation while it was still the newest (the harvests may have dropped
+ * more than it, see {@link PendingDrops}) sends the type back to the maximum and the learning
+ * starts over.
  *
  * <p>Shared by every Harvester ({@link #global()}): the drop list belongs to the crop type, not to
  * the Harvester. Runtime-only, so a server start or plugin reload starts from the maximum again.
