@@ -3,27 +3,13 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.2.2 — 2026-10-20
 
 ### Added
 
 - **Animal manure fuels the Fertilizer upgrade.** Poop (`Ingredient_Poop`) in the Harvester's storage, from any slot, is used before Fertilizer bags: `ManurePerApplication` poop per soil block (global, 0–64, 2 by default, the same poop per use as a crafted bag; 0 = bags only; in the config file, the settings window and `config set global`). Poop from several slots adds up; a rest below that number waits for more. Keep livestock inside the fenced field and the Harvester collects their poop.
-
-### Changed
-
-- With the Fertilizer upgrade installed, poop is kept as fuel too (while `ManurePerApplication` is above 0), **up to `ManureStock`** (global, 0–1000, 100 by default = one stack; in the config file, the settings window and `config set global`): the poop above it is exported, from the highest slot down, so a field with livestock no longer fills the Harvester with poop.
-- `/hypedestals inspect`: `fertilizer=poop <n> (K=<ManurePerApplication>) + bags <uses>` (or `none`) instead of the next bag's durability and slot.
-
-### Fixed
-
-- A Harvester with crops whose drop list allows far more than they usually give (e.g. the LifeCrops Eternal crop: up to 37 items, about 7 per harvest) could stop harvesting with plenty of free slots: every harvest held room for the maximum for two cycles. After a few harvests of a crop type the room check now uses 1.5 × what that type was seen to drop (never more than the maximum; at least one of each item it can drop), learned per crop type while the server runs. A harvest that drops more than that leaves the excess for the next collect and sends the type back to the maximum.
-- Harvesters a few blocks apart (e.g. two Iron 7 blocks apart) no longer collect each other's drops: a Harvester leaves the items lying inside another active Harvester's area to that one, even within its own collect margin. Before, whichever collected first took the drops along the shared border, and the other one kept room reserved for drops that never came.
-
-## 0.2.2 — 2026-10-18
-
-### Added
-
-- `UpgradeParticlesSeconds` (global, 0–60, 2 by default, 0 = off; in the config file, the settings window and `config set global`): a Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds, each burst lasting until the next one, so the effect shows even where the block's own particles do not.
+- `ManureStock` (global, 0–1000, 100 by default = one stack; in the config file, the settings window and `config set global`): with the Fertilizer upgrade installed (and `ManurePerApplication` above 0) the Harvester keeps up to that much poop as fuel and exports the rest, from the highest slot down, so a field with livestock does not fill it with poop.
+- `UpgradeParticlesSeconds` (global, 0–60, **0 = off, the default**; in the config file, the settings window and `config set global`): above 0, a Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds, each burst lasting until the next one. Off by default; enable it if the block's own upgrade particles do not show on your client.
 - Harvesters also pick ripe apples on apple trees, which regrow.
 
 ### Fixed
@@ -31,13 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The upgrade particles could not be seen in game: the watering sparks (the mana plant sparks, at most 4 tiny particles within 0.2 blocks of the block's center) most likely stayed inside the pedestal's shaft, under its cap. Both upgrades now show glowing orbs (the vanilla temple lantern effect, tinted) on a ring over the pedestal, just above its cap: saturated blue for watering, bright green for the fertilizer, both with both (the two rings at slightly different heights so they do not overlap).
 - The Harvester no longer harvests tree saplings, cacti or spreading mushrooms (which it could destroy or stop from growing), nor tilled soil itself. A grown cactus was harvested and lost the part that keeps it growing.
 - A Harvester whose storage was nearly full could keep harvesting only the first positions of its area. When a crop's drops did not fit, the next cycle was meant to resume at that crop, but that position was forgotten whenever the chunk reloaded, so the harvest started over at the same corner while the rest of the field stayed ripe. The position is now saved with the block and survives chunk reloads and restarts.
+- Harvesters a few blocks apart (e.g. two Iron 7 blocks apart) no longer collect each other's drops: a Harvester leaves the items lying inside another active Harvester's area to that one, even within its own collect margin (a broken Harvester's area is released at once). Before, whichever collected first took the drops along the shared border.
 - `/hypedestals inspect` says why ripe crops are not being picked: `containerFull=true (crops waiting)` when the cycle stopped at a crop whose drops did not fit (the crop and the rest of the area wait on the plant until the storage has room), and `unloaded=<n>` when part of the area lies in a chunk that is not loaded (those positions are skipped until it is).
 
 ### Changed
 
-- A Harvester harvests every ripe crop **only while its storage has room for the drops**: before each crop it checks that the most that crop can drop still fits (counting what the cycle already harvested, and what the last two cycles harvested that has not reached the storage yet), and the first crop that does not fit ends the cycle; it and the rest stay ripe on the plant until space frees up. Nothing is dropped on the ground for lack of space anymore (0.2.0 kept harvesting into a pile on the ground that despawned after 600 s). A crop whose harvest drop list cannot be found counts as dropping a full stack of its item, with a warning in the log once per crop.
+- A Harvester harvests every ripe crop **only while its storage has room for its reservation** (see Known limitations in the README): before each crop it checks that the crop's reservation still fits (counting what the cycle already harvested, and what the last two cycles harvested that has not reached the storage yet), and the first crop that does not fit ends the cycle; it and the rest stay ripe on the plant until space frees up (0.2.1 kept harvesting into a pile on the ground that despawned after 600 s). The reservation starts at the most the crop can drop; after a few harvests of a crop type it is 1.5 × what that type was seen to drop (never more than the maximum; at least one of each item it can drop), learned per crop type while the server runs, so crops whose drop list allows far more than they usually give (e.g. the LifeCrops Eternal crop: up to 37 items, about 7 per harvest) do not hold room they never use. A cycle whose harvests of a type drop all of that reservation or more leaves any excess for the next collect and sends the type back to the maximum. A crop whose harvest drop list cannot be found counts as dropping a full stack of its item, with a warning in the log once per crop.
 - While the storage is full the Harvester skips both collects of its cycle and the post-harvest collect burst; the burst also stops after 3 ticks in a row that found items but could put none in. This removes the server-time cost of a full Harvester trying to collect a pile around it.
-- `/hypedestals inspect`: `containerFull=true` also when the cycle stopped at a crop whose drops did not fit.
+- `/hypedestals inspect`: `containerFull=true` also when the cycle stopped at a crop whose drops did not fit; `fertilizer=poop <n> (K=<ManurePerApplication>) + bags <uses>` (or `none`) instead of the next bag's durability and slot.
 - `/hypedestals perf`: `harvesters=` and the worst Harvester only count Harvesters that ran a cycle in the last minute; unloaded or removed ones are forgotten.
 
 ## 0.2.1 — 2026-10-17
