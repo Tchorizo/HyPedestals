@@ -51,12 +51,13 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
      *
      * @param keepFertilizer whether the fertilizer upgrade is installed (its fuel stays)
      * @param manurePerApplication the config's {@code ManurePerApplication} ({@code 0}: poop is not fuel and leaves)
+     * @param manureStock the config's {@code ManureStock} (poop kept as fuel; the rest leaves)
      */
     ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center,
-                          boolean keepFertilizer, int manurePerApplication) {
+                          boolean keepFertilizer, int manurePerApplication, int manureStock) {
         ExportPlan.Result result;
         try {
-            result = ExportPlan.run(this, new Source(container), center, keepFertilizer, manurePerApplication);
+            result = ExportPlan.run(this, new Source(container), center, keepFertilizer, manurePerApplication, manureStock);
         } catch (RuntimeException e) {
             HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
                     center.x(), center.y(), center.z(), e.toString());
@@ -134,7 +135,8 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
             return container.getItemStack((short) slot).getItemId();
         }
 
-        int quantity(int slot) {
+        @Override
+        public int quantity(int slot) {
             ItemStack stack = container.getItemStack((short) slot);
             return ItemStack.isEmpty(stack) ? 0 : stack.getQuantity();
         }
@@ -172,13 +174,19 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
         }
 
         /**
-         * Moves what fits of the slot (the engine's default move is partial and honors the
-         * target's slot filters). The count is read from the slot itself, before and after.
+         * Moves what fits of the slot, at most {@code max} items (the engine's default moves are
+         * partial and honor the target's slot filters; the quantity overload is
+         * {@code (slot, quantity, target, allOrNothing=false, filter=true)} [JAR]). The count is
+         * read from the slot itself, before and after.
          */
         @Override
-        public int moveFrom(Source from, int slot) {
+        public int moveFrom(Source from, int slot, int max) {
             int before = from.quantity(slot);
-            from.container.moveItemStackFromSlot((short) slot, container);
+            if (max >= before) {
+                from.container.moveItemStackFromSlot((short) slot, container);
+            } else {
+                from.container.moveItemStackFromSlot((short) slot, max, container);
+            }
             int moved = before - from.quantity(slot);
             if (moved > 0) {
                 received = true;

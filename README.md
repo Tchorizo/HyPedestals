@@ -50,7 +50,7 @@ Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s b
 
 **Watering.** Each pass waters every tilled soil block in the area that has less than half of its watering time left, for the tier's `WateringSeconds` of game time: about 12 / 24 / 40 / 60 real minutes for Copper / Iron / Thorium / Cobalt. While the Harvester runs the soil never dries; after it is removed (or its chunk unloads) the soil stays watered for that long.
 
-**Fertilizer.** With the upgrade installed, the Harvester fertilizes with **Poop and Fertilizer bags from any slot of its storage**; no slot is reserved and nothing is filtered, so the harvest can use every slot. Each pass fertilizes the soil blocks in the area that have a crop on them and are not fertilized yet, one application per block. Poop goes first: **animal manure in the Harvester's storage fuels it: K poop per application** (`ManurePerApplication`, 2 by default, the same poop per use as a crafted bag; poop from several slots adds up, the lowest slot is used first, and a rest below K waits for more). The Harvester collects every item dropped in its collect box, so **keep livestock inside the fenced field**: cows, sheep, goats, horses, pigs and other farm animals drop poop every 12–72 real minutes and the Harvester picks it up. Then the bags: one bag use per block (5 uses per bag, like using the bag by hand); an empty bag disappears. With several bags, the most used one goes first, so bags are emptied one at a time. While the upgrade is installed the bags and the poop are never exported (with `ManurePerApplication` 0 poop is an ordinary item again). Fertilized soil stays fertilized until the soil block is replaced. Anything that inserts items into containers can also feed poop or bags to the Harvester.
+**Fertilizer.** With the upgrade installed, the Harvester fertilizes with **Poop and Fertilizer bags from any slot of its storage**; no slot is reserved and nothing is filtered, so the harvest can use every slot. Each pass fertilizes the soil blocks in the area that have a crop on them and are not fertilized yet, one application per block. Poop goes first: **animal manure in the Harvester's storage fuels it: K poop per application** (`ManurePerApplication`, 2 by default, the same poop per use as a crafted bag; poop from several slots adds up, the lowest slot is used first, and a rest below K waits for more). The Harvester collects every item dropped in its collect box, so **keep livestock inside the fenced field**: cows, sheep, goats, horses, pigs and other farm animals drop poop every 12–72 real minutes and the Harvester picks it up. Then the bags: one bag use per block (5 uses per bag, like using the bag by hand); an empty bag disappears. With several bags, the most used one goes first, so bags are emptied one at a time. While the upgrade is installed the bags are never exported and the poop is kept up to `ManureStock` (100 by default, one stack); the poop above that is exported (with `ManurePerApplication` 0 poop is an ordinary item again). Fertilized soil stays fertilized until the soil block is replaced. Anything that inserts items into containers can also feed poop or bags to the Harvester.
 
 ## Configuration
 
@@ -70,7 +70,8 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "PostHarvestCollectSeconds": 3.0,
   "MaxHarvestsPerCycle": 0,
   "UpgradeParticlesSeconds": 2.0,
-  "ManurePerApplication": 2
+  "ManurePerApplication": 2,
+  "ManureStock": 100
 }
 ```
 
@@ -88,6 +89,7 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `MaxHarvestsPerCycle` | 0–1000 | Most crops one Harvester harvests per cycle; 0 (the default) = no limit, every ripe crop. A safety cap for servers that want one; with a cap, each cycle continues the area scan where the previous one stopped |
 | `UpgradeParticlesSeconds` | 0–60 | A Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds (each burst lasts that long), on top of the particles of the block itself; 0 turns this off and leaves only the block's own particles |
 | `ManurePerApplication` | 0–64 | Poop the Fertilizer upgrade burns per soil block, before it uses Fertilizer bags; 0 turns poop off (bags only, and poop is exported like any other item) |
+| `ManureStock` | 0–1000 | Most Poop a Harvester with the Fertilizer upgrade keeps as fuel (100 by default, one stack); the Poop above it is exported like any other item, from the highest slot down, so manure collected from livestock does not fill the storage. 0 keeps none |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
@@ -95,11 +97,11 @@ In game (operators):
 
 - `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock> <value>` — change one value, apply it and save the file. Also works from the server console.
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, **Fertilizer bags and Poop are never exported**, whatever their slot (they are the upgrade's supply; Poop only while `ManurePerApplication` is above 0); without it, they are exported like any other item.
+With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, **Fertilizer bags are never exported** and **Poop is kept up to `ManureStock`** (100 by default), whatever their slot (they are the upgrade's supply; Poop only while `ManurePerApplication` is above 0): the Poop above that stock leaves, from the highest slot down. Without the upgrade, both are exported like any other item.
 
 ## Compatibility
 

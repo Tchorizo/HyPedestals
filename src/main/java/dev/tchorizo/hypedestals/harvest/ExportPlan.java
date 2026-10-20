@@ -16,9 +16,11 @@ import java.util.Set;
  *   <li>A neighbor that is a Harvester is skipped, so two Harvesters side by side never pass
  *       items back and forth. A container reached from two sides is used once.</li>
  *   <li>With the fertilizer upgrade installed, its fuel ({@link FertilizerInput#isFuel}: the
- *       fertilizer bags, and poop while {@code ManurePerApplication > 0}) is never exported,
- *       whatever its slot: it feeds the soil pass. Without the upgrade (or poop with
- *       {@code ManurePerApplication = 0}) it moves like any other item.</li>
+ *       fertilizer bags, and poop while {@code ManurePerApplication > 0}) feeds the soil pass:
+ *       the bags are never exported, whatever their slot, and of the poop (summed over its
+ *       slots) only what is above {@code ManureStock} leaves, taken from the highest slot down,
+ *       so poop collected without end does not fill the container. Without the upgrade (or
+ *       poop with {@code ManurePerApplication = 0}) it moves like any other item.</li>
  *   <li>Partial moves are fine: what does not fit stays for the next cycle.</li>
  * </ul>
  */
@@ -42,6 +44,9 @@ public final class ExportPlan {
 
         /** Item id of the stack in {@code slot}; only asked for a slot that is not empty. */
         String itemId(int slot);
+
+        /** Items in {@code slot}; only asked for a slot that is not empty. */
+        int quantity(int slot);
     }
 
     /** A container next to the Harvester. */
@@ -54,8 +59,8 @@ public final class ExportPlan {
         /** Whether at least part of the stack in {@code slot} of {@code from} fits. */
         boolean accepts(S from, int slot);
 
-        /** Moves as much of {@code slot} as fits; returns the number of items moved. */
-        int moveFrom(S from, int slot);
+        /** Moves as much of {@code slot} as fits, at most {@code max} items; returns the number of items moved. */
+        int moveFrom(S from, int slot, int max);
     }
 
     public interface ExportWorld<S extends ExportSource> {
@@ -81,8 +86,9 @@ public final class ExportPlan {
     }
 
     /**
-     * Whether a stack of {@code itemId} leaves the Harvester: everything, except the fertilizer
-     * upgrade's fuel while the upgrade is installed.
+     * Whether a stack of {@code itemId} leaves the Harvester whole: everything, except the
+     * fertilizer upgrade's fuel while the upgrade is installed (of which poop still leaves above
+     * {@code ManureStock}, see {@link #exportLimits}).
      *
      * @param keepFertilizer whether the fertilizer upgrade is installed
      * @param manurePerApplication the config's {@code ManurePerApplication}; {@code 0} = poop is not fuel
@@ -92,15 +98,18 @@ public final class ExportPlan {
     }
 
     /**
-     * Moves every exportable stack of {@code source} into the containers around {@code center}.
-     * The world is not consulted when no slot holds an exportable stack.
+     * Moves every exportable stack of {@code source} into the containers around {@code center}:
+     * whole stacks of what {@link #isExportable}, and the poop the upgrade keeps above
+     * {@code manureStock} ({@link #exportLimits}). The world is not consulted when nothing may leave.
      *
      * @param keepFertilizer whether the fertilizer upgrade is installed; see {@link #isExportable}
      * @param manurePerApplication the config's {@code ManurePerApplication}; see {@link #isExportable}
+     * @param manureStock the config's {@code ManureStock}: most poop the upgrade keeps
      */
     public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center,
-                                                      boolean keepFertilizer, int manurePerApplication) {
-        if (!hasExportable(source, keepFertilizer, manurePerApplication)) {
+                                                      boolean keepFertilizer, int manurePerApplication, int manureStock) {
+        int[] limits = exportLimits(source, keepFertilizer, manurePerApplication, manureStock);
+        if (limits == null) {
             return Result.NONE;
         }
         List<ExportTarget<S>> targets = targets(world, center);
@@ -109,21 +118,19 @@ public final class ExportPlan {
         }
         int moved = 0;
         BlockPos last = null;
-        int capacity = source.capacity();
-        for (int slot = 0; slot < capacity; slot++) {
-            if (!exportable(source, slot, keepFertilizer, manurePerApplication)) {
-                continue;
-            }
+        for (int slot = 0; slot < limits.length; slot++) {
+            int left = limits[slot];
             for (ExportTarget<S> target : targets) {
-                if (source.isEmpty(slot)) {
+                if (left <= 0 || source.isEmpty(slot)) {
                     break;
                 }
                 if (!target.accepts(source, slot)) {
                     continue;
                 }
-                int n = target.moveFrom(source, slot);
+                int n = target.moveFrom(source, slot, left);
                 if (n > 0) {
                     moved += n;
+                    left -= n;
                     last = target.pos();
                 }
             }
@@ -131,18 +138,40 @@ public final class ExportPlan {
         return moved == 0 ? Result.NONE : new Result(moved, last);
     }
 
-    private static boolean hasExportable(ExportSource source, boolean keepFertilizer, int manurePerApplication) {
+    /**
+     * Per slot, the most items that may leave: the whole stack when {@link #isExportable}, none
+     * for the bags the upgrade keeps, and for poop the upgrade keeps, what the poop of all slots
+     * has above {@code manureStock}, from the highest slot down (the lowest slots keep the stock).
+     *
+     * @return the limits, or {@code null} when nothing may leave
+     */
+    static int[] exportLimits(ExportSource source, boolean keepFertilizer, int manurePerApplication, int manureStock) {
         int capacity = source.capacity();
+        int[] limits = new int[capacity];
+        boolean poopKept = keepFertilizer && manurePerApplication > 0;
+        boolean any = false;
+        int poop = 0;
         for (int slot = 0; slot < capacity; slot++) {
-            if (exportable(source, slot, keepFertilizer, manurePerApplication)) {
-                return true;
+            if (source.isEmpty(slot)) {
+                continue;
+            }
+            String id = source.itemId(slot);
+            if (poopKept && FertilizerInput.isPoop(id)) {
+                poop += source.quantity(slot);
+            } else if (isExportable(id, keepFertilizer, manurePerApplication)) {
+                limits[slot] = source.quantity(slot);
+                any = true;
             }
         }
-        return false;
-    }
-
-    private static boolean exportable(ExportSource source, int slot, boolean keepFertilizer, int manurePerApplication) {
-        return !source.isEmpty(slot) && isExportable(source.itemId(slot), keepFertilizer, manurePerApplication);
+        int excess = poop - Math.max(0, manureStock);
+        for (int slot = capacity - 1; slot >= 0 && excess > 0; slot--) {
+            if (!source.isEmpty(slot) && FertilizerInput.isPoop(source.itemId(slot))) {
+                limits[slot] = Math.min(source.quantity(slot), excess);
+                excess -= limits[slot];
+                any = true;
+            }
+        }
+        return any ? limits : null;
     }
 
     private static <S extends ExportSource> List<ExportTarget<S>> targets(ExportWorld<S> world, BlockPos center) {

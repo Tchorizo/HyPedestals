@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- With the Fertilizer upgrade installed, poop is not exported either (while `ManurePerApplication` is above 0).
+- With the Fertilizer upgrade installed, poop is kept as fuel too (while `ManurePerApplication` is above 0), **up to `ManureStock`** (global, 0–1000, 100 by default = one stack; in the config file, the settings window and `config set global`): the poop above it is exported, from the highest slot down, so a field with livestock no longer fills the Harvester with poop.
 - `/hypedestals inspect`: `fertilizer=poop <n> (K=<ManurePerApplication>) + bags <uses>` (or `none`) instead of the next bag's durability and slot.
 
 ### Fixed

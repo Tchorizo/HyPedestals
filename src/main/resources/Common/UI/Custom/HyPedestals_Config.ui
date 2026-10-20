@@ -229,7 +229,7 @@ $C.@PageOverlay {
 
       Group {
         LayoutMode: Left;
-        Anchor: (Bottom: 12);
+        Anchor: (Bottom: 8);
 
         Label {
           Text: %hypedestals.ui.config.manure;
@@ -240,6 +240,22 @@ $C.@PageOverlay {
         $C.@NumberField #ManurePerApplication {
           @Anchor = (Width: 120);
           Format: (MinValue: 0, MaxValue: 64, Step: 1, MaxDecimalPlaces: 0);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.manureStock;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #ManureStock {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 1000, Step: 10, MaxDecimalPlaces: 0);
         }
       }
 
