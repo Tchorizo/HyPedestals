@@ -41,6 +41,7 @@ import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,7 +63,7 @@ final class HytaleCycleWorld implements CycleWorld {
     /** Block state of the Harvester that owns {@link #container}. */
     private final BlockModule.BlockStateInfo info;
     private final boolean collectAnyItem;
-    /** The Harvester's reservations still on their way; told about everything the collects put in. */
+    /** The Harvester's reservations still on their way; told about everything the collects put in or leave behind. */
     private final PendingDrops pending;
     /** Time spent in {@link #collectDroppedItems} so far; see {@link #collectNanos()}. */
     private long collectNanos;
@@ -243,7 +244,8 @@ final class HytaleCycleWorld implements CycleWorld {
      * Collects dropped items inside an axis-aligned box around {@code center}: {@code halfExtent}
      * blocks horizontally and {@code -2..+3} vertically. A box (not a sphere) is used because the
      * harvest area is a square: with a sphere the corners of larger tiers fall outside it, and
-     * drops roll a block or two past the crop they came from. When anything went in, the Harvester
+     * drops roll a block or two past the crop they came from. A stack that does not fit is reported to
+     * {@link PendingDrops#collectBlocked}. When anything went in, the Harvester
      * is marked for saving. The engine already does that on every content change of a block
      * container (a change listener registered when the block entity is added); the explicit mark
      * keeps collected items safe even for a container that listener does not watch (e.g. one
@@ -303,6 +305,7 @@ final class HytaleCycleWorld implements CycleWorld {
             ItemStackTransaction tx = container.addItemStack(stack, true, false, true);
             ItemStack remainder = tx.getRemainder();
             if (!tx.succeeded() || (remainder != null && !remainder.isEmpty())) {
+                pending.collectBlocked();
                 continue; // nothing was added; stays in the world for a later cycle
             }
             entityStore.removeEntity(ref, RemoveReason.REMOVE);
@@ -413,23 +416,26 @@ final class HytaleCycleWorld implements CycleWorld {
             Item item = block.getItem();
             return item == null ? List.of() : List.of(new ItemCount(item.getId(), 1));
         }
-        List<ItemCount> drops = new ArrayList<>();
+        Map<String, Integer> drops = new LinkedHashMap<>();
         ItemDropList list = harvest.getDropListId() == null ? null
                 : ItemDropList.getAssetMap().getAsset(harvest.getDropListId());
         if (list != null && list.getContainer() != null) {
             for (ItemDrop drop : list.getContainer().getAllDrops(new ArrayList<>())) {
                 if (drop != null && drop.getItemId() != null) {
-                    drops.add(new ItemCount(drop.getItemId(),
-                            Math.max(1, Math.max(drop.getQuantityMin(), drop.getQuantityMax()))));
+                    drops.merge(drop.getItemId(),
+                            Math.max(1, Math.max(drop.getQuantityMin(), drop.getQuantityMax())), Integer::sum);
                 }
             }
         } else if (harvest.getItemId() == null) {
             return unresolvedDropList(block, harvest.getDropListId());
         }
         if (harvest.getItemId() != null) {
-            drops.add(new ItemCount(harvest.getItemId(), 1));
+            drops.merge(harvest.getItemId(), 1, Integer::sum);
         }
-        return List.copyOf(drops);
+        // One entry per item id (CycleWorld.maxDrops): the calibration learns per item.
+        List<ItemCount> merged = new ArrayList<>(drops.size());
+        drops.forEach((id, quantity) -> merged.add(new ItemCount(id, quantity)));
+        return List.copyOf(merged);
     }
 
     /**

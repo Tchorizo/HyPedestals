@@ -255,6 +255,9 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(),
                 harvester.pendingDrops);
         boolean full = cycleWorld.containerFull();
+        if (full) {
+            harvester.pendingDrops.collectBlocked();
+        }
         int collected = full ? 0 : cycleWorld.collectDroppedItems(new BlockPos(pos.x, pos.y, pos.z),
                 HarvestCycle.collectExtent(settings.radius(), global.collectMargin()));
         harvester.burstTicksWithoutProgress = CollectBurst.ticksWithoutProgress(harvester.burstTicksWithoutProgress,

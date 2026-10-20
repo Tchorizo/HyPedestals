@@ -19,9 +19,11 @@ public final class HarvestCycle {
      * <p>No item is dropped for lack of room: after the first collect the container's
      * {@link ContainerRoom} is read once, the drops earlier cycles reserved room for and the
      * collects have not put in yet ({@link PendingDrops#outstanding()}) are claimed in it, and
-     * before each harvest the most that crop can drop ({@link CycleWorld#maxDrops}) must fit in
-     * what is left; it is then reserved, in the room and in {@code pending}. The first crop whose
-     * drops do not fit ends the scan, {@link CycleResult#containerFull()} and
+     * before each harvest the room that crop reserves must fit in what is left: the most it can
+     * drop ({@link CycleWorld#maxDrops}), or less once its type's drops have been observed
+     * ({@link DropCalibration#reservation}, through {@code pending}'s calibration; see there for
+     * the margin). It is then reserved, in the room and in {@code pending}. The first crop whose
+     * reservation does not fit ends the scan, {@link CycleResult#containerFull()} and
      * {@link CycleResult#cropsWaiting()} are {@code true}, and that crop and the rest stay ripe on
      * the plant until room frees up (e.g. by the export); the next cycle starts at that crop (the
      * caller persists {@link CycleResult#nextIndex()}, so a chunk reload does not send the scan
@@ -48,7 +50,8 @@ public final class HarvestCycle {
      *     crop is retried next cycle
      * @param maxHarvests the config's {@code MaxHarvestsPerCycle}; {@code 0} (or less) = no limit
      * @param pending the Harvester's reservations still on their way; the collects through
-     *     {@code world} must report what they put in to it ({@link PendingDrops#collected})
+     *     {@code world} must report what they put in to it ({@link PendingDrops#collected}) and
+     *     the items they had to leave on the ground ({@link PendingDrops#collectBlocked})
      */
     public static CycleResult run(CycleWorld world, BlockPos center, int radius, int collectMargin,
                                   Set<String> warnedTypes, int startIndex, int maxHarvests, PendingDrops pending) {
@@ -56,7 +59,13 @@ public final class HarvestCycle {
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
         int start = Math.floorMod(startIndex, size);
-        int collected = world.containerFull() ? 0 : world.collectDroppedItems(center, collectExtent);
+        boolean startFull = world.containerFull();
+        int collected = 0;
+        if (startFull) {
+            pending.collectBlocked();
+        } else {
+            collected = world.collectDroppedItems(center, collectExtent);
+        }
         pending.startCycle();
         ContainerRoom room = world.room();
         room.claim(pending.outstanding());
@@ -74,7 +83,8 @@ public final class HarvestCycle {
             if (type == null && !world.loaded(pos)) {
                 unloaded++;
             } else if (type != null && !warnedTypes.contains(type)) {
-                List<ItemCount> drops = world.maxDrops(pos);
+                List<ItemCount> max = world.maxDrops(pos);
+                List<ItemCount> drops = pending.calibration().reservation(type, max);
                 if (!room.fits(drops)) {
                     // Checked before knowing whether the crop is ripe: without room for its drops
                     // it could not be harvested anyway. This crop starts the next cycle.
@@ -92,7 +102,7 @@ public final class HarvestCycle {
                     case HARVESTED -> {
                         harvested++;
                         room.reserve(drops);
-                        pending.reserved(drops);
+                        pending.reserved(type, max, drops);
                     }
                     case NOT_READY -> { }
                     case TRANSIENT_ERROR -> transientFailures++;
@@ -105,7 +115,9 @@ public final class HarvestCycle {
             next = (index + 1) % size;
         }
         boolean full = world.containerFull();
-        if (!full) {
+        if (full) {
+            pending.collectBlocked();
+        } else {
             collected += world.collectDroppedItems(center, collectExtent);
             full = world.containerFull();
         }

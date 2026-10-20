@@ -29,7 +29,7 @@ class HarvestCycleTest {
         FakeCycleWorld world = new FakeCycleWorld();
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of("containerFull", "collect " + CENTER + " r=4.0", "room",
                         "harvest " + new BlockPos(1, 64, 0), "containerFull", "collect " + CENTER + " r=4.0",
@@ -46,7 +46,7 @@ class HarvestCycleTest {
         world.collectedOnCollect = 3;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 5, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 5, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(6, result.collected(), "both collect passes are summed");
         assertEquals(List.of("collect " + CENTER + " r=7.0", "collect " + CENTER + " r=7.0"), world.collectCalls());
@@ -56,12 +56,12 @@ class HarvestCycleTest {
     @Test
     void collectExtentFollowsTheConfiguredMargin() {
         FakeCycleWorld zero = new FakeCycleWorld();
-        HarvestCycle.run(zero, CENTER, 3, 0, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        HarvestCycle.run(zero, CENTER, 3, 0, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
         assertEquals(List.of("collect " + CENTER + " r=3.0", "collect " + CENTER + " r=3.0"), zero.collectCalls(),
                 "margin 0 collects the area only");
 
         FakeCycleWorld four = new FakeCycleWorld();
-        HarvestCycle.run(four, CENTER, 3, 4, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        HarvestCycle.run(four, CENTER, 3, 4, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
         assertEquals(List.of("collect " + CENTER + " r=7.0", "collect " + CENTER + " r=7.0"), four.collectCalls(),
                 "both passes use the same extent");
     }
@@ -79,7 +79,7 @@ class HarvestCycleTest {
             }
         }
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(25, result.harvested());
         assertEquals(expected, Set.copyOf(world.harvestCalls()));
@@ -100,7 +100,7 @@ class HarvestCycleTest {
         crops.forEach(c -> world.mature(c, WHEAT));
         List<BlockPos> positions = HarvestArea.positions(CENTER, 2);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(2, result.harvested());
         assertEquals(List.of("harvest " + crops.get(0), "harvest " + crops.get(1)), world.harvestCalls(),
@@ -113,7 +113,7 @@ class HarvestCycleTest {
         oneSlot.freeSlots = 1;
         crops.forEach(c -> oneSlot.mature(c, WHEAT));
 
-        CycleResult none = HarvestCycle.run(oneSlot, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult none = HarvestCycle.run(oneSlot, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(0, none.harvested(), "product and Life Essence need two new stacks; one slot is not enough");
         assertEquals(List.of(), oneSlot.harvestCalls());
@@ -130,7 +130,7 @@ class HarvestCycleTest {
         world.mature(new BlockPos(1, 64, 0), WHEAT);
         world.mature(new BlockPos(2, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(2, result.harvested(), "4 wheat fit in the partial stack: two crops, then the wheat needs a slot");
         assertTrue(result.containerFull());
@@ -143,7 +143,7 @@ class HarvestCycleTest {
         world.freeSlots = 0;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of(), world.collectCalls(), "nothing could go in: neither collect runs");
         assertEquals(List.of(), world.harvestCalls());
@@ -157,12 +157,12 @@ class HarvestCycleTest {
         world.fullAfterCollects = 2;
         world.mature(new BlockPos(1, 64, 0), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertTrue(result.containerFull(), "the second collect filled the container");
         assertFalse(result.cropsWaiting(), "every ripe crop was harvested; nothing waits");
         assertEquals("containerFull", world.calls.getLast());
-        assertFalse(HarvestCycle.run(new FakeCycleWorld(), CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops()).containerFull());
+        assertFalse(HarvestCycle.run(new FakeCycleWorld(), CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration())).containerFull());
     }
 
     @Test
@@ -176,7 +176,7 @@ class HarvestCycleTest {
             FakeCycleWorld world = new FakeCycleWorld();
             crops.forEach(c -> world.mature(c, WHEAT));
 
-            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start, NO_LIMIT, new PendingDrops());
+            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
             int from = Math.floorMod(start, positions.size());
             List<String> expected = new ArrayList<>();
@@ -209,7 +209,7 @@ class HarvestCycleTest {
             FakeCycleWorld world = new FakeCycleWorld();
             crops.forEach(c -> world.mature(c, WHEAT));
 
-            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start, 2, new PendingDrops());
+            CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), start, 2, new PendingDrops(new DropCalibration()));
 
             assertEquals(2, result.harvested());
             assertEquals(2, world.harvestCalls().size(), "stops calling harvest once the limit is reached");
@@ -245,14 +245,14 @@ class HarvestCycleTest {
         int start = 0;
         for (int cycle = 0; cycle < 24; cycle++) {
             FakeCycleWorld world = eternalCrops(crops, 2);
-            CycleResult result = HarvestCycle.run(world, CENTER, 3, MARGIN, new HashSet<>(), start, NO_LIMIT, new PendingDrops());
+            CycleResult result = HarvestCycle.run(world, CENTER, 3, MARGIN, new HashSet<>(), start, NO_LIMIT, new PendingDrops(new DropCalibration()));
             assertEquals(2, result.harvested());
             assertTrue(result.cropsWaiting());
             carried.addAll(world.harvestCalls());
             start = result.nextIndex();
 
             FakeCycleWorld fresh = eternalCrops(crops, 2);
-            HarvestCycle.run(fresh, CENTER, 3, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+            HarvestCycle.run(fresh, CENTER, 3, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
             reset.addAll(fresh.harvestCalls());
         }
 
@@ -276,7 +276,7 @@ class HarvestCycleTest {
             }
         }
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of("harvest " + near), world.harvestCalls());
         assertEquals(15, result.unloaded(), "one column of 5 positions per layer, 3 layers");
@@ -285,7 +285,7 @@ class HarvestCycleTest {
         world.unloadedPositions.clear();
         world.calls.clear();
         CycleResult loaded = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), result.nextIndex(), NO_LIMIT,
-                new PendingDrops());
+                new PendingDrops(new DropCalibration()));
         assertEquals(0, loaded.unloaded());
         assertEquals(Set.of("harvest " + near, "harvest " + across), Set.copyOf(world.harvestCalls()));
     }
@@ -299,7 +299,7 @@ class HarvestCycleTest {
         world.immature(immature, WHEAT);
         world.mature(mature, WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, 1, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 2, MARGIN, new HashSet<>(), 0, 1, new PendingDrops(new DropCalibration()));
 
         assertEquals(1, result.harvested(), "an immature crop does not count towards the limit");
         assertEquals(List.of("harvest " + immature, "harvest " + mature), world.harvestCalls(),
@@ -319,7 +319,7 @@ class HarvestCycleTest {
         first.mature(wheat, WHEAT);
         first.throwingTypes.add(BERRY);
 
-        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0, NO_LIMIT, new PendingDrops());
+        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of(BERRY), firstResult.newWarnings());
         assertEquals(List.of("harvest " + berryA, "harvest " + wheat), first.harvestCalls(),
@@ -333,7 +333,7 @@ class HarvestCycleTest {
         second.mature(wheat, WHEAT);
         second.throwingTypes.add(BERRY);
 
-        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0, NO_LIMIT, new PendingDrops());
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, 0, NO_LIMIT, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of(), secondResult.newWarnings());
         assertEquals(List.of("harvest " + wheat), second.harvestCalls());
@@ -352,7 +352,7 @@ class HarvestCycleTest {
         first.transientPositions.add(busy);
 
         // With a limit of 1 the busy crop must not use it up: `other` is still harvested.
-        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0, 1, new PendingDrops());
+        CycleResult firstResult = HarvestCycle.run(first, CENTER, 2, MARGIN, warnedTypes, 0, 1, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of("harvest " + busy, "harvest " + other), first.harvestCalls(),
                 "a transient failure does not count towards the limit and does not skip the type");
@@ -366,7 +366,7 @@ class HarvestCycleTest {
 
         // As HarvesterSystem does: the next cycle starts where this one stopped (after `other`),
         // so the busy crop is reached by wrapping around the area.
-        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, firstResult.nextIndex(), 1, new PendingDrops());
+        CycleResult secondResult = HarvestCycle.run(second, CENTER, 2, MARGIN, warnedTypes, firstResult.nextIndex(), 1, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of("harvest " + busy), second.harvestCalls());
         assertEquals(1, secondResult.harvested(), "the crop that was busy is harvested on the next cycle");
@@ -380,7 +380,7 @@ class HarvestCycleTest {
         world.mature(new BlockPos(0, 63, 0), WHEAT);
         world.mature(new BlockPos(1, 64, -1), WHEAT);
 
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 10, 1, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 10, 1, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of("harvest " + new BlockPos(1, 64, -1)), world.harvestCalls(),
                 "the scan starts at startIndex");
@@ -395,7 +395,7 @@ class HarvestCycleTest {
 
         // 37 is out of range for 27 positions and wraps to 10. A limit above the crop count
         // behaves like no limit.
-        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 37, 9, new PendingDrops());
+        CycleResult result = HarvestCycle.run(world, CENTER, 1, MARGIN, new HashSet<>(), 37, 9, new PendingDrops(new DropCalibration()));
 
         assertEquals(List.of("harvest " + new BlockPos(1, 64, -1), "harvest " + new BlockPos(0, 63, 0)),
                 world.harvestCalls(), "the scan wraps around past the last position");
@@ -417,7 +417,7 @@ class HarvestCycleTest {
         // Two empty slots, 4 per stack: the first cycle harvests two crops (4 wheat + 4 essence,
         // both slots). Their drops are still on the ground, unregistered, when the next cycle reads
         // the room, so its snapshot still shows two empty slots: the pending reservation holds them.
-        PendingDrops pending = new PendingDrops();
+        PendingDrops pending = new PendingDrops(new DropCalibration());
         List<BlockPos> crops = List.of(new BlockPos(-1, 64, 0), new BlockPos(1, 64, 0), new BlockPos(2, 64, 0));
 
         CycleResult first = HarvestCycle.run(eternalCrops(crops, 2), CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, pending);
@@ -445,7 +445,7 @@ class HarvestCycleTest {
     void pendingReservationExpires() {
         // The first cycle's drops never arrive (a player picked them up): the reservation holds
         // the room for MAX_CYCLES cycles, then lapses so the Harvester does not stall.
-        PendingDrops pending = new PendingDrops();
+        PendingDrops pending = new PendingDrops(new DropCalibration());
         List<BlockPos> crops = List.of(new BlockPos(-1, 64, 0), new BlockPos(1, 64, 0), new BlockPos(2, 64, 0));
 
         CycleResult result = HarvestCycle.run(eternalCrops(crops, 2), CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, pending);
@@ -459,6 +459,29 @@ class HarvestCycleTest {
         result = HarvestCycle.run(eternalCrops(crops, 2), CENTER, 2, MARGIN, new HashSet<>(), result.nextIndex(),
                 NO_LIMIT, pending);
         assertEquals(2, result.harvested(), "the reservation lapsed");
+    }
+
+    @Test
+    void observedDropsShrinkTheReservation() {
+        // Room for 2 wheat and 2 essence in partial stacks, no empty slot: the maximum (2 + 2)
+        // fits once. Once three harvests were seen dropping 0.5 of each on average, a harvest
+        // reserves ceil(0.5 × 1.5) = 1 of each and two crops fit.
+        List<BlockPos> crops = List.of(new BlockPos(-1, 64, 0), new BlockPos(1, 64, 0), new BlockPos(2, 64, 0));
+        DropCalibration calibration = new DropCalibration();
+        FakeCycleWorld fresh = eternalCrops(crops, 0);
+        fresh.partialRoom.putAll(Map.of("Wheat", 2, "Essence", 2));
+        assertEquals(1, HarvestCycle.run(fresh, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT,
+                new PendingDrops(calibration)).harvested(), "nothing observed yet: the maximum");
+
+        calibration.observed(WHEAT, FakeCycleWorld.CROP_DROPS, 3, Map.of("Wheat", 1.5, "Essence", 1.5));
+        FakeCycleWorld learned = eternalCrops(crops, 0);
+        learned.partialRoom.putAll(Map.of("Wheat", 2, "Essence", 2));
+        PendingDrops pending = new PendingDrops(calibration);
+        CycleResult result = HarvestCycle.run(learned, CENTER, 2, MARGIN, new HashSet<>(), 0, NO_LIMIT, pending);
+        assertEquals(2, result.harvested());
+        assertTrue(result.cropsWaiting());
+        assertEquals(Set.of(new ItemCount("Wheat", 2), new ItemCount("Essence", 2)), Set.copyOf(pending.outstanding()),
+                "the calibrated reservation is what stays pending");
     }
 
     /** Crops that stay mature after each harvest, and a container with {@code freeSlots} empty slots of 4. */

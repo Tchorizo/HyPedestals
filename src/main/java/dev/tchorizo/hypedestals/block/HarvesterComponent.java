@@ -10,6 +10,7 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
+import dev.tchorizo.hypedestals.harvest.DropCalibration;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.PendingDrops;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
@@ -116,9 +117,10 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     final CycleStats stats = new CycleStats();
     /**
      * Drops reserved by recent cycles that the collects have not put in yet, claimed in the next
-     * cycles' container room ({@code HarvestCycle.run}). Empty after a load.
+     * cycles' container room ({@code HarvestCycle.run}); reports what the harvests dropped to the
+     * server-wide {@link DropCalibration}. Empty after a load.
      */
-    final PendingDrops pendingDrops = new PendingDrops();
+    final PendingDrops pendingDrops = new PendingDrops(DropCalibration.global());
 
     public HarvesterComponent() {}
 

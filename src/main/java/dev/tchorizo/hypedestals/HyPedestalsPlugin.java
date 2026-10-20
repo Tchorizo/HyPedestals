@@ -14,6 +14,7 @@ import dev.tchorizo.hypedestals.block.RemoveUpgradeInteraction;
 import dev.tchorizo.hypedestals.command.HyPedestalsCommand;
 import dev.tchorizo.hypedestals.config.HyPedestalsConfig;
 import dev.tchorizo.hypedestals.config.ModSettings;
+import dev.tchorizo.hypedestals.harvest.DropCalibration;
 import org.bson.BsonDocument;
 
 import java.nio.file.Path;
@@ -51,6 +52,8 @@ public final class HyPedestalsPlugin extends JavaPlugin {
     @Override
     protected void setup() {
         // The server loads the config before setup (PluginBase.preLoad).
+        // Drop lists come with the assets, which a reload may have changed: learn them again.
+        DropCalibration.global().clear();
         HyPedestalsConfig loaded = config.get();
         for (String problem : loaded.settings().problems()) {
             warn("config: %s is out of range; using the default", problem);

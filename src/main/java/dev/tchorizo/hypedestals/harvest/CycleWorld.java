@@ -15,8 +15,8 @@ public interface CycleWorld {
     boolean loaded(BlockPos p);
 
     /**
-     * The most a harvest at {@code p} can drop, per item id (every item its drop list can roll, at
-     * its maximum quantity); empty when the block drops nothing on harvest.
+     * The most a harvest at {@code p} can drop, one entry per item id (every item its drop list
+     * can roll, at its maximum quantity); empty when the block drops nothing on harvest.
      */
     List<ItemCount> maxDrops(BlockPos p);
 
@@ -28,7 +28,8 @@ public interface CycleWorld {
 
     /**
      * Pulls dropped items within {@code radius} of {@code center} into the container, reporting
-     * each stack put in to the Harvester's {@link PendingDrops#collected}; returns items inserted.
+     * each stack put in to the Harvester's {@link PendingDrops#collected}, and a stack that did not
+     * fit to {@link PendingDrops#collectBlocked}; returns items inserted.
      */
     int collectDroppedItems(BlockPos center, double radius);
 
