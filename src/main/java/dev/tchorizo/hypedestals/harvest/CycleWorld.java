@@ -29,7 +29,8 @@ public interface CycleWorld {
     /**
      * Pulls dropped items within {@code radius} of {@code center} into the container, reporting
      * each stack put in to the Harvester's {@link PendingDrops#collected}, and a stack that did not
-     * fit to {@link PendingDrops#collectBlocked}; returns items inserted.
+     * fit to {@link PendingDrops#collectBlocked}; returns items inserted. Items inside another
+     * active Harvester's area and outside this one's are left to it ({@link HarvestAreas}).
      */
     int collectDroppedItems(BlockPos center, double radius);
 

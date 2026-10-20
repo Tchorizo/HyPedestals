@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - A Harvester with crops whose drop list allows far more than they usually give (e.g. the LifeCrops Eternal crop: up to 37 items, about 7 per harvest) could stop harvesting with plenty of free slots: every harvest held room for the maximum for two cycles. After a few harvests of a crop type the room check now uses 1.5 × what that type was seen to drop (never more than the maximum; at least one of each item it can drop), learned per crop type while the server runs. A harvest that drops more than that leaves the excess for the next collect and sends the type back to the maximum.
+- Harvesters a few blocks apart (e.g. two Iron 7 blocks apart) no longer collect each other's drops: a Harvester leaves the items lying inside another active Harvester's area to that one, even within its own collect margin. Before, whichever collected first took the drops along the shared border, and the other one kept room reserved for drops that never came.
 
 ## 0.2.2 — 2026-10-18
 

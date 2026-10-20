@@ -8,6 +8,7 @@ import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.config.TierSettings;
+import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.DropCalibration;
@@ -121,6 +122,8 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      * server-wide {@link DropCalibration}. Empty after a load.
      */
     final PendingDrops pendingDrops = new PendingDrops(DropCalibration.global());
+    /** The block's position, once {@code HarvesterSystem} has read it (a block does not move); {@code null} after a load. */
+    BlockPos center;
 
     public HarvesterComponent() {}
 

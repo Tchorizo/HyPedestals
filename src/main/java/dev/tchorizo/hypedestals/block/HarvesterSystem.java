@@ -19,6 +19,7 @@ import dev.tchorizo.hypedestals.harvest.CollectBurst;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
+import dev.tchorizo.hypedestals.harvest.HarvestAreas;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
@@ -28,6 +29,8 @@ import org.joml.Vector3i;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Runs one {@link HarvestCycle} per harvester block every {@code IntervalSeconds}, then, with
@@ -54,6 +57,13 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
     /** Vanilla {@code Server/Particles/Item/Seeds/Seed_Place_Dust.particlesystem}: one burst, then done. */
     private static final String HARVEST_PARTICLES = "Seed_Place_Dust";
+    /** World name → the active Harvester areas of that world; each one is only used by its world's thread. */
+    private static final Map<String, HarvestAreas> AREAS = new ConcurrentHashMap<>();
+
+    /** The active Harvester areas of {@code world} ({@link HarvestAreas}). */
+    static HarvestAreas areas(World world) {
+        return AREAS.computeIfAbsent(world.getName(), name -> new HarvestAreas());
+    }
 
     @Override
     public Query<ChunkStore> getQuery() {
@@ -104,6 +114,10 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 HyPedestalsPlugin.warn("Harvester tier %d at %s inactive: tier not in the config and invalid Radius/IntervalSeconds in asset (Radius must be 1..%d, IntervalSeconds > 0)",
                         harvester.tier, info.fillWorldPos(cb, pos) ? pos : "?", HarvesterSettings.MAX_RADIUS);
             }
+            return;
+        }
+
+        if (container != null && !refreshArea(harvester, info, store, cb, settings.radius())) {
             return;
         }
 
@@ -165,7 +179,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
         long runStart = System.nanoTime();
         HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(),
-                harvester.pendingDrops);
+                harvester.pendingDrops, areas(world), settings.radius());
         harvester.lastResult = HarvestCycle.run(cycleWorld,
                 new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.collectMargin(),
                 harvester.warnedTypes, harvester.scanIndex, global.maxHarvestsPerCycle(), harvester.pendingDrops);
@@ -221,6 +235,27 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
                 cycleMicros, harvester.lastResult.harvested(), harvester.stats);
     }
 
+    /**
+     * Marks the Harvester's area active for this tick, so its neighbours leave the drops inside it
+     * alone ({@link HarvestAreas}). On every tick, not only on cycles: the areas expire after a
+     * few ticks without a refresh, and the intervals differ per tier.
+     *
+     * @return whether the Harvester's position is known (it always is for a placed block)
+     */
+    private static boolean refreshArea(HarvesterComponent harvester, BlockModule.BlockStateInfo info,
+                                       Store<ChunkStore> store, CommandBuffer<ChunkStore> cb, int radius) {
+        if (harvester.center == null) {
+            Vector3i at = new Vector3i();
+            if (!info.fillWorldPos(cb, at)) {
+                return false;
+            }
+            harvester.center = new BlockPos(at.x, at.y, at.z);
+        }
+        World world = store.getExternalData().getWorld();
+        areas(world).refresh(harvester.center, radius, world.getTick());
+        return true;
+    }
+
     private static long micros(long startNanos) {
         return (System.nanoTime() - startNanos) / 1000;
     }
@@ -253,7 +288,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         long burstStart = System.nanoTime();
         World world = store.getExternalData().getWorld();
         HytaleCycleWorld cycleWorld = new HytaleCycleWorld(world, cb, container, info, global.collectAnyItem(),
-                harvester.pendingDrops);
+                harvester.pendingDrops, areas(world), settings.radius());
         boolean full = cycleWorld.containerFull();
         if (full) {
             harvester.pendingDrops.collectBlocked();

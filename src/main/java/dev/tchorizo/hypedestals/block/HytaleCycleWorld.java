@@ -21,6 +21,7 @@ import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.modules.entity.EntityModule;
+import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.SectionReader;
@@ -31,6 +32,7 @@ import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CollectFilter;
 import dev.tchorizo.hypedestals.harvest.ContainerRoom;
 import dev.tchorizo.hypedestals.harvest.CycleWorld;
+import dev.tchorizo.hypedestals.harvest.HarvestAreas;
 import dev.tchorizo.hypedestals.harvest.HarvestCycle;
 import dev.tchorizo.hypedestals.harvest.HarvestOutcome;
 import dev.tchorizo.hypedestals.harvest.HarvestTargetRule;
@@ -65,6 +67,14 @@ final class HytaleCycleWorld implements CycleWorld {
     private final boolean collectAnyItem;
     /** The Harvester's reservations still on their way; told about everything the collects put in or leave behind. */
     private final PendingDrops pending;
+    /** Active Harvester areas of the world; drops inside a neighbour's area are left to it. */
+    private final HarvestAreas areas;
+    /** The Harvester's harvest radius (its own area, for {@link HarvestAreas#mayCollect}). */
+    private final int radius;
+    /** World tick of this cycle (or burst tick), for the areas' expiry. */
+    private final long tick;
+    /** Scratch list of the neighbours reaching into the collect box. */
+    private final List<HarvestAreas.Area> neighbours = new ArrayList<>();
     /** Time spent in {@link #collectDroppedItems} so far; see {@link #collectNanos()}. */
     private long collectNanos;
     /** Items the collects found that they could take (inserted or not); see {@link #itemsSeen()}. */
@@ -79,9 +89,12 @@ final class HytaleCycleWorld implements CycleWorld {
      *     whenever collected items go into the container
      * @param collectAnyItem the config's {@code CollectAnyItem}; see {@link CollectFilter}
      * @param pending the Harvester's {@link PendingDrops}
+     * @param areas the world's active Harvester areas ({@link HarvesterSystem#areas})
+     * @param radius the Harvester's harvest radius
      */
     HytaleCycleWorld(World world, CommandBuffer<ChunkStore> chunkBuffer, ItemContainer container,
-                     BlockModule.BlockStateInfo info, boolean collectAnyItem, PendingDrops pending) {
+                     BlockModule.BlockStateInfo info, boolean collectAnyItem, PendingDrops pending,
+                     HarvestAreas areas, int radius) {
         this.chunkBuffer = chunkBuffer;
         this.chunkStore = world.getChunkStore();
         this.entityStore = world.getEntityStore().getStore();
@@ -90,6 +103,9 @@ final class HytaleCycleWorld implements CycleWorld {
         this.info = info;
         this.collectAnyItem = collectAnyItem;
         this.pending = pending;
+        this.areas = areas;
+        this.radius = radius;
+        this.tick = world.getTick();
     }
 
     /**
@@ -242,9 +258,13 @@ final class HytaleCycleWorld implements CycleWorld {
 
     /**
      * Collects dropped items inside an axis-aligned box around {@code center}: {@code halfExtent}
-     * blocks horizontally and {@code -2..+3} vertically. A box (not a sphere) is used because the
+     * blocks horizontally and {@link HarvestAreas#BELOW}/{@link HarvestAreas#ABOVE} vertically
+     * ({@code -2..+3}). A box (not a sphere) is used because the
      * harvest area is a square: with a sphere the corners of larger tiers fall outside it, and
-     * drops roll a block or two past the crop they came from. A stack that does not fit is reported to
+     * drops roll a block or two past the crop they came from. Items inside the area of another
+     * active Harvester and outside this one's are left to it ({@link HarvestAreas#mayCollect},
+     * by the item's {@code TransformComponent} position; only read when a neighbour's area
+     * reaches into the box). A stack that does not fit is reported to
      * {@link PendingDrops#collectBlocked}. When anything went in, the Harvester
      * is marked for saving. The engine already does that on every content change of a block
      * container (a change listener registered when the block entity is added); the explicit mark
@@ -285,8 +305,9 @@ final class HytaleCycleWorld implements CycleWorld {
         refs.clear();
         double cx = center.x() + 0.5, cz = center.z() + 0.5;
         spatial.getSpatialStructure().collectBox(
-                new Vector3d(cx - halfExtent, center.y() - 2.0, cz - halfExtent),
-                new Vector3d(cx + halfExtent, center.y() + 3.0, cz + halfExtent), refs);
+                new Vector3d(cx - halfExtent, center.y() - HarvestAreas.BELOW, cz - halfExtent),
+                new Vector3d(cx + halfExtent, center.y() + HarvestAreas.ABOVE, cz + halfExtent), refs);
+        areas.neighbours(center, halfExtent, tick, neighbours);
 
         int inserted = 0;
         for (Ref<EntityStore> ref : refs) {
@@ -297,6 +318,13 @@ final class HytaleCycleWorld implements CycleWorld {
             ItemStack stack = item == null ? null : item.getItemStack();
             if (stack == null || stack.isEmpty() || !accepts(stack)) {
                 continue;
+            }
+            if (!neighbours.isEmpty()) {
+                TransformComponent transform = entityStore.getComponent(ref, TransformComponent.getComponentType());
+                Vector3d at = transform == null ? null : transform.getPosition();
+                if (at != null && !HarvestAreas.mayCollect(center, radius, neighbours, at.x, at.y, at.z)) {
+                    continue; // a neighbour's drop: it collects it
+                }
             }
             itemsSeen += stack.getQuantity();
             // All-or-nothing (the container default is partial): a partial insert would leave the
