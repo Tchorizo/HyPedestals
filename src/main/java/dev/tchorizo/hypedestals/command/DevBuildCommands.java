@@ -301,8 +301,9 @@ final class DevBuildCommands {
     }
 
     /**
-     * {@code fillcontainer <x y z> <item> [--qty N]}: every slot of the item container at the
-     * position gets {@code N} of the item (default: its max stack), replacing what is there; for a
+     * {@code fillcontainer <x y z> <item|empty> [--qty N]}: every slot of the item container at the
+     * position gets {@code N} of the item (default: its max stack), replacing what is there ({@code empty}
+     * removes every stack without spilling it, like a player emptying a chest); for a
      * "container full" test without a client. Replies {@code fillcontainer <x y z>: <item> x<N> in
      * <filled>/<capacity> slots}.
      */
@@ -322,10 +323,24 @@ final class DevBuildCommands {
             int wanted = context.get(qty);
             return runAt(context, world -> {
                 String at = HyPedestalsCommand.format(p);
-                Item asset = Item.getAssetMap().getAsset(itemId);
+                boolean clear = itemId.equalsIgnoreCase("empty");
+                Item asset = clear ? null : Item.getAssetMap().getAsset(itemId);
                 Store<ChunkStore> store = world.getChunkStore().getStore();
                 Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, p.x, p.y, p.z);
                 ItemContainerBlock block = ref == null ? null : store.getComponent(ref, ItemContainerBlock.getComponentType());
+                if (clear && block != null) {
+                    ItemContainer container = block.getItemContainer();
+                    int cleared = 0;
+                    for (short s = 0; s < container.getCapacity(); s++) {
+                        cleared += container.removeItemStackFromSlot(s).succeeded() ? 1 : 0;
+                    }
+                    BlockModule.BlockStateInfo info = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
+                    if (info != null) {
+                        info.markNeedsSaving(store);
+                    }
+                    HyPedestalsCommand.reply(context, "fillcontainer %s: emptied %d/%d slots", at, cleared, container.getCapacity());
+                    return;
+                }
                 if (asset == null || block == null) {
                     HyPedestalsCommand.reply(context, "fillcontainer: item=%b container=%b at %s", asset != null, block != null, at);
                     return;
