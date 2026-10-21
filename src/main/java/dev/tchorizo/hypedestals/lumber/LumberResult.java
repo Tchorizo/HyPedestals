@@ -9,13 +9,18 @@ package dev.tchorizo.hypedestals.lumber;
  * @param replant what happened at the stump; {@link Replant#NONE} when nothing was cut
  * @param sapling the sapling planted, or {@code null}
  * @param growing trees skipped because they are still growing
- * @param tooBig trees skipped for the limits ({@code LumberjackMaxTreeBlocks}, reach)
+ * @param tooBig trees skipped for the limits ({@code Lumberjack.MaxTreeBlocks}, reach); remembered
+ *     for {@link TreeMemory#CYCLES} cycles
+ * @param notTree wood skipped because it does not look like a natural tree (Ruling H)
  * @param unloaded area positions or trees touching a chunk section that is not in memory
  * @param containerFull a tree's drops did not fit: it stays and the next cycle starts at it
+ * @param budgetHit the cycle stopped at {@code Lumberjack.MaxBlocksPerCycle} blocks read; the next
+ *     cycle goes on from there
  * @param nextIndex where the next cycle's area scan starts
  */
 public record LumberResult(int trees, int blocks, int items, Replant replant, String sapling,
-                           int growing, int tooBig, int unloaded, boolean containerFull, int nextIndex) {
+                           int growing, int tooBig, int notTree, int unloaded, boolean containerFull,
+                           boolean budgetHit, int nextIndex) {
 
     public enum Replant {
         NONE("none"),

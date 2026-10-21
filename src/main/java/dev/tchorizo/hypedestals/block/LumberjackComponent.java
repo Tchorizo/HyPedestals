@@ -12,6 +12,7 @@ import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.lumber.LumberResult;
+import dev.tchorizo.hypedestals.lumber.TreeMemory;
 
 /**
  * Lumberjack block state (Lumberjack spec §1). {@code Tier}, {@code Radius} and
@@ -54,6 +55,8 @@ public final class LumberjackComponent implements Component<ChunkStore> {
     LumberResult lastResult;
     ExportPlan.Result lastExport = ExportPlan.Result.NONE;
     long lastCycleTick;
+    /** Too-big trees skipped for a while ({@code TreeMemory}). */
+    final TreeMemory memory = new TreeMemory();
     /** Trees cut since the load. */
     int treesTotal;
     boolean inactiveWarned;

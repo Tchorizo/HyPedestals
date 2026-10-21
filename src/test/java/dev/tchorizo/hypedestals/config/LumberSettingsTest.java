@@ -28,6 +28,8 @@ class LumberSettingsTest {
         s = s.set("Lumberjack.Cobalt", "IntervalSeconds", "12.5").set("Lumberjack", "MaxTreeBlocks", "500");
         assertEquals(12.5f, s.lumber().tier(Tier.COBALT).intervalSeconds());
         assertEquals(500, s.lumber().maxTreeBlocks());
+        assertEquals(1024, s.set("Lumberjack", "MaxBlocksPerCycle", "1024").lumber().maxBlocksPerCycle());
+        assertThrows(IllegalArgumentException.class, () -> ModSettings.DEFAULTS.set("Lumberjack", "MaxBlocksPerCycle", "10"));
     }
 
     @Test
@@ -76,6 +78,6 @@ class LumberSettingsTest {
     void describeListsEveryTier() {
         String line = LumberSettings.DEFAULTS.describe();
         assertTrue(line.startsWith("Lumberjack: Copper Radius=3 IntervalSeconds=30.0"), line);
-        assertTrue(line.endsWith("MaxTreeBlocks=2048"), line);
+        assertTrue(line.endsWith("MaxTreeBlocks=2048 MaxBlocksPerCycle=4096"), line);
     }
 }

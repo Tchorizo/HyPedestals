@@ -375,7 +375,7 @@ class ModSettingsTest {
                         + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=0.0 ManurePerApplication=2"
                         + " ManureStock=100 PlanterSeedStock=64 SaplingSpacing=4"
                         + " | Lumberjack: Copper Radius=3 IntervalSeconds=30.0 | Iron Radius=4 IntervalSeconds=20.0"
-                        + " | Thorium Radius=6 IntervalSeconds=15.0 | Cobalt Radius=8 IntervalSeconds=10.0 | MaxTreeBlocks=2048",
+                        + " | Thorium Radius=6 IntervalSeconds=15.0 | Cobalt Radius=8 IntervalSeconds=10.0 | MaxTreeBlocks=2048 MaxBlocksPerCycle=4096",
                 ModSettings.DEFAULTS.describe());
     }
 

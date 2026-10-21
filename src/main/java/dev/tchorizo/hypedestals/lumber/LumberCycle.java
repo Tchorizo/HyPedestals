@@ -18,33 +18,36 @@ import java.util.Set;
  */
 public final class LumberCycle {
 
-    /** Soil put back where the tree had replaced soil and no soil block is beside the hole. */
-    public static final String DEFAULT_SOIL = "Soil_Dirt";
-
     private LumberCycle() {}
 
     /**
      * Scans {@link HarvestArea#positions} circularly from {@code startIndex} (taken modulo the area
-     * size). The first wood block of a tree not met yet in this cycle starts a {@link TreeScan};
-     * growing, too big and unloaded trees are counted and skipped. The first cuttable tree ends
-     * the scan: when one roll of its drops does not fit in the container it stays, and the next
-     * cycle starts at it ({@link LumberResult#containerFull()}); otherwise all of its blocks are
-     * removed top-down, the blocks below its ground level become soil (the id beside each one,
-     * else {@link #DEFAULT_SOIL}), the drops are stored, and a sapling from the container is
-     * planted at the stump when {@link SaplingRule#canPlantAt} ({@link SaplingChoice}).
+     * size). The first wood block of a tree not met yet in this cycle, and not in {@code memory},
+     * starts a {@link TreeScan}; growing, too big (then remembered), not natural and unloaded trees
+     * are counted and skipped. Once the searches of the cycle have read {@code maxBlocksPerCycle}
+     * blocks the cycle stops and the next one starts at that position. The first cuttable tree
+     * ends the scan: when one roll of its drops does not fit in the container it stays, and the
+     * next cycle starts at it ({@link LumberResult#containerFull()}); otherwise all of its blocks
+     * are removed top-down, the wood below its ground level becomes the soil beside it (air when
+     * there is none), the drops are stored, and a sapling from the container is planted at the
+     * stump when {@link SaplingRule#canPlantAt} ({@link SaplingChoice}).
      */
-    public static LumberResult run(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex) {
+    public static LumberResult run(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex,
+                                   int maxBlocksPerCycle, TreeMemory memory) {
+        memory.nextCycle();
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
         int start = Math.floorMod(startIndex, size);
         Set<BlockPos> met = new HashSet<>();
         int growing = 0;
         int tooBig = 0;
+        int notTree = 0;
         int unloaded = 0;
+        int read = 0;
         for (int i = 0; i < size; i++) {
             int index = (start + i) % size;
             BlockPos p = positions.get(index);
-            if (met.contains(p)) {
+            if (met.contains(p) || memory.remembered(p)) {
                 continue;
             }
             TreePart part = world.part(p);
@@ -55,26 +58,35 @@ public final class LumberCycle {
             if (part != TreePart.WOOD) {
                 continue;
             }
+            if (read >= maxBlocksPerCycle) {
+                return new LumberResult(0, 0, 0, LumberResult.Replant.NONE, null,
+                        growing, tooBig, notTree, unloaded, false, true, index);
+            }
             Tree tree = TreeScan.find(world, p, limits);
+            read += tree.visited();
             met.addAll(tree.wood());
             switch (tree.status()) {
                 case GROWING -> growing++;
-                case TOO_BIG -> tooBig++;
+                case TOO_BIG -> {
+                    tooBig++;
+                    memory.remember(tree.wood());
+                }
                 case UNLOADED -> unloaded++;
-                case NOT_A_TREE -> { }
+                case NOT_A_TREE -> notTree++;
                 case CUTTABLE -> {
                     List<ItemCount> drops = rollDrops(world, tree);
                     if (!world.room().fits(drops)) {
                         return new LumberResult(0, 0, 0, LumberResult.Replant.NONE, null,
-                                growing, tooBig, unloaded, true, index);
+                                growing, tooBig, notTree, unloaded, true, false, index);
                     }
                     Planted planted = cut(world, tree, drops);
                     return new LumberResult(1, tree.size(), total(drops), planted.replant(), planted.sapling(),
-                            growing, tooBig, unloaded, false, (index + 1) % size);
+                            growing, tooBig, notTree, unloaded, false, false, (index + 1) % size);
                 }
             }
         }
-        return new LumberResult(0, 0, 0, LumberResult.Replant.NONE, null, growing, tooBig, unloaded, false, start);
+        return new LumberResult(0, 0, 0, LumberResult.Replant.NONE, null, growing, tooBig, notTree, unloaded,
+                false, false, start);
     }
 
     private record Planted(LumberResult.Replant replant, String sapling) {}
@@ -83,14 +95,15 @@ public final class LumberCycle {
         String woodId = world.blockId(tree.replantSpot());
         List<String> soils = new ArrayList<>(tree.buried().size());
         for (BlockPos b : tree.buried()) {
-            String soil = world.soilNextTo(b);
-            soils.add(soil == null ? DEFAULT_SOIL : soil);
+            soils.add(world.soilNextTo(b));
         }
         for (BlockPos b : tree.blocks()) {
             world.remove(b);
         }
         for (int i = 0; i < soils.size(); i++) {
-            world.setSoil(tree.buried().get(i), soils.get(i));
+            if (soils.get(i) != null) {
+                world.setSoil(tree.buried().get(i), soils.get(i));
+            }
         }
         world.store(drops);
 

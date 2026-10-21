@@ -23,6 +23,7 @@ ui.config.watering = Watering (game s)
 ui.config.lumberRadius = Lumberjack radius
 ui.config.lumberInterval = Lumberjack interval (s)
 ui.config.lumberMaxTreeBlocks = Lumberjack: largest tree cut (blocks)
+ui.config.lumberMaxBlocksPerCycle = Lumberjack: most blocks searched per cycle
 ui.config.copper = Copper
 ui.config.iron = Iron
 ui.config.thorium = Thorium

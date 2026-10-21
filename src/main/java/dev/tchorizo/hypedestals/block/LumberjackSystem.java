@@ -132,7 +132,8 @@ public final class LumberjackSystem extends EntityTickingSystem<ChunkStore> {
         LumberSettings.Lumber settings = lumberjack.settings();
 
         LumberResult result = LumberCycle.run(new HytaleLumberWorld(world, containerBlock.getItemContainer(), info),
-                center, settings.radius(), TreeLimits.of(global.lumber().maxTreeBlocks()), lumberjack.scanIndex);
+                center, settings.radius(), TreeLimits.of(global.lumber().maxTreeBlocks()), lumberjack.scanIndex,
+                global.lumber().maxBlocksPerCycle(), lumberjack.memory);
         phase(lumberjack, CycleStats.Phase.SCAN, micros(cycleStart));
         lumberjack.scanIndex = result.nextIndex();
         lumberjack.lastResult = result;

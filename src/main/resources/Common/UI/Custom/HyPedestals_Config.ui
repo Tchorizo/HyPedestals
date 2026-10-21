@@ -359,6 +359,22 @@ $C.@PageOverlay {
         }
       }
 
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.lumberMaxBlocksPerCycle;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #LumberjackMaxBlocksPerCycle {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 256, MaxValue: 65536, Step: 256, MaxDecimalPlaces: 0);
+        }
+      }
+
       $C.@CheckBoxWithLabel #ExportToAdjacent {
         @Text = %hypedestals.ui.config.exportToAdjacent;
         @Checked = true;

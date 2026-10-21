@@ -91,7 +91,7 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
     /**
      * The Lumberjack's line: {@code lumberjack tier= radius= interval= next= scan= slots= saplings=}
      * then the last cycle ({@code cut=<blocks> trees=<0|1> items=<n> replant=<planted|no-sapling|no-room|none>
-     * [sapling=<id>] skipped growing=<n> tooBig=<n> unloaded=<n> containerFull=<bool> exported=<n>→<x y z>},
+     * [sapling=<id>] skipped growing=<n> tooBig=<n> notTree=<n> unloaded=<n> budgetHit=<bool> containerFull=<bool> exported=<n>→<x y z>},
      * or {@code none} before the first cycle since the load), {@code treesTotal=} and the cycle timings.
      */
     private static String describe(LumberjackComponent lumberjack, ItemContainerBlock containerBlock) {
@@ -114,10 +114,10 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
                 lumberjack.scanIndex(), HarvestArea.size(settings.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()), saplings,
                 last == null ? "none" : String.format(Locale.ROOT,
-                        "cut=%d trees=%d items=%d replant=%s%s skipped growing=%d tooBig=%d unloaded=%d containerFull=%s exported=%s",
+                        "cut=%d trees=%d items=%d replant=%s%s skipped growing=%d tooBig=%d notTree=%d unloaded=%d budgetHit=%b containerFull=%s exported=%s",
                         last.blocks(), last.trees(), last.items(), last.replant().label(),
                         last.sapling() == null ? "" : " sapling=" + last.sapling(),
-                        last.growing(), last.tooBig(), last.unloaded(),
+                        last.growing(), last.tooBig(), last.notTree(), last.unloaded(), last.budgetHit(),
                         last.containerFull() ? "true (trees waiting)" : "false", export(lumberjack.lastExport())),
                 lumberjack.treesTotal(), stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
     }

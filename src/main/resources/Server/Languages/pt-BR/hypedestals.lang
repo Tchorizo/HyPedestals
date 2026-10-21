@@ -23,6 +23,7 @@ ui.config.watering = Rega (s de jogo)
 ui.config.lumberRadius = Raio do lenhador
 ui.config.lumberInterval = Intervalo do lenhador (s)
 ui.config.lumberMaxTreeBlocks = Lenhador: maior árvore cortada (blocos)
+ui.config.lumberMaxBlocksPerCycle = Lenhador: máx. de blocos lidos por ciclo
 ui.config.copper = Cobre
 ui.config.iron = Ferro
 ui.config.thorium = Tório
