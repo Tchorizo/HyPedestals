@@ -71,7 +71,7 @@ final class HytaleCycleWorld implements CycleWorld {
     private final HarvestAreas areas;
     /** The Harvester's harvest radius (its own area, for {@link HarvestAreas#mayCollect}). */
     private final int radius;
-    /** World tick of this cycle (or burst tick), for the areas' expiry. */
+    /** World tick of this cycle (or burst tick), for the areas' expiry and the per-tick harvest claims. */
     private final long tick;
     /** Scratch list of the neighbours reaching into the collect box. */
     private final List<HarvestAreas.Area> neighbours = new ArrayList<>();
@@ -211,11 +211,19 @@ final class HytaleCycleWorld implements CycleWorld {
      * skipped as {@link HarvestOutcome#TRANSIENT_ERROR} before anything happens
      * ({@link #removalBlockedByBlockEntity}), and the exception itself, should a case slip past
      * that check, is classified the same way by its message.
+     *
+     * <p>A position another Harvester of the world already harvested in this world tick (areas
+     * overlap and both cycles fell on the same tick) is {@link HarvestOutcome#NOT_READY}: a second
+     * {@code harvest} of the block in the same tick crashes the world when the tick's command
+     * buffer is consumed ({@link HarvestAreas#claimHarvest}).
      */
     @Override
     public HarvestOutcome harvest(BlockPos p) {
         if (removalBlockedByBlockEntity(p)) {
             return HarvestOutcome.TRANSIENT_ERROR;
+        }
+        if (!areas.claimHarvest(p, tick)) {
+            return HarvestOutcome.NOT_READY;
         }
         try {
             return FarmingUtil.harvest(chunkBuffer, entityStore, null, new Vector3i(p.x(), p.y(), p.z()))

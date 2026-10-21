@@ -1,9 +1,11 @@
 package dev.tchorizo.hypedestals.harvest;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The harvest areas of the Harvesters ticking in one world, so neighbours do not take each other's
@@ -22,8 +24,11 @@ import java.util.Map;
  *
  * <p>Each Harvester refreshes its area on every tick ({@link #refresh}); an area not refreshed for
  * {@link #TTL_TICKS} world ticks (section unloaded or no longer ticking) is no longer active and is
- * forgotten. A broken Harvester's area is forgotten right away ({@link #remove}). Runtime-only, one
- * instance per world, used by that world's thread only: not thread-safe.
+ * forgotten. A broken Harvester's area is forgotten right away ({@link #remove}).
+ *
+ * <p>Overlapping areas also share crops, and two Harvesters must never harvest the same block in
+ * the same world tick ({@link #claimHarvest}). Runtime-only, one instance per world, used by that
+ * world's thread only: not thread-safe.
  */
 public final class HarvestAreas {
 
@@ -35,6 +40,9 @@ public final class HarvestAreas {
     public static final double ABOVE = 3.0;
 
     private final Map<BlockPos, Area> byCenter = new HashMap<>();
+    /** Positions a harvest was attempted at during world tick {@link #claimTick}, by any Harvester. */
+    private final Set<BlockPos> claimed = new HashSet<>();
+    private long claimTick = Long.MIN_VALUE;
 
     /** A Harvester's area, as of its last refresh. */
     public static final class Area {
@@ -66,6 +74,25 @@ public final class HarvestAreas {
     /** The Harvester at {@code center} was broken: its neighbours may take the drops in its area now. */
     public void remove(BlockPos center) {
         byCenter.remove(center);
+    }
+
+    /**
+     * Claims {@code pos} for a harvest during world tick {@code tick}; {@code false} when a
+     * Harvester of this world already attempted a harvest there in the same tick. The harvest runs
+     * through the tick's {@code CommandBuffer<ChunkStore>}: a ripe crop with no block entity
+     * (vanilla's farming tick removes it after the last stage) gets one through a queued
+     * {@code addEntity}, so a second harvest of that block in the same tick still sees it ripe and
+     * without an entity, and queues a second {@code addEntity} at the same block. Consuming the
+     * buffer then throws {@code IllegalArgumentException: Duplicate block components} on the world
+     * thread and the engine crashes the world (production, two Iron with one shared column,
+     * timers aligned by the load). The claims of a tick are dropped when the next tick claims.
+     */
+    public boolean claimHarvest(BlockPos pos, long tick) {
+        if (tick != claimTick) {
+            claimed.clear();
+            claimTick = tick;
+        }
+        return claimed.add(pos);
     }
 
     /**

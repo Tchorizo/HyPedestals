@@ -3,6 +3,12 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.3 — 2026-10-20
+
+### Fixed
+
+- Two Harvesters whose areas overlap could crash the world (`IllegalArgumentException: Duplicate block components`; the server reloads the world and disconnects the players in it) when both ran their cycle in the same server tick and harvested the same ripe crop. Harvesters of the same tier loaded together (e.g. in the same chunk at server start) always ran their cycles in the same tick. A crop is now harvested by only one Harvester per tick, and each Harvester starts its cycle timer at an offset taken from its position, so neighbours no longer run their cycles together after a load (the first cycle after a load or placement still comes within one interval).
+
 ## 0.2.2 — 2026-10-20
 
 ### Added

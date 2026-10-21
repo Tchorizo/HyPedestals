@@ -227,6 +227,25 @@ class HarvestCycleTest {
     }
 
     @Test
+    void oneCycleHarvestsEachPositionAtMostOnce() {
+        // Task 37: a second harvest of a block in the same tick crashes the world. Within one
+        // Harvester's cycle that cannot happen: every position of the area is mature (and stays
+        // so), and from any start index each one is harvested exactly once.
+        List<BlockPos> positions = HarvestArea.positions(CENTER, 3);
+        for (int start : new int[] {0, 1, 73, positions.size() - 1, positions.size() + 5}) {
+            FakeCycleWorld world = new FakeCycleWorld();
+            positions.forEach(p -> world.mature(p, WHEAT));
+
+            CycleResult result = HarvestCycle.run(world, CENTER, 3, MARGIN, new HashSet<>(), start, NO_LIMIT,
+                    new PendingDrops(new DropCalibration()));
+
+            assertEquals(positions.size(), result.harvested());
+            assertEquals(positions.size(), world.harvestCalls().size());
+            assertEquals(positions.size(), Set.copyOf(world.harvestCalls()).size(), "start " + start);
+        }
+    }
+
+    @Test
     void roomForTwoCropsPerCycleCoversTheIron7x7OnlyWhenTheIndexCarriesOver() {
         // Task 33: a 7x7 field of crops that stay ripe, and room for two crops' drops per cycle
         // (the export empties the container between cycles). Carrying nextIndex over (persisted

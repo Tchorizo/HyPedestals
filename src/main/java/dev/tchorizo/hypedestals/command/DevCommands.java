@@ -1,5 +1,6 @@
 package dev.tchorizo.hypedestals.command;
 
+import com.hypixel.hytale.builtin.adventure.farming.FarmingUtil;
 import com.hypixel.hytale.builtin.adventure.farming.config.stages.BlockStateFarmingStageData;
 import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
 import com.hypixel.hytale.builtin.adventure.farming.states.TilledSoilBlock;
@@ -93,6 +94,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new PlaceCommand());
         addSubCommand(new PlantCommand());
         addSubCommand(new RipenCommand());
+        addSubCommand(new HarvestCommand());
         addSubCommand(new BreakCommand());
         addSubCommand(new CollectCommand());
         addSubCommand(new SceneCommand());
@@ -107,6 +109,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SoilCommand());
         addSubCommand(new SetItemCommand());
         addSubCommand(new PinCommand());
+        addSubCommand(new TimersCommand());
         addSubCommand(new StressCommand());
         addSubCommand(new ParticlesCommand());
     }
@@ -114,12 +117,13 @@ final class DevCommands extends AbstractAsyncCommand {
     @Override
     protected CompletableFuture<Void> executeAsync(CommandContext context) {
         HyPedestalsCommand.reply(context,
-                "usage: hypedestals dev place <x y z> <%s> | plant <x y z> [--block <id>] | ripen <x y z>"
+                "usage: hypedestals dev place <x y z> <%s> | plant <x y z> [--block <id>] | ripen <x y z> | harvest <x y z> [--times N]"
                         + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
                         + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
-                        + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z> | stress <x y z> <count> [--factor F]"
+                        + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z> | timers <x y z> <x2 y2 z2> [--sync true]"
+                        + " | stress <x y z> <count> [--factor F]"
                         + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]"
                         + " | particles <x y z> <SystemId|off> [--scale S] [--offset Y] [--color rrggbb] [--seconds N]",
                 String.join("|", TIERS));
@@ -525,6 +529,58 @@ final class DevCommands extends AbstractAsyncCommand {
     }
 
     /**
+     * {@code timers <x y z> <x2 y2 z2> [--sync true]}: the cycle timers of two Harvesters, read in
+     * one world tick ({@code next=} seconds to the next cycle, {@code cycleTick=} world tick of the
+     * last cycle). With {@code --sync true} both timers go back to 0 first, in that same tick, so
+     * from then on both cycles fall in the same world tick: what the load did to every Harvester
+     * before the cycle stagger, and what two overlapping areas must survive (Task 37). Run it after
+     * the Harvesters' first tick, which sets each timer to its stagger offset.
+     */
+    private static final class TimersCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<Vector3i> other =
+                withRequiredArg("other", "Block coordinates x y z of the second Harvester", ArgTypes.VECTOR3I);
+        private final DefaultArg<Boolean> sync = withDefaultArg("sync",
+                "Restart both cycle timers in this tick", ArgTypes.BOOLEAN, false, "false");
+
+        TimersCommand() {
+            super("timers", "Show, or restart together, the cycle timers of two Harvesters");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i a = position(context);
+            Vector3i b = context.get(other);
+            boolean restart = context.get(sync);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", timers(world, a, b, restart)), a, b);
+        }
+
+        private static String timers(World world, Vector3i a, Vector3i b, boolean restart) {
+            HarvesterComponent first = harvesterAt(world, a);
+            HarvesterComponent second = harvesterAt(world, b);
+            if (first == null || second == null) {
+                return "timers: no Harvester at " + HyPedestalsCommand.format(first == null ? a : b);
+            }
+            if (restart) {
+                first.restartCycleTimer();
+                second.restartCycleTimer();
+            }
+            return String.format(Locale.ROOT, "timers tick=%d synced=%b: %s next=%.3fs cycleTick=%d | %s next=%.3fs cycleTick=%d",
+                    world.getTick(), restart, HyPedestalsCommand.format(a), first.secondsToNextCycle(), first.lastCycleTick(),
+                    HyPedestalsCommand.format(b), second.secondsToNextCycle(), second.lastCycleTick());
+        }
+
+        private static HarvesterComponent harvesterAt(World world, Vector3i pos) {
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z);
+            return ref == null ? null : world.getChunkStore().getStore().getComponent(ref, HarvesterComponent.TYPE);
+        }
+    }
+
+    /**
      * {@code stress <x y z> <count> [--factor F]}: performance scene for {@code /hypedestals perf}.
      * {@code count} Cobalt Harvesters in a row along +x from the position, {@code 2R+3} blocks
      * apart (the area plus its fence ring), at height {@code y}: grass platform at {@code y-1}
@@ -616,6 +672,41 @@ final class DevCommands extends AbstractAsyncCommand {
         protected CompletableFuture<Void> executeAsync(CommandContext context) {
             Vector3i pos = position(context);
             return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", ripen(world, pos)), pos);
+        }
+    }
+
+    /**
+     * {@code harvest <x y z> [--times N]}: {@code FarmingUtil.harvest} N times in a row at the
+     * position, from one world-thread task, with the chunk store itself as accessor: how a command,
+     * an interaction or another mod's scheduled task harvests (no command buffer). Replies with each
+     * result (or exception) and the block afterwards ({@code crop}). Task 37: outside a ticking
+     * system's command buffer the block entity a harvest adds exists at once, so a second harvest
+     * of the block does not add another.
+     */
+    private static final class HarvestCommand extends HyPedestalsCommand.PositionCommand {
+        private final DefaultArg<Integer> times = withDefaultArg("times", "Harvests in a row (1..10)", ArgTypes.INTEGER, 1, "1");
+
+        HarvestCommand() {
+            super("harvest", "Harvest the crop at a position N times in a row, without a command buffer");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            int n = Math.clamp(context.get(times), 1, 10);
+            return runAt(context, world -> {
+                List<String> results = new ArrayList<>(n);
+                for (int i = 0; i < n; i++) {
+                    try {
+                        results.add(String.valueOf(FarmingUtil.harvest(world.getChunkStore().getStore(),
+                                world.getEntityStore().getStore(), null, new Vector3i(pos))));
+                    } catch (RuntimeException e) {
+                        results.add(e.toString());
+                    }
+                }
+                HyPedestalsCommand.reply(context, "harvest at %s x%d: %s; %s", HyPedestalsCommand.format(pos), n,
+                        results, CropCommand.describe(world, pos));
+            }, pos);
         }
     }
 

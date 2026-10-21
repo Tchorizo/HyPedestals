@@ -16,6 +16,7 @@ import dev.tchorizo.hypedestals.config.ModSettings;
 import dev.tchorizo.hypedestals.config.TierSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CollectBurst;
+import dev.tchorizo.hypedestals.harvest.CycleStagger;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
@@ -118,7 +119,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             return;
         }
 
-        if (container != null && !refreshArea(harvester, info, store, cb, settings.radius())) {
+        if (container != null && !refreshArea(harvester, info, store, cb, settings)) {
             return;
         }
 
@@ -239,21 +240,24 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
     /**
      * Marks the Harvester's area active for this tick, so its neighbours leave the drops inside it
      * alone ({@link HarvestAreas}). On every tick, not only on cycles: the areas expire after a
-     * few ticks without a refresh, and the intervals differ per tier.
+     * few ticks without a refresh, and the intervals differ per tier. On the first tick after a
+     * load or a placement (no {@code center} yet) the cycle timer starts at the position's
+     * {@link CycleStagger} offset, so Harvesters loaded together do not cycle in the same tick.
      *
      * @return whether the Harvester's position is known (it always is for a placed block)
      */
     private static boolean refreshArea(HarvesterComponent harvester, BlockModule.BlockStateInfo info,
-                                       Store<ChunkStore> store, CommandBuffer<ChunkStore> cb, int radius) {
+                                       Store<ChunkStore> store, CommandBuffer<ChunkStore> cb, TierSettings settings) {
         if (harvester.center == null) {
             Vector3i at = new Vector3i();
             if (!info.fillWorldPos(cb, at)) {
                 return false;
             }
             harvester.center = new BlockPos(at.x, at.y, at.z);
+            harvester.elapsed = CycleStagger.initialElapsed(harvester.center, settings.intervalSeconds());
         }
         World world = store.getExternalData().getWorld();
-        areas(world).refresh(harvester.center, radius, world.getTick());
+        areas(world).refresh(harvester.center, settings.radius(), world.getTick());
         return true;
     }
 

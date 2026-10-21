@@ -93,4 +93,29 @@ class HarvestAreasTest {
 
         assertEquals(List.of(), neighbours(areas, A, 10));
     }
+
+    @Test
+    void aBlockIsHarvestedByOneHarvesterPerTick() {
+        // Task 37: two Iron with one shared column whose cycles fell on the same world tick both
+        // harvested its crops; the second harvest queued a second block entity at the same block
+        // and the engine crashed the world consuming the command buffer.
+        HarvestAreas areas = new HarvestAreas();
+        BlockPos shared = new BlockPos(103, 64, 100);
+
+        assertTrue(areas.claimHarvest(shared, 10), "first Harvester this tick");
+        assertFalse(areas.claimHarvest(shared, 10), "second Harvester, same tick");
+        assertTrue(areas.claimHarvest(new BlockPos(103, 64, 101), 10), "another block, same tick");
+        assertTrue(areas.claimHarvest(new BlockPos(103, 65, 100), 10), "the block above, same tick");
+    }
+
+    @Test
+    void claimsLastOneTick() {
+        HarvestAreas areas = new HarvestAreas();
+        BlockPos shared = new BlockPos(103, 64, 100);
+        assertTrue(areas.claimHarvest(shared, 10));
+
+        assertTrue(areas.claimHarvest(shared, 11), "the next tick sees the block entity the first harvest added");
+        assertFalse(areas.claimHarvest(shared, 11));
+        assertTrue(areas.claimHarvest(shared, 30), "any later tick");
+    }
 }

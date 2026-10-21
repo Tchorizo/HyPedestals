@@ -73,6 +73,10 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int scanIndex;
 
     // Transient.
+    /**
+     * Seconds on the cycle timer. Set to the position's {@code CycleStagger} offset on the first
+     * tick after a load or a placement ({@code HarvesterSystem}), back to 0 after each cycle.
+     */
     float elapsed;
     CycleResult lastResult;
     long lastCycleTick;
@@ -220,6 +224,15 @@ public final class HarvesterComponent implements Component<ChunkStore> {
 
     public float secondsToNextCycle() {
         return Math.max(0f, intervalSeconds() - elapsed);
+    }
+
+    /**
+     * Puts the cycle timer back to 0 (dev only: Harvesters restarted in the same tick then run their
+     * cycles in the same world tick). Must run on the world thread, after the Harvester's first
+     * tick, which sets the timer to its stagger offset.
+     */
+    public void restartCycleTimer() {
+        elapsed = 0f;
     }
 
     /** Copies the persisted fields and what the decode reported about them; runtime state starts fresh. */
