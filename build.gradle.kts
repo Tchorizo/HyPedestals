@@ -2,7 +2,7 @@ plugins {
     java
 }
 
-version = "0.2.3"
+version = "0.3.0"
 
 base {
     archivesName = "HyPedestals"
