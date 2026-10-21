@@ -15,6 +15,9 @@ import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleFertilizerInput;
 import dev.tchorizo.hypedestals.block.HytalePlantables;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
+import dev.tchorizo.hypedestals.block.LumberjackComponent;
+import dev.tchorizo.hypedestals.config.LumberSettings;
+import dev.tchorizo.hypedestals.lumber.LumberResult;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
@@ -35,14 +38,15 @@ import java.util.concurrent.CompletableFuture;
  * fertilizer upgrade) the fuel left and the cycle timings since the load
  * ({@code perf: last=<us> p50=<us> p95=<us> max=<us> (n=<cycles>)}; percentiles over the last
  * {@link CycleStats#WINDOW} cycles),
- * {@code no Harvester at <x y z>}, or {@code section not loaded at <x y z>} when the section was
+ * the Lumberjack's line ({@link #describe(LumberjackComponent, ItemContainerBlock)}),
+ * {@code no Harvester or Lumberjack at <x y z>}, or {@code section not loaded at <x y z>} when the section was
  * never generated (inspecting never generates terrain).
  * Loads the section from disk if it exists (never generating it) and marks it as ticking.
  */
 final class InspectCommand extends HyPedestalsCommand.PositionCommand {
 
     InspectCommand() {
-        super("inspect", "Show the state of the Harvester at a position");
+        super("inspect", "Show the state of the Harvester or Lumberjack at a position");
         // Operator-only: reads the state of any block, including other players' Harvesters.
         requirePermission(HyPedestalsCommand.PERMISSION + ".inspect");
     }
@@ -64,7 +68,9 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         Store<ChunkStore> store = world.getChunkStore().getStore();
         HarvesterComponent harvester = ref == null ? null : store.getComponent(ref, HarvesterComponent.TYPE);
         if (harvester == null) {
-            return "no Harvester at " + HyPedestalsCommand.format(pos);
+            LumberjackComponent lumberjack = ref == null ? null : store.getComponent(ref, LumberjackComponent.TYPE);
+            return lumberjack == null ? "no Harvester or Lumberjack at " + HyPedestalsCommand.format(pos)
+                    : describe(lumberjack, store.getComponent(ref, ItemContainerBlock.getComponentType()));
         }
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
@@ -80,6 +86,40 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
                 harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "",
                 harvester.hasUpgrade(UpgradeType.PLANTER) ? " planter: " + planter(harvester, containerBlock) : "",
                 stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
+    }
+
+    /**
+     * The Lumberjack's line: {@code lumberjack tier= radius= interval= next= scan= slots= saplings=}
+     * then the last cycle ({@code cut=<blocks> trees=<0|1> items=<n> replant=<planted|no-sapling|no-room|none>
+     * [sapling=<id>] skipped growing=<n> tooBig=<n> unloaded=<n> containerFull=<bool> exported=<n>→<x y z>},
+     * or {@code none} before the first cycle since the load), {@code treesTotal=} and the cycle timings.
+     */
+    private static String describe(LumberjackComponent lumberjack, ItemContainerBlock containerBlock) {
+        LumberSettings.Lumber settings = lumberjack.settings();
+        LumberResult last = lumberjack.lastResult();
+        CycleStats stats = lumberjack.stats();
+        int saplings = 0;
+        if (containerBlock != null) {
+            ItemContainer container = containerBlock.getItemContainer();
+            for (short slot = 0; slot < container.getCapacity(); slot++) {
+                ItemStack stack = container.getItemStack(slot);
+                if (!ItemStack.isEmpty(stack) && HytalePlantables.saplingBlock(stack.getItemId()) != null) {
+                    saplings += stack.getQuantity();
+                }
+            }
+        }
+        return String.format(Locale.ROOT, "lumberjack tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s saplings=%d"
+                        + " last: %s treesTotal=%d perf: last=%dus p50=%dus p95=%dus max=%dus (n=%d)",
+                lumberjack.tier(), settings.radius(), settings.intervalSeconds(), lumberjack.secondsToNextCycle(),
+                lumberjack.scanIndex(), HarvestArea.size(settings.radius()),
+                containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()), saplings,
+                last == null ? "none" : String.format(Locale.ROOT,
+                        "cut=%d trees=%d items=%d replant=%s%s skipped growing=%d tooBig=%d unloaded=%d containerFull=%s exported=%s",
+                        last.blocks(), last.trees(), last.items(), last.replant().label(),
+                        last.sapling() == null ? "" : " sapling=" + last.sapling(),
+                        last.growing(), last.tooBig(), last.unloaded(),
+                        last.containerFull() ? "true (trees waiting)" : "false", export(lumberjack.lastExport())),
+                lumberjack.treesTotal(), stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
     }
 
     /**

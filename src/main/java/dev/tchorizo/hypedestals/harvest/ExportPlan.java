@@ -60,7 +60,8 @@ public final class ExportPlan {
         /** Origin of the container's block, the same for every neighbor position it covers. */
         BlockPos pos();
 
-        boolean isHarvester();
+        /** Whether the container is another HyPedestals machine (Harvester, Lumberjack): never a target. */
+        boolean isMachine();
 
         /** Whether at least part of the stack in {@code slot} of {@code from} fits. */
         boolean accepts(S from, int slot);
@@ -232,7 +233,7 @@ public final class ExportPlan {
         Set<BlockPos> seen = new HashSet<>();
         for (BlockPos p : neighbors(center)) {
             ExportTarget<S> target = world.targetAt(p);
-            if (target != null && !target.isHarvester() && seen.add(target.pos())) {
+            if (target != null && !target.isMachine() && seen.add(target.pos())) {
                 targets.add(target);
             }
         }

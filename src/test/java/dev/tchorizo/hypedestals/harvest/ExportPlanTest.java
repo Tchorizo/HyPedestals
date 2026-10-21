@@ -255,7 +255,7 @@ class ExportPlanTest {
     }
 
     @Test
-    void harvestersAreNeverTargets() {
+    void machinesAreNeverTargets() {
         FakeWorld world = new FakeWorld();
         FakeSource source = new FakeSource(5, 0);
         FakeTarget other = world.put(new BlockPos(10, 63, 20), new FakeTarget(100, true));
@@ -348,7 +348,7 @@ class ExportPlanTest {
 
     /** A container with room for {@code room} items of anything. */
     private static final class FakeTarget implements ExportPlan.ExportTarget<FakeSource> {
-        final boolean harvester;
+        final boolean machine;
         int room;
         int received;
         int acceptCalls;
@@ -359,9 +359,9 @@ class ExportPlanTest {
             this(room, false);
         }
 
-        FakeTarget(int room, boolean harvester) {
+        FakeTarget(int room, boolean machine) {
             this.room = room;
-            this.harvester = harvester;
+            this.machine = machine;
         }
 
         @Override
@@ -370,8 +370,8 @@ class ExportPlanTest {
         }
 
         @Override
-        public boolean isHarvester() {
-            return harvester;
+        public boolean isMachine() {
+            return machine;
         }
 
         @Override

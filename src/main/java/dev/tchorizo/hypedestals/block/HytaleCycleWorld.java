@@ -380,14 +380,18 @@ final class HytaleCycleWorld implements CycleWorld {
         return true;
     }
 
-    /**
-     * Empty slots, and per item id the room left in its partial stacks. A partial stack counts only
-     * when a fresh stack of its item (as a drop is) would merge with it ({@code isStackableWith}:
-     * same durability, quality and metadata), so a worn tool or a stack with metadata does not
-     * pass for room that drops could use.
-     */
     @Override
     public ContainerRoom room() {
+        return roomOf(container);
+    }
+
+    /**
+     * Empty slots of {@code container}, and per item id the room left in its partial stacks. A
+     * partial stack counts only when a fresh stack of its item (as a drop is) would merge with it
+     * ({@code isStackableWith}: same durability, quality and metadata), so a worn tool or a stack
+     * with metadata does not pass for room that drops could use. Also the Lumberjack's room.
+     */
+    static ContainerRoom roomOf(ItemContainer container) {
         int free = 0;
         Map<String, Integer> partial = new HashMap<>();
         short capacity = container.getCapacity();
@@ -407,7 +411,7 @@ final class HytaleCycleWorld implements CycleWorld {
         return new ContainerRoom(free, partial, HytaleCycleWorld::maxStack);
     }
 
-    private static int maxStack(String itemId) {
+    static int maxStack(String itemId) {
         Item item = Item.getAssetMap().getAsset(itemId);
         return item == null ? 0 : item.getMaxStack();
     }

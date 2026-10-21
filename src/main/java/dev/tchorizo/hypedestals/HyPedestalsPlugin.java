@@ -10,6 +10,8 @@ import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HarvesterRemovalSystem;
 import dev.tchorizo.hypedestals.block.HarvesterSystem;
 import dev.tchorizo.hypedestals.block.InstallUpgradeInteraction;
+import dev.tchorizo.hypedestals.block.LumberjackComponent;
+import dev.tchorizo.hypedestals.block.LumberjackSystem;
 import dev.tchorizo.hypedestals.block.RemoveUpgradeInteraction;
 import dev.tchorizo.hypedestals.command.HyPedestalsCommand;
 import dev.tchorizo.hypedestals.config.HyPedestalsConfig;
@@ -70,6 +72,9 @@ public final class HyPedestalsPlugin extends JavaPlugin {
                 HarvesterComponent.class, "HyHarvester", HarvesterComponent.CODEC);
         getChunkStoreRegistry().registerSystem(new HarvesterSystem());
         getChunkStoreRegistry().registerSystem(new HarvesterRemovalSystem());
+        LumberjackComponent.TYPE = getChunkStoreRegistry().registerComponent(
+                LumberjackComponent.class, "HyLumberjack", LumberjackComponent.CODEC);
+        getChunkStoreRegistry().registerSystem(new LumberjackSystem());
         // Interaction types referenced by our Server/Item/Interactions JSON (upgrade item, Harvester Use).
         getCodecRegistry(Interaction.CODEC)
                 .register(InstallUpgradeInteraction.TYPE_ID, InstallUpgradeInteraction.class, InstallUpgradeInteraction.CODEC)

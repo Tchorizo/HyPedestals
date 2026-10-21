@@ -41,6 +41,8 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleIds;
 import dev.tchorizo.hypedestals.block.HytaleSoilWorld;
+import dev.tchorizo.hypedestals.block.HytaleTrees;
+import dev.tchorizo.hypedestals.block.LumberjackComponent;
 import dev.tchorizo.hypedestals.block.UpgradeParticles;
 import dev.tchorizo.hypedestals.config.Tier;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
@@ -48,6 +50,7 @@ import dev.tchorizo.hypedestals.harvest.HarvestArea;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
+import dev.tchorizo.hypedestals.lumber.TreePart;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -72,6 +75,7 @@ final class DevCommands extends AbstractAsyncCommand {
 
     private static final List<String> TIERS = List.of("Copper", "Iron", "Thorium", "Cobalt");
     private static final String HARVESTER_PREFIX = "HyPedestals_Harvester_";
+    private static final String LUMBERJACK_PREFIX = "HyPedestals_Lumberjack_";
     private static final String TILLED_SOIL = "Soil_Dirt_Tilled";
     private static final String WHEAT = "Plant_Crop_Wheat_Block";
     /** Vanilla crops with {@code StageSetAfterHarvest: "Harvested"}: they regrow after {@code harvest}. */
@@ -113,6 +117,8 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new StressCommand());
         addSubCommand(new ParticlesCommand());
         addSubCommand(new DevPlanterCommands());
+        addSubCommand(new TreesCommand());
+        addSubCommand(new FillBoxCommand());
     }
 
     @Override
@@ -390,9 +396,11 @@ final class DevCommands extends AbstractAsyncCommand {
     private static final class PlaceCommand extends HyPedestalsCommand.PositionCommand {
         private final RequiredArg<String> tier =
                 withRequiredArg("tier", "Copper, Iron, Thorium or Cobalt", ArgTypes.STRING);
+        private final DefaultArg<String> machine = withDefaultArg("machine", "Harvester or Lumberjack",
+                ArgTypes.STRING, "Harvester", "Harvester");
 
         PlaceCommand() {
-            super("place", "Place a Harvester block of the given tier");
+            super("place", "Place a Harvester (or --machine Lumberjack) block of the given tier");
         }
 
         @Override
@@ -403,7 +411,8 @@ final class DevCommands extends AbstractAsyncCommand {
                 HyPedestalsCommand.reply(context, "unknown tier %s; expected one of %s", tierName, TIERS);
                 return CompletableFuture.completedFuture(null);
             }
-            String blockId = HARVESTER_PREFIX + tierName;
+            boolean lumberjack = "lumberjack".equalsIgnoreCase(context.get(machine));
+            String blockId = (lumberjack ? LUMBERJACK_PREFIX : HARVESTER_PREFIX) + tierName;
             return runAt(context, world -> {
                 BlockType type = BlockType.getAssetMap().getAsset(blockId);
                 if (type == null) {
@@ -413,12 +422,106 @@ final class DevCommands extends AbstractAsyncCommand {
                 boolean set = setBlock(world, pos, blockId, type);
                 // setBlock instantiates the BlockEntity components the block type declares.
                 Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z);
-                boolean hasHarvester = ref != null
-                        && world.getChunkStore().getStore().getComponent(ref, HarvesterComponent.TYPE) != null;
+                Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
+                boolean hasComponent = ref != null && (lumberjack
+                        ? chunkStore.getComponent(ref, LumberjackComponent.TYPE) != null
+                        : chunkStore.getComponent(ref, HarvesterComponent.TYPE) != null);
                 boolean pinned = pin(world, pos);
-                HyPedestalsCommand.reply(context, "place %s at %s: setBlock=%b HyHarvester=%b pinned=%b",
-                        blockId, HyPedestalsCommand.format(pos), set, hasHarvester, pinned);
+                HyPedestalsCommand.reply(context, "place %s at %s: setBlock=%b %s=%b pinned=%b",
+                        blockId, HyPedestalsCommand.format(pos), set, lumberjack ? "HyLumberjack" : "HyHarvester",
+                        hasComponent, pinned);
             }, pos);
+        }
+    }
+
+    /**
+     * {@code fillbox <x y z> <r> <dy0> <dy1> <id|air>}: the block in the whole box {@code x±r, z±r,
+     * y+dy0..y+dy1} in one world task (a soil pad with air above for a tree, without one console
+     * line per block).
+     */
+    private static final class FillBoxCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<Integer> radius = withRequiredArg("r", "Half side on x and z", ArgTypes.INTEGER);
+        private final RequiredArg<Integer> dy0 = withRequiredArg("dy0", "Lowest layer, relative to y", ArgTypes.INTEGER);
+        private final RequiredArg<Integer> dy1 = withRequiredArg("dy1", "Highest layer, relative to y", ArgTypes.INTEGER);
+        private final RequiredArg<String> block = withRequiredArg("block", "Block id or air", ArgTypes.STRING);
+
+        FillBoxCommand() {
+            super("fillbox", "Fill a box around a position with one block (or air)");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i p = position(context);
+            int r = context.get(radius), from = context.get(dy0), to = context.get(dy1);
+            String id = context.get(block);
+            boolean air = id.equalsIgnoreCase("air");
+            String blockId = air ? BlockType.EMPTY_KEY : id;
+            Vector3i[] corners = {new Vector3i(p.x - r, p.y + from, p.z - r), new Vector3i(p.x + r, p.y + to, p.z + r),
+                    new Vector3i(p.x - r, p.y + to, p.z + r), new Vector3i(p.x + r, p.y + from, p.z - r)};
+            return runAt(context, world -> {
+                BlockType type = air ? BlockType.EMPTY : BlockType.getAssetMap().getAsset(blockId);
+                if (type == null) {
+                    HyPedestalsCommand.reply(context, "fillbox: block %s is not loaded", id);
+                    return;
+                }
+                int set = 0;
+                for (int y = p.y + from; y <= p.y + to; y++) {
+                    for (int x = p.x - r; x <= p.x + r; x++) {
+                        for (int z = p.z - r; z <= p.z + r; z++) {
+                            set += setBlock(world, new Vector3i(x, y, z), blockId, type) ? 1 : 0;
+                        }
+                    }
+                }
+                HyPedestalsCommand.reply(context, "fillbox %s r=%d y%+d..%+d %s: %d blocks set",
+                        HyPedestalsCommand.format(p), r, from, to, air ? "air" : id, set);
+            }, corners);
+        }
+    }
+
+    /**
+     * {@code trees <x y z> <r> <down> <up>}: tree blocks (as the Lumberjack classifies them) in the box
+     * {@code x±r, y-down..y+up, z±r}: {@code trees … wood=<n> leaves=<n> ids={…} first=[x y z, …]},
+     * for checking that a cut left nothing floating.
+     */
+    private static final class TreesCommand extends HyPedestalsCommand.PositionCommand {
+        private final RequiredArg<Integer> radius = withRequiredArg("r", "Half side on x and z", ArgTypes.INTEGER);
+        private final RequiredArg<Integer> down = withRequiredArg("down", "Layers below", ArgTypes.INTEGER);
+        private final RequiredArg<Integer> up = withRequiredArg("up", "Layers above", ArgTypes.INTEGER);
+
+        TreesCommand() {
+            super("trees", "Count tree blocks (wood, leaves) in a box");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i p = position(context);
+            int r = context.get(radius), d = context.get(down), u = context.get(up);
+            return runAt(context, world -> {
+                SectionReader reader = new SectionReader(world.getChunkStore());
+                int wood = 0, leaves = 0;
+                Map<String, Integer> ids = new java.util.TreeMap<>();
+                List<String> first = new ArrayList<>();
+                for (int y = p.y - d; y <= p.y + u; y++) {
+                    for (int x = p.x - r; x <= p.x + r; x++) {
+                        for (int z = p.z - r; z <= p.z + r; z++) {
+                            int id = reader.getBlock(x, y, z);
+                            BlockType type = id == BlockType.EMPTY_ID ? null : BlockType.getAssetMap().getAsset(id);
+                            TreePart part = HytaleTrees.part(type);
+                            if (part == TreePart.NONE) {
+                                continue;
+                            }
+                            wood += part == TreePart.WOOD ? 1 : 0;
+                            leaves += part == TreePart.LEAVES ? 1 : 0;
+                            ids.merge(HytaleIds.baseBlockId(type.getId()), 1, Integer::sum);
+                            if (first.size() < 5) {
+                                first.add(x + " " + y + " " + z);
+                            }
+                        }
+                    }
+                }
+                HyPedestalsCommand.reply(context, "trees %s r=%d -%d+%d: wood=%d leaves=%d ids=%s first=%s",
+                        HyPedestalsCommand.format(p), r, d, u, wood, leaves, ids, first);
+            }, p);
         }
     }
 

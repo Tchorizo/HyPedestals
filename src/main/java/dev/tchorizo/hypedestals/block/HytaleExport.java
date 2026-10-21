@@ -17,6 +17,7 @@ import dev.tchorizo.hypedestals.harvest.ExportPlan;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * {@link ExportPlan} over one Hytale world, for a single export of one Harvester: the neighbors'
@@ -27,6 +28,11 @@ import java.util.List;
  * every content change; the explicit marks do not depend on that.
  */
 final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> {
+
+    /** What the planter upgrade keeps: seeds and saplings. */
+    static final Predicate<String> SEEDS_AND_SAPLINGS = HytalePlantables::isPlantable;
+    /** What the Lumberjack keeps: saplings. */
+    static final Predicate<String> SAPLINGS = id -> HytalePlantables.saplingBlock(id) != null;
 
     private final ChunkStore chunkStore;
     private final ComponentAccessor<ChunkStore> accessor;
@@ -52,18 +58,20 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
      * @param keepFertilizer whether the fertilizer upgrade is installed (its fuel stays)
      * @param manurePerApplication the config's {@code ManurePerApplication} ({@code 0}: poop is not fuel and leaves)
      * @param manureStock the config's {@code ManureStock} (poop kept as fuel; the rest leaves)
-     * @param keepSeeds whether the planter upgrade is installed (its seeds and saplings stay up to {@code seedStock} each)
+     * @param plantable the items that stay up to {@code seedStock} of each kind ({@code null}: none):
+     *     seeds and saplings with the planter upgrade ({@link #SEEDS_AND_SAPLINGS}), the Lumberjack's
+     *     saplings ({@link #SAPLINGS})
      * @param seedStock the config's {@code PlanterSeedStock}
      */
     ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center,
                           boolean keepFertilizer, int manurePerApplication, int manureStock,
-                          boolean keepSeeds, int seedStock) {
+                          Predicate<String> plantable, int seedStock) {
         ExportPlan.Result result;
         try {
             result = ExportPlan.run(this, new Source(container), center, keepFertilizer, manurePerApplication, manureStock,
-                    keepSeeds ? HytalePlantables::isPlantable : null, seedStock);
+                    plantable, seedStock);
         } catch (RuntimeException e) {
-            HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
+            HyPedestalsPlugin.warn("export from the machine at %d %d %d failed: %s",
                     center.x(), center.y(), center.z(), e.toString());
             result = ExportPlan.Result.NONE;
         }
@@ -110,8 +118,9 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
         if (block == null || block.getItemContainer() == null || info == null) {
             return null;
         }
-        boolean harvester = accessor.getComponent(ref, HarvesterComponent.TYPE) != null;
-        Target target = new Target(new BlockPos(x, y, z), harvester, block.getItemContainer(), info);
+        boolean machine = accessor.getComponent(ref, HarvesterComponent.TYPE) != null
+                || accessor.getComponent(ref, LumberjackComponent.TYPE) != null;
+        Target target = new Target(new BlockPos(x, y, z), machine, block.getItemContainer(), info);
         touched.add(target);
         return target;
     }
@@ -148,14 +157,14 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
 
     static final class Target implements ExportPlan.ExportTarget<Source> {
         private final BlockPos pos;
-        private final boolean harvester;
+        private final boolean machine;
         private final ItemContainer container;
         final BlockModule.BlockStateInfo info;
         boolean received;
 
-        Target(BlockPos pos, boolean harvester, ItemContainer container, BlockModule.BlockStateInfo info) {
+        Target(BlockPos pos, boolean machine, ItemContainer container, BlockModule.BlockStateInfo info) {
             this.pos = pos;
-            this.harvester = harvester;
+            this.machine = machine;
             this.container = container;
             this.info = info;
         }
@@ -166,8 +175,8 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
         }
 
         @Override
-        public boolean isHarvester() {
-            return harvester;
+        public boolean isMachine() {
+            return machine;
         }
 
         /** Partial fit counts ({@code canAddItemStack} defaults to not all-or-nothing); unknown items never move. */

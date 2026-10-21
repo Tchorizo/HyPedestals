@@ -1,0 +1,60 @@
+{
+  "Parent": "HyPedestals_Lumberjack_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Lumberjack_Copper.name",
+    "Description": "hypedestals.items.Lumberjack_Copper.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Lumberjack_Copper.png",
+  "BlockType": {
+    "CustomModelTexture": [
+      {
+        "Texture": "Blocks/HyPedestals/Lumberjack_Textures/Copper.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Lumberjack_Copper"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyLumberjack": {
+          "Tier": 1,
+          "Radius": 3,
+          "IntervalSeconds": 30.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 9
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "Tool_Hatchet_Copper",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Copper",
+        "Quantity": 12
+      },
+      {
+        "ResourceTypeId": "Wood_Trunk",
+        "Quantity": 10
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

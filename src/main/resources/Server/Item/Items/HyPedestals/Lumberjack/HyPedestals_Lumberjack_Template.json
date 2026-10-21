@@ -1,0 +1,43 @@
+{
+  "Parent": "Rock_Stone_Cobble",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Lumberjack_Copper.name",
+    "Description": "hypedestals.items.Lumberjack_Copper.description"
+  },
+  "Quality": "Template",
+  "MaxStack": 16,
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Lumberjack_Copper.png",
+  "Categories": [
+    "Blocks.Rocks"
+  ],
+  "ResourceTypes": [],
+  "Tags": {
+    "Type": [
+      "Furniture"
+    ],
+    "Family": [
+      "HyPedestals"
+    ]
+  },
+  "BlockType": {
+    "DrawType": "Model",
+    "CustomModel": "Blocks/HyPedestals/Harvester.blockymodel",
+    "CustomModelTexture": [
+      {
+        "Texture": "Blocks/HyPedestals/Lumberjack_Textures/Copper.png",
+        "Weight": 1
+      }
+    ],
+    "Opacity": "Transparent",
+    "TransitionToGroups": [],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks"
+      }
+    },
+    "InteractionHint": "server.interactionHints.openDoor",
+    "Interactions": {
+      "Use": "Open_Container"
+    }
+  }
+}

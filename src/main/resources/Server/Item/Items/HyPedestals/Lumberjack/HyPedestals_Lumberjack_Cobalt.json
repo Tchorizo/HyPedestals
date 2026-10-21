@@ -1,0 +1,56 @@
+{
+  "Parent": "HyPedestals_Lumberjack_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Lumberjack_Cobalt.name",
+    "Description": "hypedestals.items.Lumberjack_Cobalt.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Lumberjack_Cobalt.png",
+  "BlockType": {
+    "CustomModelTexture": [
+      {
+        "Texture": "Blocks/HyPedestals/Lumberjack_Textures/Cobalt.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Lumberjack_Cobalt"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyLumberjack": {
+          "Tier": 4,
+          "Radius": 8,
+          "IntervalSeconds": 10.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 36
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "HyPedestals_Lumberjack_Thorium",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Cobalt",
+        "Quantity": 15
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

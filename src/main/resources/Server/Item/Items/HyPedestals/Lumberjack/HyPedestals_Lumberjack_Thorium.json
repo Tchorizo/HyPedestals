@@ -1,0 +1,56 @@
+{
+  "Parent": "HyPedestals_Lumberjack_Template",
+  "TranslationProperties": {
+    "Name": "hypedestals.items.Lumberjack_Thorium.name",
+    "Description": "hypedestals.items.Lumberjack_Thorium.description"
+  },
+  "Quality": "Common",
+  "Icon": "Icons/ItemsGenerated/HyPedestals_Lumberjack_Thorium.png",
+  "BlockType": {
+    "CustomModelTexture": [
+      {
+        "Texture": "Blocks/HyPedestals/Lumberjack_Textures/Thorium.png",
+        "Weight": 1
+      }
+    ],
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "HyPedestals_Lumberjack_Thorium"
+      }
+    },
+    "BlockEntity": {
+      "Components": {
+        "HyLumberjack": {
+          "Tier": 3,
+          "Radius": 6,
+          "IntervalSeconds": 15.0
+        },
+        "ItemContainerBlock": {
+          "Capacity": 27
+        }
+      }
+    }
+  },
+  "Recipe": {
+    "Input": [
+      {
+        "ItemId": "HyPedestals_Lumberjack_Iron",
+        "Quantity": 1
+      },
+      {
+        "ItemId": "Ingredient_Bar_Thorium",
+        "Quantity": 15
+      }
+    ],
+    "BenchRequirement": [
+      {
+        "Id": "Workbench",
+        "Type": "Crafting",
+        "Categories": [
+          "Workbench_Crafting"
+        ]
+      }
+    ]
+  }
+}

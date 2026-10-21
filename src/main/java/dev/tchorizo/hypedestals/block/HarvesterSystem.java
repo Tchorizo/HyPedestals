@@ -88,7 +88,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         try {
             run(dt, harvester, index, chunk, store, cb);
         } finally {
-            PerfRegistry.global().tick(harvester.tier, micros(start));
+            PerfRegistry.global().tick(PerfRegistry.Machine.HARVESTER, harvester.tier, micros(start));
         }
     }
 
@@ -229,7 +229,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             long exportStart = System.nanoTime();
             harvester.lastExport = new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),
                     harvester.hasUpgrade(UpgradeType.FERTILIZER), global.manurePerApplication(), global.manureStock(),
-                    harvester.hasUpgrade(UpgradeType.PLANTER), global.planterSeedStock());
+                    harvester.hasUpgrade(UpgradeType.PLANTER) ? HytaleExport.SEEDS_AND_SAPLINGS : null,
+                    global.planterSeedStock());
             phase(harvester, CycleStats.Phase.EXPORT, micros(exportStart));
         } else {
             harvester.lastExport = ExportPlan.Result.NONE;
@@ -242,7 +243,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
         long cycleMicros = micros(cycleStart);
         harvester.stats.addCycle(cycleMicros);
-        PerfRegistry.global().cycle(harvester.tier, world.getName() + " " + pos.x + " " + pos.y + " " + pos.z,
+        PerfRegistry.global().cycle(PerfRegistry.Machine.HARVESTER, harvester.tier, world.getName() + " " + pos.x + " " + pos.y + " " + pos.z,
                 cycleMicros, harvester.lastResult.harvested(), harvester.stats);
     }
 
@@ -276,7 +277,7 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
 
     /** Adds a phase to the server totals. */
     private static void phase(HarvesterComponent harvester, CycleStats.Phase phase, long micros) {
-        PerfRegistry.global().phase(harvester.tier, phase, micros);
+        PerfRegistry.global().phase(PerfRegistry.Machine.HARVESTER, harvester.tier, phase, micros);
     }
 
     /**
