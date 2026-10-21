@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The Lumberjack did not replant where grass tufts stood within a block of the stump (`replant=no-room`; common in forests). It now clears the grass tufts (`Family=Grass`) from the sapling's space before planting — flowers, ferns, mushrooms and anything else still block.
 - The Lumberjack never cut mature trees with logs where the ground is a thin layer of soil over rock (most of a rocky biome): their roots go through the soil down to the stone, and the Lumberjack took a trunk standing on stone for a log build (`notTree` in `/hypedestals inspect`). It only cut the small young birches, whose trunk is made of branch blocks and drops sticks, fibre and sap but no logs, so a Lumberjack next to a forest filled up with sticks and never with logs. A tree whose roots are sunk at least two blocks into the ground is now a tree whatever is under them; log cabins, pillars and leaf roofs on a stone floor are still left alone.
 
 ## 0.3.0 — 2026-10-21

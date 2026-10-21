@@ -44,6 +44,43 @@ class LumberCycleTest {
     }
 
     @Test
+    void grassTuftsAroundTheStumpAreClearedToReplant() {
+        FakeForest world = field().oak(3, 1, 0, 3, 5);
+        world.saplings.put("Plant_Sapling_Oak", 1);
+        world.set(2, 1, -1, "Plant_Grass_Lush").set(4, 1, 1, "Plant_Grass_Lush_Tall").set(3, 2, 1, "Plant_Grass_Sharp_Short");
+
+        LumberResult r = LumberCycle.run(world, CENTER, 4, LIMITS, 0, 4096, new TreeMemory());
+
+        assertEquals(LumberResult.Replant.PLANTED, r.replant());
+        assertEquals("Plant_Sapling_Oak", world.at(3, 1, 0));
+        assertEquals(0, world.count("Plant_Grass_"));
+    }
+
+    @Test
+    void aFlowerAroundTheStumpKeepsBlockingAndNoGrassIsTouched() {
+        FakeForest world = field().oak(3, 1, 0, 3, 5);
+        world.saplings.put("Plant_Sapling_Oak", 1);
+        world.set(2, 1, -1, "Plant_Grass_Lush").set(4, 1, 1, "Plant_Flower_Common_Yellow");
+
+        LumberResult r = LumberCycle.run(world, CENTER, 4, LIMITS, 0, 4096, new TreeMemory());
+
+        assertEquals(LumberResult.Replant.NO_ROOM, r.replant());
+        assertEquals("Plant_Grass_Lush", world.at(2, 1, -1), "grass stays when the sapling cannot go in anyway");
+        assertEquals("Plant_Flower_Common_Yellow", world.at(4, 1, 1));
+    }
+
+    @Test
+    void grassBeyondTheSaplingFootprintIsLeftAlone() {
+        FakeForest world = field().oak(3, 1, 0, 3, 5);
+        world.saplings.put("Plant_Sapling_Oak", 1);
+        world.set(5, 1, 0, "Plant_Grass_Lush").set(3, 1, 2, "Plant_Grass_Lush").set(3, 6, 0, "Plant_Grass_Lush");
+
+        LumberCycle.run(world, CENTER, 4, LIMITS, 0, 4096, new TreeMemory());
+
+        assertEquals(3, world.count("Plant_Grass_"));
+    }
+
+    @Test
     void oneTreePerCycleAndTheNextCycleGoesOn() {
         FakeForest world = field().oak(-3, 1, 0, 0, 5).oak(3, 1, 0, 0, 5);
 

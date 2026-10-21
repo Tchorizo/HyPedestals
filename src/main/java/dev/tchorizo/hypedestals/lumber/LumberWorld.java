@@ -22,6 +22,12 @@ public interface LumberWorld extends TreeWorld, SaplingRule.Ground {
     /** Id of a soil block ({@code Type=Soil}) beside {@code p} on its layer, or {@code null}. */
     String soilNextTo(BlockPos p);
 
+    /**
+     * Whether the block at {@code p} is a grass tuft: foliage with no block entity or farming
+     * state that drops nothing worth keeping, which the Lumberjack clears from around a stump.
+     */
+    boolean isTuft(BlockPos p);
+
     /** Removes the block at {@code p} (to air), without drops of its own. */
     void remove(BlockPos p);
 

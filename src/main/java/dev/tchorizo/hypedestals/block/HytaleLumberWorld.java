@@ -1,6 +1,7 @@
 package dev.tchorizo.hypedestals.block;
 
 import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
+import com.hypixel.hytale.server.core.modules.block.BlockEntity;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.BlockMaterial;
@@ -159,6 +160,18 @@ final class HytaleLumberWorld implements LumberWorld {
     @Override
     public ContainerRoom room() {
         return HytaleCycleWorld.roomOf(container);
+    }
+
+    /**
+     * Grass tufts: the {@code Family=Grass} tag ({@code Plant_Grass_*}, all inheriting
+     * {@code Plant_Grass_Lush}: {@code Gathering.Soft} with an empty drop list), without farming
+     * state or block entity. Flowers, ferns, mushrooms and saplings are not tufts.
+     */
+    @Override
+    public boolean isTuft(BlockPos p) {
+        BlockType type = typeAt(p);
+        return type != null && type.getFarming() == null && HytaleTrees.hasTag(type, "Family", "Grass")
+                && !BlockEntity.declaresComponent(type, FarmingBlock.getComponentType());
     }
 
     @Override

@@ -30,7 +30,8 @@ public final class LumberCycle {
      * next cycle starts at it ({@link LumberResult#containerFull()}); otherwise all of its blocks
      * are removed top-down, the wood below its ground level becomes the soil beside it (air when
      * there is none), the drops are stored, and a sapling from the container is planted at the
-     * stump when {@link SaplingRule#canPlantAt} ({@link SaplingChoice}).
+     * stump when {@link SaplingRule#canPlantAt} ({@link SaplingChoice}), after clearing the grass tufts
+ * of the sapling's footprint (flowers, mushrooms and anything with a block entity still block).
      */
     public static LumberResult run(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex,
                                    int maxBlocksPerCycle, TreeMemory memory) {
@@ -89,6 +90,24 @@ public final class LumberCycle {
                 false, false, start);
     }
 
+    /** {@link SaplingRule} view of the world in which grass tufts count as air. */
+    private record TuftsAsAir(LumberWorld world) implements SaplingRule.Ground {
+        @Override
+        public boolean isEmpty(BlockPos p) {
+            return world.isEmpty(p) || world.isTuft(p);
+        }
+
+        @Override
+        public boolean isSaplingSoil(BlockPos p) {
+            return world.isSaplingSoil(p);
+        }
+
+        @Override
+        public boolean isFarmland(BlockPos p) {
+            return world.isFarmland(p);
+        }
+    }
+
     private record Planted(LumberResult.Replant replant, String sapling) {}
 
     private static Planted cut(LumberWorld world, Tree tree, List<ItemCount> drops) {
@@ -111,7 +130,16 @@ public final class LumberCycle {
         if (sapling == null) {
             return new Planted(LumberResult.Replant.NO_SAPLING, null);
         }
-        if (!SaplingRule.canPlantAt(world, tree.replantSpot()) || !world.plant(tree.replantSpot(), sapling)) {
+        BlockPos spot = tree.replantSpot();
+        if (!SaplingRule.canPlantAt(new TuftsAsAir(world), spot)) {
+            return new Planted(LumberResult.Replant.NO_ROOM, null);
+        }
+        for (BlockPos p : SaplingRule.footprint(spot)) {
+            if (world.isTuft(p)) {
+                world.remove(p); // grass drops nothing worth keeping; only cleared once the sapling fits
+            }
+        }
+        if (!world.plant(spot, sapling)) {
             return new Planted(LumberResult.Replant.NO_ROOM, null);
         }
         return new Planted(LumberResult.Replant.PLANTED, sapling);

@@ -195,6 +195,12 @@ final class FakeForest implements LumberWorld {
         return true;
     }
 
+    @Override
+    public boolean isTuft(BlockPos p) {
+        String id = blocks.get(p);
+        return id != null && id.startsWith("Plant_Grass_");
+    }
+
     // ---------------------------------------------------------------- SaplingRule.Ground
 
     @Override

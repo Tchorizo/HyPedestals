@@ -83,6 +83,27 @@ public final class SaplingRule {
     }
 
     /**
+     * The blocks {@link #canPlantAt} wants empty: the {@link #CLEAR_HEIGHT} blocks from {@code spot}
+     * up, and the ring of {@link #CLEARANCE} around it on the spot's layer and the next one.
+     */
+    public static List<BlockPos> footprint(BlockPos spot) {
+        List<BlockPos> out = new ArrayList<>();
+        for (int dy = 0; dy < CLEAR_HEIGHT; dy++) {
+            out.add(new BlockPos(spot.x(), spot.y() + dy, spot.z()));
+        }
+        for (int dy = 0; dy <= 1; dy++) {
+            for (int dx = -CLEARANCE; dx <= CLEARANCE; dx++) {
+                for (int dz = -CLEARANCE; dz <= CLEARANCE; dz++) {
+                    if (dx != 0 || dz != 0) {
+                        out.add(new BlockPos(spot.x() + dx, spot.y() + dy, spot.z() + dz));
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
      * Whether {@code spot} is on the planting grid of a machine at {@code origin}: both horizontal
      * offsets multiples of {@code spacing}, and not the machine's own column. {@code spacing <= 0}
      * means no grid (no saplings).
