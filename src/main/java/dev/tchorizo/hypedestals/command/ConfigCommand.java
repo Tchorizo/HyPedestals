@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * {@code /hypedestals config}: opens the settings window for a player; {@code config show} and
- * {@code config set <Tier|global> <field> <value>} do the same from chat or the console. All three
+ * {@code config set <Tier|global|Lumberjack|Lumberjack.<Tier>> <field> <value>} do the same from chat or the console. All three
  * are operator-only (nodes under {@link HyPedestalsCommand#PERMISSION}).
  */
 final class ConfigCommand extends AbstractAsyncCommand {
@@ -27,7 +27,9 @@ final class ConfigCommand extends AbstractAsyncCommand {
             + " | config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>"
             + " | config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles"
             + "|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock"
-            + "|PlanterSeedStock|SaplingSpacing> <value>";
+            + "|PlanterSeedStock|SaplingSpacing> <value>"
+            + " | config set Lumberjack.<Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>"
+            + " | config set Lumberjack MaxTreeBlocks <value>";
 
     ConfigCommand() {
         super("config", "Open the HyPedestals settings window");
@@ -92,12 +94,13 @@ final class ConfigCommand extends AbstractAsyncCommand {
      */
     private static final class SetCommand extends AbstractAsyncCommand {
         private final RequiredArg<String> target =
-                withRequiredArg("target", "Copper, Iron, Thorium, Cobalt or global", ArgTypes.STRING);
+                withRequiredArg("target", "Copper, Iron, Thorium, Cobalt, global, Lumberjack or Lumberjack.<Tier>", ArgTypes.STRING);
         private final RequiredArg<String> field =
                 withRequiredArg("field", "Radius, IntervalSeconds or WateringSeconds (tiers); CollectAnyItem, CollectMargin,"
                         + " SoilSweepSeconds, ExportToAdjacent, HarvestParticles, PostHarvestCollectSeconds,"
                         + " MaxHarvestsPerCycle, UpgradeParticlesSeconds, ManurePerApplication, ManureStock,"
-                        + " PlanterSeedStock or SaplingSpacing (global)",
+                        + " PlanterSeedStock or SaplingSpacing (global); Radius or IntervalSeconds (Lumberjack.<Tier>);"
+                        + " MaxTreeBlocks (Lumberjack)",
                         ArgTypes.STRING);
         private final RequiredArg<String> value = withRequiredArg("value", "New value", ArgTypes.STRING);
 

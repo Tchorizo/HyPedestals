@@ -41,11 +41,13 @@ import java.util.StringJoiner;
  *     Harvester keeps out of the export (the rest leaves; {@code 0} = keep none)
  * @param saplingSpacing grid spacing of the saplings the planter upgrade plants
  *     ({@link dev.tchorizo.hypedestals.harvest.SaplingRule#onGrid}); {@code 0} = no saplings
+ * @param lumber the Lumberjack's radius and interval per tier and tree size limit
  */
 public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem, int collectMargin,
                           int soilSweepSeconds, boolean exportToAdjacent, boolean harvestParticles,
                           float postHarvestCollectSeconds, int maxHarvestsPerCycle, float upgradeParticlesSeconds,
-                          int manurePerApplication, int manureStock, int planterSeedStock, int saplingSpacing) {
+                          int manurePerApplication, int manureStock, int planterSeedStock, int saplingSpacing,
+                          LumberSettings lumber) {
 
     public static final int MIN_MARGIN = 0;
     public static final int MAX_MARGIN = 4;
@@ -106,7 +108,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         return new ModSettings(tiers, DEFAULT_COLLECT_ANY_ITEM, DEFAULT_COLLECT_MARGIN,
                 DEFAULT_SOIL_SWEEP, DEFAULT_EXPORT_TO_ADJACENT, DEFAULT_HARVEST_PARTICLES,
                 DEFAULT_POST_HARVEST_COLLECT, DEFAULT_MAX_HARVESTS, DEFAULT_UPGRADE_PARTICLES, DEFAULT_MANURE,
-                DEFAULT_MANURE_STOCK, DEFAULT_SEED_STOCK, DEFAULT_SAPLING_SPACING);
+                DEFAULT_MANURE_STOCK, DEFAULT_SEED_STOCK, DEFAULT_SAPLING_SPACING, LumberSettings.DEFAULTS);
     }
 
     public static boolean validMargin(int margin) {
@@ -174,79 +176,85 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         copy.put(tier, settings);
         return new ModSettings(copy, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withCollectAnyItem(boolean value) {
         return new ModSettings(tiers, value, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withCollectMargin(int value) {
         return new ModSettings(tiers, collectAnyItem, value, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withSoilSweepSeconds(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, value, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withExportToAdjacent(boolean value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, value, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withHarvestParticles(boolean value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, value,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withPostHarvestCollectSeconds(float value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 value, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withMaxHarvestsPerCycle(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, value, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withUpgradeParticlesSeconds(float value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, value, manurePerApplication, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withManurePerApplication(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, value, manureStock,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withManureStock(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, value,
-                planterSeedStock, saplingSpacing);
+                planterSeedStock, saplingSpacing, lumber);
     }
 
     public ModSettings withPlanterSeedStock(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                value, saplingSpacing);
+                value, saplingSpacing, lumber);
     }
 
     public ModSettings withSaplingSpacing(int value) {
         return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
                 postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
-                planterSeedStock, value);
+                planterSeedStock, value, lumber);
+    }
+
+    public ModSettings withLumber(LumberSettings value) {
+        return new ModSettings(tiers, collectAnyItem, collectMargin, soilSweepSeconds, exportToAdjacent, harvestParticles,
+                postHarvestCollectSeconds, maxHarvestsPerCycle, upgradeParticlesSeconds, manurePerApplication, manureStock,
+                planterSeedStock, saplingSpacing, value);
     }
 
     /**
@@ -281,7 +289,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                         ? entered.manurePerApplication : manurePerApplication,
                 entered.manureStock != opened.manureStock ? entered.manureStock : manureStock,
                 entered.planterSeedStock != opened.planterSeedStock ? entered.planterSeedStock : planterSeedStock,
-                entered.saplingSpacing != opened.saplingSpacing ? entered.saplingSpacing : saplingSpacing);
+                entered.saplingSpacing != opened.saplingSpacing ? entered.saplingSpacing : saplingSpacing,
+                lumber.withChangesFrom(opened.lumber, entered.lumber));
     }
 
     private static long tenths(float seconds) {
@@ -341,6 +350,7 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
             problems.add(String.format(Locale.ROOT, "SaplingSpacing=%d (allowed 0, %d..%d)",
                     saplingSpacing, MIN_SAPLING_SPACING, MAX_SAPLING_SPACING));
         }
+        problems.addAll(lumber.problems());
         return problems;
     }
 
@@ -365,12 +375,13 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 validManure(manurePerApplication) ? manurePerApplication : DEFAULT_MANURE,
                 validManureStock(manureStock) ? manureStock : DEFAULT_MANURE_STOCK,
                 validSeedStock(planterSeedStock) ? planterSeedStock : DEFAULT_SEED_STOCK,
-                validSaplingSpacing(saplingSpacing) ? saplingSpacing : DEFAULT_SAPLING_SPACING);
+                validSaplingSpacing(saplingSpacing) ? saplingSpacing : DEFAULT_SAPLING_SPACING,
+                lumber.sanitized());
     }
 
     /**
      * Copy with one field changed, for {@code /hypedestals config set <target> <field> <value>}.
-     * {@code target} is a tier name (fields {@code Radius}, {@code IntervalSeconds},
+     * {@code target} is {@code Lumberjack} or {@code Lumberjack.<Tier>} ({@link LumberSettings#set}), a tier name (fields {@code Radius}, {@code IntervalSeconds},
      * {@code WateringSeconds}) or {@link #GLOBAL} (fields {@code CollectAnyItem},
      * {@code CollectMargin}, {@code SoilSweepSeconds}, {@code ExportToAdjacent},
      * {@code HarvestParticles}, {@code PostHarvestCollectSeconds}, {@code MaxHarvestsPerCycle},
@@ -381,6 +392,9 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
      *     value is unknown, malformed or out of range
      */
     public ModSettings set(String target, String field, String value) {
+        if (LumberSettings.isTarget(target)) {
+            return withLumber(lumber.set(target, field, value));
+        }
         String f = field.toLowerCase(Locale.ROOT);
         if (target.equalsIgnoreCase(GLOBAL)) {
             return switch (f) {
@@ -470,7 +484,8 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
         }
         Tier tier = Tier.byName(target);
         if (tier == null) {
-            throw new IllegalArgumentException("unknown target " + target + "; expected Copper, Iron, Thorium, Cobalt or " + GLOBAL);
+            throw new IllegalArgumentException("unknown target " + target + "; expected Copper, Iron, Thorium, Cobalt, " + GLOBAL
+                    + ", " + LumberSettings.TARGET + " or " + LumberSettings.TARGET + ".<Tier>");
         }
         TierSettings current = tier(tier);
         return switch (f) {
@@ -522,7 +537,18 @@ public record ModSettings(Map<Tier, TierSettings> tiers, boolean collectAnyItem,
                 + " MaxHarvestsPerCycle=" + maxHarvestsPerCycle + " UpgradeParticlesSeconds=" + upgradeParticlesSeconds
                 + " ManurePerApplication=" + manurePerApplication + " ManureStock=" + manureStock
                 + " PlanterSeedStock=" + planterSeedStock + " SaplingSpacing=" + saplingSpacing);
+        line.add(lumber.describe());
         return line.toString();
+    }
+
+    /** Whole number for {@code config set}, or {@link IllegalArgumentException} with a message for the user. */
+    static int parseIntValue(String value) {
+        return parseInt(value);
+    }
+
+    /** Number for {@code config set}, or {@link IllegalArgumentException} with a message for the user. */
+    static float parseFloatValue(String value) {
+        return parseFloat(value);
     }
 
     private static int parseInt(String value) {

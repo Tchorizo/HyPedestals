@@ -62,6 +62,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             save.append("@" + radiusId(tier), "#" + radiusId(tier) + ".Value");
             save.append("@" + intervalId(tier), "#" + intervalId(tier) + ".Value");
             save.append("@" + wateringId(tier), "#" + wateringId(tier) + ".Value");
+            save.append("@" + lumberRadiusId(tier), "#" + lumberRadiusId(tier) + ".Value");
+            save.append("@" + lumberIntervalId(tier), "#" + lumberIntervalId(tier) + ".Value");
         }
         save.append(Event.COLLECT_ANY_ITEM, COLLECT_ANY_ITEM_VALUE);
         save.append(Event.COLLECT_MARGIN, "#CollectMargin.Value");
@@ -75,6 +77,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         save.append(Event.MANURE_STOCK, "#ManureStock.Value");
         save.append(Event.SEED_STOCK, "#PlanterSeedStock.Value");
         save.append(Event.SAPLING_SPACING, "#SaplingSpacing.Value");
+        save.append(Event.MAX_TREE_BLOCKS, "#LumberjackMaxTreeBlocks.Value");
         events.addEventBinding(CustomUIEventBindingType.Activating, "#SaveButton", save, false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ResetButton", EventData.of(Event.ACTION, ACTION_RESET), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CloseConfigButton", EventData.of(Event.ACTION, ACTION_CLOSE), false);
@@ -140,6 +143,9 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             commands.set("#" + radiusId(tier) + ".Value", (double) s.radius());
             commands.set("#" + intervalId(tier) + ".Value", (double) s.intervalSeconds());
             commands.set("#" + wateringId(tier) + ".Value", (double) s.wateringSeconds());
+            LumberSettings.Lumber l = settings.lumber().tier(tier);
+            commands.set("#" + lumberRadiusId(tier) + ".Value", (double) l.radius());
+            commands.set("#" + lumberIntervalId(tier) + ".Value", (double) l.intervalSeconds());
         }
         commands.set(COLLECT_ANY_ITEM_VALUE, settings.collectAnyItem());
         commands.set("#CollectMargin.Value", (double) settings.collectMargin());
@@ -153,6 +159,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         commands.set("#ManureStock.Value", (double) settings.manureStock());
         commands.set("#PlanterSeedStock.Value", (double) settings.planterSeedStock());
         commands.set("#SaplingSpacing.Value", (double) settings.saplingSpacing());
+        commands.set("#LumberjackMaxTreeBlocks.Value", (double) settings.lumber().maxTreeBlocks());
     }
 
     /** Element id of a tier's radius field, e.g. {@code CopperRadius}; the event key is the same with {@code @}. */
@@ -166,6 +173,15 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
 
     static String wateringId(Tier tier) {
         return tier.displayName() + "Watering";
+    }
+
+    /** Element id of a Lumberjack tier's radius field, e.g. {@code LumberjackCopperRadius}. */
+    static String lumberRadiusId(Tier tier) {
+        return "Lumberjack" + tier.displayName() + "Radius";
+    }
+
+    static String lumberIntervalId(Tier tier) {
+        return "Lumberjack" + tier.displayName() + "Interval";
     }
 
     /** Event sent by the window's buttons; the values are only present on Save. */
@@ -183,6 +199,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         static final String MANURE_STOCK = "@ManureStock";
         static final String SEED_STOCK = "@PlanterSeedStock";
         static final String SAPLING_SPACING = "@SaplingSpacing";
+        static final String MAX_TREE_BLOCKS = "@LumberjackMaxTreeBlocks";
 
         public static final BuilderCodec<Event> CODEC = codec();
 
@@ -190,6 +207,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         final Map<Tier, Double> radius = new EnumMap<>(Tier.class);
         final Map<Tier, Double> interval = new EnumMap<>(Tier.class);
         final Map<Tier, Double> watering = new EnumMap<>(Tier.class);
+        final Map<Tier, Double> lumberRadius = new EnumMap<>(Tier.class);
+        final Map<Tier, Double> lumberInterval = new EnumMap<>(Tier.class);
         Boolean collectAnyItem;
         Double collectMargin;
         Double soilSweepSeconds;
@@ -202,6 +221,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         Double manureStock;
         Double planterSeedStock;
         Double saplingSpacing;
+        Double maxTreeBlocks;
 
         private static BuilderCodec<Event> codec() {
             BuilderCodec.Builder<Event> builder = BuilderCodec.builder(Event.class, Event::new)
@@ -237,6 +257,9 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     .add()
                     .append(new KeyedCodec<>(SAPLING_SPACING, Codec.DOUBLE),
                             (e, v) -> e.saplingSpacing = v, e -> e.saplingSpacing)
+                    .add()
+                    .append(new KeyedCodec<>(MAX_TREE_BLOCKS, Codec.DOUBLE),
+                            (e, v) -> e.maxTreeBlocks = v, e -> e.maxTreeBlocks)
                     .add();
             // Number fields arrive as doubles, whole or not; they are rounded below.
             for (Tier tier : Tier.values()) {
@@ -249,6 +272,12 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                         .add()
                         .append(new KeyedCodec<>("@" + wateringId(tier), Codec.DOUBLE),
                                 (e, v) -> e.watering.put(tier, v), e -> e.watering.get(tier))
+                        .add()
+                        .append(new KeyedCodec<>("@" + lumberRadiusId(tier), Codec.DOUBLE),
+                                (e, v) -> e.lumberRadius.put(tier, v), e -> e.lumberRadius.get(tier))
+                        .add()
+                        .append(new KeyedCodec<>("@" + lumberIntervalId(tier), Codec.DOUBLE),
+                                (e, v) -> e.lumberInterval.put(tier, v), e -> e.lumberInterval.get(tier))
                         .add();
             }
             return builder.build();
@@ -256,8 +285,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
 
         /**
          * Entered values as settings (radius, watering, sweep, harvest cap, poop per application, poop stock, seed stock
-         * and sapling spacing rounded to whole numbers,
-         * interval, post-harvest window and upgrade particle period to one decimal), or {@code null} if any value is
+         * sapling spacing, the Lumberjack radii and tree size rounded to whole numbers,
+         * intervals, post-harvest window and upgrade particle period to one decimal), or {@code null} if any value is
          * missing. Non-finite numbers (NaN, infinity) are added to {@code problems} instead of
          * being rounded to 0; other range checks are left to {@link ModSettings#problems()}.
          */
@@ -265,19 +294,25 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             if (collectAnyItem == null || collectMargin == null || soilSweepSeconds == null
                     || exportToAdjacent == null || harvestParticles == null || postHarvestCollectSeconds == null
                     || maxHarvestsPerCycle == null || upgradeParticlesSeconds == null || manurePerApplication == null
-                    || manureStock == null || planterSeedStock == null || saplingSpacing == null) {
+                    || manureStock == null || planterSeedStock == null || saplingSpacing == null
+                    || maxTreeBlocks == null) {
                 return null;
             }
             Map<Tier, TierSettings> tiers = new EnumMap<>(Tier.class);
+            Map<Tier, LumberSettings.Lumber> lumber = new EnumMap<>(Tier.class);
             for (Tier tier : Tier.values()) {
                 Double r = radius.get(tier), i = interval.get(tier), w = watering.get(tier);
-                if (r == null || i == null || w == null) {
+                Double lr = lumberRadius.get(tier), li = lumberInterval.get(tier);
+                if (r == null || i == null || w == null || lr == null || li == null) {
                     return null;
                 }
                 String name = tier.displayName();
                 tiers.put(tier, new TierSettings(whole(name + ".Radius", r, problems),
                         tenths(name + ".IntervalSeconds", i, problems),
                         whole(name + ".WateringSeconds", w, problems)));
+                String lumberName = LumberSettings.TARGET + "." + name;
+                lumber.put(tier, new LumberSettings.Lumber(whole(lumberName + ".Radius", lr, problems),
+                        tenths(lumberName + ".IntervalSeconds", li, problems)));
             }
             return new ModSettings(tiers, collectAnyItem, whole("CollectMargin", collectMargin, problems),
                     whole("SoilSweepSeconds", soilSweepSeconds, problems), exportToAdjacent, harvestParticles,
@@ -287,7 +322,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     whole("ManurePerApplication", manurePerApplication, problems),
                     whole("ManureStock", manureStock, problems),
                     whole("PlanterSeedStock", planterSeedStock, problems),
-                    whole("SaplingSpacing", saplingSpacing, problems));
+                    whole("SaplingSpacing", saplingSpacing, problems),
+                    new LumberSettings(lumber, whole(LumberSettings.TARGET + ".MaxTreeBlocks", maxTreeBlocks, problems)));
         }
 
         private static int whole(String field, double value, List<String> problems) {
@@ -313,10 +349,12 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             return String.format(Locale.ROOT, "Event[action=%s radius=%s interval=%s watering=%s collectAnyItem=%s"
                             + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s"
                             + " postHarvestCollectSeconds=%s maxHarvestsPerCycle=%s upgradeParticlesSeconds=%s"
-                            + " manurePerApplication=%s manureStock=%s planterSeedStock=%s saplingSpacing=%s]",
+                            + " manurePerApplication=%s manureStock=%s planterSeedStock=%s saplingSpacing=%s"
+                            + " lumberRadius=%s lumberInterval=%s maxTreeBlocks=%s]",
                     action, radius, interval, watering, collectAnyItem, collectMargin, soilSweepSeconds,
                     exportToAdjacent, harvestParticles, postHarvestCollectSeconds, maxHarvestsPerCycle,
-                    upgradeParticlesSeconds, manurePerApplication, manureStock, planterSeedStock, saplingSpacing);
+                    upgradeParticlesSeconds, manurePerApplication, manureStock, planterSeedStock, saplingSpacing,
+                    lumberRadius, lumberInterval, maxTreeBlocks);
         }
     }
 }

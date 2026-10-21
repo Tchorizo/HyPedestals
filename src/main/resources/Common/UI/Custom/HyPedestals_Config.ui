@@ -7,7 +7,7 @@ $C.@PageOverlay {
   LayoutMode: Middle;
 
   $C.@DecoratedContainer {
-    Anchor: (Width: 760);
+    Anchor: (Width: 1080);
 
     #Title {
       $C.@Title {
@@ -46,6 +46,18 @@ $C.@PageOverlay {
           Anchor: (Width: 200);
           Style: @HeaderStyle;
         }
+
+        Label {
+          Text: %hypedestals.ui.config.lumberRadius;
+          Anchor: (Width: 160);
+          Style: @HeaderStyle;
+        }
+
+        Label {
+          Text: %hypedestals.ui.config.lumberInterval;
+          Anchor: (Width: 160);
+          Style: @HeaderStyle;
+        }
       }
 
       Group {
@@ -69,8 +81,18 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #CopperWatering {
-          @Anchor = (Width: 140);
+          @Anchor = (Width: 140, Right: 60);
           Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackCopperRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackCopperInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 1, MaxValue: 600, Step: 1, MaxDecimalPlaces: 1);
         }
       }
 
@@ -95,8 +117,18 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #IronWatering {
-          @Anchor = (Width: 140);
+          @Anchor = (Width: 140, Right: 60);
           Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackIronRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackIronInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 1, MaxValue: 600, Step: 1, MaxDecimalPlaces: 1);
         }
       }
 
@@ -121,8 +153,18 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #ThoriumWatering {
-          @Anchor = (Width: 140);
+          @Anchor = (Width: 140, Right: 60);
           Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackThoriumRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackThoriumInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 1, MaxValue: 600, Step: 1, MaxDecimalPlaces: 1);
         }
       }
 
@@ -147,8 +189,18 @@ $C.@PageOverlay {
         }
 
         $C.@NumberField #CobaltWatering {
-          @Anchor = (Width: 140);
+          @Anchor = (Width: 140, Right: 60);
           Format: (MinValue: 60, MaxValue: 604800, Step: 600, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackCobaltRadius {
+          @Anchor = (Width: 120, Right: 40);
+          Format: (MinValue: 1, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+
+        $C.@NumberField #LumberjackCobaltInterval {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 1, MaxValue: 600, Step: 1, MaxDecimalPlaces: 1);
         }
       }
 
@@ -288,6 +340,22 @@ $C.@PageOverlay {
         $C.@NumberField #SaplingSpacing {
           @Anchor = (Width: 120);
           Format: (MinValue: 0, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.lumberMaxTreeBlocks;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #LumberjackMaxTreeBlocks {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 64, MaxValue: 8192, Step: 64, MaxDecimalPlaces: 0);
         }
       }
 

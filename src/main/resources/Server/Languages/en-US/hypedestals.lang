@@ -7,11 +7,22 @@ items.Harvester_Thorium.name = Thorium Harvester
 items.Harvester_Thorium.description = Harvests ripe crops within a 9×9 area every 5 s into its 27-slot storage.
 items.Harvester_Cobalt.name = Cobalt Harvester
 items.Harvester_Cobalt.description = Harvests ripe crops within an 11×11 area every 3 s into its 36-slot storage.
+items.Lumberjack_Copper.name = Copper Lumberjack
+items.Lumberjack_Copper.description = Cuts one whole tree standing within a 7×7 area every 30 s into its 9-slot storage, and plants a sapling from its storage back at the stump.
+items.Lumberjack_Iron.name = Iron Lumberjack
+items.Lumberjack_Iron.description = Cuts one whole tree standing within a 9×9 area every 20 s into its 18-slot storage, and plants a sapling from its storage back at the stump.
+items.Lumberjack_Thorium.name = Thorium Lumberjack
+items.Lumberjack_Thorium.description = Cuts one whole tree standing within a 13×13 area every 15 s into its 27-slot storage, and plants a sapling from its storage back at the stump.
+items.Lumberjack_Cobalt.name = Cobalt Lumberjack
+items.Lumberjack_Cobalt.description = Cuts one whole tree standing within a 17×17 area every 10 s into its 36-slot storage, and plants a sapling from its storage back at the stump.
 ui.config.title = HyPedestals Settings
 ui.config.tier = Harvester
 ui.config.radius = Radius (blocks)
 ui.config.interval = Interval (s)
 ui.config.watering = Watering (game s)
+ui.config.lumberRadius = Lumberjack radius
+ui.config.lumberInterval = Lumberjack interval (s)
+ui.config.lumberMaxTreeBlocks = Lumberjack: largest tree cut (blocks)
 ui.config.copper = Copper
 ui.config.iron = Iron
 ui.config.thorium = Thorium
@@ -23,15 +34,15 @@ ui.config.maxHarvests = Max crops harvested per cycle (0 = no limit)
 ui.config.soilSweep = Soil pass every (s)
 ui.config.manure = Poop per fertilizer application (0 = bags only)
 ui.config.manureStock = Poop kept as fuel (the rest is exported)
-ui.config.planterSeedStock = Seeds and saplings kept per kind (Planter; the rest is exported)
+ui.config.planterSeedStock = Seeds and saplings kept per kind (Planter, Lumberjack; the rest is exported)
 ui.config.saplingSpacing = Sapling spacing (blocks, 0 = no saplings)
-ui.config.exportToAdjacent = Export to a container below or beside the Harvester
+ui.config.exportToAdjacent = Export to a container below or beside the Harvester or Lumberjack
 ui.config.harvestParticles = Particle effect when a cycle harvests
 ui.config.upgradeParticles = Extra upgrade particles every (s, 0 = off, default)
 ui.config.save = Save
 ui.config.reset = Reset defaults
 ui.config.close = Close
-ui.config.saved = Saved. Every Harvester uses the new values from its next cycle.
+ui.config.saved = Saved. Every Harvester and Lumberjack uses the new values from its next cycle.
 ui.config.defaultsLoaded = Defaults loaded. Press Save to apply them.
 ui.config.invalid = Not saved, out of range: {problems}
 ui.config.writeFailed = Applied, but writing the config file failed: {error}

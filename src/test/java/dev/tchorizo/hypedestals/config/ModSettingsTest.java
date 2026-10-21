@@ -101,7 +101,8 @@ class ModSettingsTest {
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f, 2, 100, 64, 4));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f, 2, 100, 64, 4,
+                LumberSettings.DEFAULTS));
     }
 
     @Test
@@ -372,7 +373,9 @@ class ModSettingsTest {
                         + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
                         + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true"
                         + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=0.0 ManurePerApplication=2"
-                        + " ManureStock=100 PlanterSeedStock=64 SaplingSpacing=4",
+                        + " ManureStock=100 PlanterSeedStock=64 SaplingSpacing=4"
+                        + " | Lumberjack: Copper Radius=3 IntervalSeconds=30.0 | Iron Radius=4 IntervalSeconds=20.0"
+                        + " | Thorium Radius=6 IntervalSeconds=15.0 | Cobalt Radius=8 IntervalSeconds=10.0 | MaxTreeBlocks=2048",
                 ModSettings.DEFAULTS.describe());
     }
 

@@ -7,11 +7,22 @@ items.Harvester_Thorium.name = Colheitadeira de Tório
 items.Harvester_Thorium.description = Colhe plantações maduras numa área de 9×9 a cada 5 s e guarda no armazenamento de 27 espaços.
 items.Harvester_Cobalt.name = Colheitadeira de Cobalto
 items.Harvester_Cobalt.description = Colhe plantações maduras numa área de 11×11 a cada 3 s e guarda no armazenamento de 36 espaços.
+items.Lumberjack_Copper.name = Lenhador de Cobre
+items.Lumberjack_Copper.description = Corta uma árvore inteira numa área de 7×7 a cada 30 s, guarda no armazenamento de 9 espaços e replanta no toco uma muda do armazenamento.
+items.Lumberjack_Iron.name = Lenhador de Ferro
+items.Lumberjack_Iron.description = Corta uma árvore inteira numa área de 9×9 a cada 20 s, guarda no armazenamento de 18 espaços e replanta no toco uma muda do armazenamento.
+items.Lumberjack_Thorium.name = Lenhador de Tório
+items.Lumberjack_Thorium.description = Corta uma árvore inteira numa área de 13×13 a cada 15 s, guarda no armazenamento de 27 espaços e replanta no toco uma muda do armazenamento.
+items.Lumberjack_Cobalt.name = Lenhador de Cobalto
+items.Lumberjack_Cobalt.description = Corta uma árvore inteira numa área de 17×17 a cada 10 s, guarda no armazenamento de 36 espaços e replanta no toco uma muda do armazenamento.
 ui.config.title = Configurações do HyPedestals
 ui.config.tier = Colheitadeira
 ui.config.radius = Raio (blocos)
 ui.config.interval = Intervalo (s)
 ui.config.watering = Rega (s de jogo)
+ui.config.lumberRadius = Raio do lenhador
+ui.config.lumberInterval = Intervalo do lenhador (s)
+ui.config.lumberMaxTreeBlocks = Lenhador: maior árvore cortada (blocos)
 ui.config.copper = Cobre
 ui.config.iron = Ferro
 ui.config.thorium = Tório
@@ -23,15 +34,15 @@ ui.config.maxHarvests = Máx. de colheitas por ciclo (0 = sem limite)
 ui.config.soilSweep = Passada no solo a cada (s)
 ui.config.manure = Cocô por aplicação de fertilizante (0 = só sacos)
 ui.config.manureStock = Cocô guardado como combustível (o resto é exportado)
-ui.config.planterSeedStock = Sementes e mudas guardadas de cada tipo (Plantador; o resto é exportado)
+ui.config.planterSeedStock = Sementes e mudas guardadas de cada tipo (Plantador, Lenhador; o resto é exportado)
 ui.config.saplingSpacing = Espaçamento das mudas (blocos, 0 = não planta mudas)
-ui.config.exportToAdjacent = Exportar para um container embaixo ou ao lado da colheitadeira
+ui.config.exportToAdjacent = Exportar para um container embaixo ou ao lado da colheitadeira ou do lenhador
 ui.config.harvestParticles = Efeito de partículas quando o ciclo colhe
 ui.config.upgradeParticles = Partículas extras dos upgrades a cada (s, 0 = desligado, padrão)
 ui.config.save = Salvar
 ui.config.reset = Restaurar padrões
 ui.config.close = Fechar
-ui.config.saved = Salvo. Todas as colheitadeiras usam os novos valores a partir do próximo ciclo.
+ui.config.saved = Salvo. Colheitadeiras e lenhadores usam os novos valores a partir do próximo ciclo.
 ui.config.defaultsLoaded = Padrões carregados. Clique em Salvar para aplicá-los.
 ui.config.invalid = Não salvo, fora do intervalo: {problems}
 ui.config.writeFailed = Aplicado, mas a gravação do arquivo de configuração falhou: {error}

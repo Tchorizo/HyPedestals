@@ -4,6 +4,9 @@ import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 /**
  * The mod's config file ({@code HyPedestals.json} in the plugin's data directory), loaded through
  * the plugin's {@code withConfig}. Layout:
@@ -25,7 +28,14 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *   "ManurePerApplication": 2,
  *   "ManureStock": 100,
  *   "PlanterSeedStock": 64,
- *   "SaplingSpacing": 4
+ *   "SaplingSpacing": 4,
+ *   "Lumberjack": {
+ *     "Copper":  { "Radius": 3, "IntervalSeconds": 30.0 },
+ *     "Iron":    { "Radius": 4, "IntervalSeconds": 20.0 },
+ *     "Thorium": { "Radius": 6, "IntervalSeconds": 15.0 },
+ *     "Cobalt":  { "Radius": 8, "IntervalSeconds": 10.0 },
+ *     "MaxTreeBlocks": 2048
+ *   }
  * }
  * }</pre>
  *
@@ -108,6 +118,10 @@ public final class HyPedestalsConfig {
                         (c, v) -> c.settings = c.settings.withSaplingSpacing(v),
                         c -> c.settings.saplingSpacing())
                 .add()
+                .append(new KeyedCodec<>(LumberSettings.TARGET, LumberEntry.CODEC),
+                        (c, e) -> c.settings = c.settings.withLumber(e.toSettings(c.settings.lumber())),
+                        c -> LumberEntry.of(c.settings.lumber()))
+                .add()
                 .build();
     }
 
@@ -139,5 +153,64 @@ public final class HyPedestalsConfig {
                     intervalSeconds != null ? intervalSeconds : current.intervalSeconds(),
                     wateringSeconds != null ? wateringSeconds : current.wateringSeconds());
         }
+    }
+
+    /** The {@code Lumberjack} object in the file; a missing key keeps the current value. */
+    private static final class LumberEntry {
+        static final BuilderCodec<LumberEntry> CODEC = codec();
+
+        final Map<Tier, LumberTierEntry> tiers = new EnumMap<>(Tier.class);
+        Integer maxTreeBlocks;
+
+        private static BuilderCodec<LumberEntry> codec() {
+            BuilderCodec.Builder<LumberEntry> builder = BuilderCodec.builder(LumberEntry.class, LumberEntry::new);
+            for (Tier tier : Tier.values()) {
+                builder = builder.append(new KeyedCodec<>(tier.displayName(), LumberTierEntry.CODEC),
+                                (e, v) -> e.tiers.put(tier, v), e -> e.tiers.get(tier))
+                        .add();
+            }
+            return builder
+                    .append(new KeyedCodec<>("MaxTreeBlocks", Codec.INTEGER), (e, v) -> e.maxTreeBlocks = v, e -> e.maxTreeBlocks)
+                    .add()
+                    .build();
+        }
+
+        static LumberEntry of(LumberSettings s) {
+            LumberEntry e = new LumberEntry();
+            for (Tier tier : Tier.values()) {
+                LumberTierEntry t = new LumberTierEntry();
+                t.radius = s.tier(tier).radius();
+                t.intervalSeconds = s.tier(tier).intervalSeconds();
+                e.tiers.put(tier, t);
+            }
+            e.maxTreeBlocks = s.maxTreeBlocks();
+            return e;
+        }
+
+        LumberSettings toSettings(LumberSettings current) {
+            LumberSettings out = current;
+            for (Tier tier : Tier.values()) {
+                LumberTierEntry t = tiers.get(tier);
+                if (t != null) {
+                    LumberSettings.Lumber c = current.tier(tier);
+                    out = out.withTier(tier, new LumberSettings.Lumber(t.radius != null ? t.radius : c.radius(),
+                            t.intervalSeconds != null ? t.intervalSeconds : c.intervalSeconds()));
+                }
+            }
+            return maxTreeBlocks != null ? out.withMaxTreeBlocks(maxTreeBlocks) : out;
+        }
+    }
+
+    /** One Lumberjack tier's object in the file. */
+    private static final class LumberTierEntry {
+        static final BuilderCodec<LumberTierEntry> CODEC = BuilderCodec.builder(LumberTierEntry.class, LumberTierEntry::new)
+                .append(new KeyedCodec<>("Radius", Codec.INTEGER), (e, v) -> e.radius = v, e -> e.radius)
+                .add()
+                .append(new KeyedCodec<>("IntervalSeconds", Codec.FLOAT), (e, v) -> e.intervalSeconds = v, e -> e.intervalSeconds)
+                .add()
+                .build();
+
+        Integer radius;
+        Float intervalSeconds;
     }
 }
