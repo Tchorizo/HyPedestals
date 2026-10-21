@@ -3,6 +3,14 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- **Planter Upgrade** (Farming Bench tier 2: 1× Iron Hoe + 4× Iron Bar + 25× Life Essence). After every harvest cycle the Harvester plants the seeds from its storage (any slot, lowest slot first) on every empty block of its area whose soil the seed grows on — the seed's own planting rule, read from the game's seed interaction, so vanilla seeds go on tilled soil, herbs on crystal soil and seeds of mods that follow the vanilla seed format on their own soils — and replants annual crops in the same cycle. Tree saplings are planted on grass or other non-tilled soil on a grid every `SaplingSpacing` blocks from the Harvester, only where the space around them is free. With the upgrade the export keeps up to `PlanterSeedStock` of each seed and sapling kind. Amber orbs over the Harvester show it; a Harvester now holds up to three upgrades.
+- `PlanterSeedStock` (global, 0–1000, 64 by default) and `SaplingSpacing` (global, 0 or 2–16, 4 by default; 0 = no saplings), in the config file, the settings window and `config set global`.
+- `/hypedestals inspect`: `planter: planted=<seeds>+<saplings> total=<seeds>+<saplings> seeds=<n>` with the Planter upgrade.
+
 ## 0.2.3 — 2026-10-20
 
 ### Fixed

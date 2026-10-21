@@ -1,6 +1,6 @@
 # HyPedestals
 
-A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items. Upgrades let a Harvester also water and fertilize its farmland, and it can pass its harvest on to a chest next to it.
+A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items. Upgrades let a Harvester also water, fertilize and replant its farmland, and it can pass its harvest on to a chest next to it.
 
 **Keep animals on your farm and their manure becomes fertilizer.** With the Fertilizer Upgrade, every Poop your livestock drops inside the field is collected by the Harvester and used to fertilize the crops — no crafting, no bags, a closed loop from pasture to plant.
 
@@ -30,13 +30,13 @@ The numbers in the table are the defaults. Radius and interval can be changed pe
 
 A Harvester only harvests a crop while its storage has room for its reservation (see [Known limitations](#known-limitations)). Before each crop it checks that the reservation still fits: at first the most that crop can drop (e.g. wheat and Life Essence: two new stacks, or one plus a stack of either with room), after a few harvests of that crop type 1.5 × what it was seen to drop (never more than the maximum). The check counts what this cycle already harvested and what the last two cycles harvested that has not reached the storage yet (the game takes a moment to make new drops collectable). The first crop that does not fit ends the cycle: it and the rest stay ripe on the plant until space frees up (e.g. through [export](#export-to-an-adjacent-container)), and the next cycle starts with it. While the storage is full the Harvester does not collect at all. Servers that want a limit on harvests per cycle can set `MaxHarvestsPerCycle`; the next cycle then continues where the last one stopped, so the whole area still gets harvested over a few cycles.
 
-**Tip:** annual crops disappear when harvested, but the game's **Eternal** crops grow back after each harvest. Pair a Harvester with Eternal seeds for a farm that never needs replanting.
+**Tip:** annual crops disappear when harvested, but the game's **Eternal** crops grow back after each harvest. Pair a Harvester with Eternal seeds for a farm that never needs replanting — or install the **Planter Upgrade** and keep seeds in the Harvester: it replants annual crops itself.
 
 **Also harvests:** ripe apples on apple trees; the apples regrow after harvest. It leaves tree saplings, cacti and spreading mushrooms alone.
 
 ## Upgrades
 
-A Harvester holds up to two upgrades, one of each kind. They are stored in the Harvester itself, not in its storage slots, so automation never takes them out.
+A Harvester holds up to three upgrades, one of each kind. They are stored in the Harvester itself, not in its storage slots, so automation never takes them out.
 
 > **Animals → manure → fertilizer.** Fence your cows, sheep, goats or horses inside the Harvester's area: their Poop is picked up like any drop and the Fertilizer Upgrade burns it (2 per soil block) before touching any Fertilizer bag. Manure above one stack is exported with the harvest, so the storage never clogs.
 
@@ -44,17 +44,25 @@ A Harvester holds up to two upgrades, one of each kind. They are stored in the H
 |---|---|---|
 | **Watering Upgrade** | tier 2: 1× Watering Can + 4× Iron Bar + 3× Tree Sap + 25× Life Essence | Keeps the tilled soil in the Harvester's area watered, like a watering can, with no water source needed and nothing consumed |
 | **Fertilizer Upgrade** | tier 3: 1× Fertilizer + 4× Iron Bar + 25× Life Essence | Fertilizes the planted soil in its area with Poop and Fertilizer bags you put in the Harvester's storage (any slot) |
+| **Planter Upgrade** | tier 2: 1× Iron Hoe + 4× Iron Bar + 25× Life Essence | Plants the seeds in the Harvester's storage (any slot) on every empty soil block of its area, and tree saplings on grass or dirt on a grid |
 
 - **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
 - **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
 - **Breaking** a Harvester drops its installed upgrades together with the block and its storage contents. Unloading the chunk or restarting the server keeps them installed.
-- **Particles** show what is installed: glowing blue orbs over the Harvester for watering, green orbs for the fertilizer, both colors when it has both. They come from the block itself; with `UpgradeParticlesSeconds` above 0 (off by default; enable it if the block's own particles do not show on your client) the server also sends them every that many seconds. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
+- **Particles** show what is installed: glowing orbs over the Harvester, blue for watering, green for the fertilizer, amber for the planter, one ring per upgrade. They come from the block itself; with `UpgradeParticlesSeconds` above 0 (off by default; enable it if the block's own particles do not show on your client) the server also sends them every that many seconds. With `HarvestParticles` on (the default), a short puff of dust rises from the Harvester whenever a cycle harvests something.
 
 Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s by default), separate from the harvest interval and also while the storage is full. The pass covers the same area as the harvest; soil one block below the Harvester's level (under crops on the Harvester's own level) is included.
 
 **Watering.** Each pass waters every tilled soil block in the area that has less than half of its watering time left, for the tier's `WateringSeconds` of game time: about 12 / 24 / 40 / 60 real minutes for Copper / Iron / Thorium / Cobalt. While the Harvester runs the soil never dries; after it is removed (or its chunk unloads) the soil stays watered for that long.
 
 **Fertilizer.** With the upgrade installed, the Harvester fertilizes with **Poop and Fertilizer bags from any slot of its storage**; no slot is reserved and nothing is filtered, so the harvest can use every slot. Each pass fertilizes the soil blocks in the area that have a crop on them and are not fertilized yet, one application per block. Poop goes first: **animal manure in the Harvester's storage fuels it: K poop per application** (`ManurePerApplication`, 2 by default, the same poop per use as a crafted bag; poop from several slots adds up, the lowest slot is used first, and a rest below K waits for more). The Harvester collects every item dropped in its collect box, so **keep livestock inside the fenced field**: cows, sheep, goats, horses, pigs and other farm animals drop poop every 12–72 real minutes and the Harvester picks it up. Then the bags: one bag use per block (5 uses per bag, like using the bag by hand); an empty bag disappears. With several bags, the most used one goes first, so bags are emptied one at a time. While the upgrade is installed the bags are never exported and the poop is kept up to `ManureStock` (100 by default, one stack); the poop above that is exported (with `ManurePerApplication` 0 poop is an ordinary item again). Fertilized soil stays fertilized until the soil block is replaced. Anything that inserts items into containers can also feed poop or bags to the Harvester.
+
+**Planter.** With the upgrade installed, right after every harvest cycle the Harvester plants from its storage, any slot, **lowest slot first**:
+
+- **Seeds** go on every empty block of its area whose block below the seed grows on — the same rule as planting by hand: vanilla seeds on tilled soil (watered or fertilized too), herb seeds on crystal soil, and seeds of mods that follow the game's seed format on their own soils (e.g. LifeCrops seeds on its essence soil). One seed per block; an annual crop harvested in a cycle is replanted in the same cycle. Tree seeds are not planted.
+- **Saplings** (`Plant_Sapling_*`) go on grass, dirt or another non-tilled soil block, only on a grid every `SaplingSpacing` blocks (4 by default) from the Harvester along both axes, and only where the sapling and the blocks around and above it are free. With the default spacing that means Thorium and Cobalt Harvesters (8 spots on the edges of the area); set `SaplingSpacing` to 3 for Iron. A growing tree never replaces a chest, crop or Harvester in its way, but it stops growing where it is blocked, so leave room around saplings. Apples on apple trees are harvested like any crop: apple saplings make an orchard.
+- The export keeps up to `PlanterSeedStock` (64 by default) of **each** seed and sapling kind in the Harvester; the rest leaves with the harvest.
+- Empty tilled soil turns back into dry mud after about an in-game day and a half (about an hour), the game's own rule; keep seeds in the Harvester and the soil stays planted.
 
 ## Configuration
 
@@ -75,7 +83,9 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "MaxHarvestsPerCycle": 0,
   "UpgradeParticlesSeconds": 0.0,
   "ManurePerApplication": 2,
-  "ManureStock": 100
+  "ManureStock": 100,
+  "PlanterSeedStock": 64,
+  "SaplingSpacing": 4
 }
 ```
 
@@ -94,6 +104,8 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `UpgradeParticlesSeconds` | 0–60 | 0 (the default) = off: only the block's own particles show the upgrades. Above 0, a Harvester with upgrades also sends its upgrade particles to the players within 75 blocks every this many seconds (each burst lasts that long); enable it if the block's own particles do not show on your client |
 | `ManurePerApplication` | 0–64 | Poop the Fertilizer upgrade burns per soil block, before it uses Fertilizer bags; 0 turns poop off (bags only, and poop is exported like any other item) |
 | `ManureStock` | 0–1000 | Most Poop a Harvester with the Fertilizer upgrade keeps as fuel (100 by default, one stack); the Poop above it is exported like any other item, from the highest slot down, so manure collected from livestock does not fill the storage. 0 keeps none |
+| `PlanterSeedStock` | 0–1000 | With the Planter upgrade, most items of each seed or sapling kind the Harvester keeps out of the export (64 by default); the rest is exported, from the highest slot down. 0 keeps none |
+| `SaplingSpacing` | 0, 2–16 | Grid spacing of the saplings the Planter upgrade plants (4 by default); 0 = no saplings |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
@@ -101,11 +113,11 @@ In game (operators):
 
 - `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock|PlanterSeedStock|SaplingSpacing> <value>` — change one value, apply it and save the file. Also works from the server console.
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, **Fertilizer bags are never exported** and **Poop is kept up to `ManureStock`** (100 by default), whatever their slot (they are the upgrade's supply; Poop only while `ManurePerApplication` is above 0): the Poop above that stock leaves, from the highest slot down. Without the upgrade, both are exported like any other item.
+With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, **Fertilizer bags are never exported** and **Poop is kept up to `ManureStock`** (100 by default), whatever their slot (they are the upgrade's supply; Poop only while `ManurePerApplication` is above 0): the Poop above that stock leaves, from the highest slot down. With the Planter upgrade installed, **each seed and sapling kind is kept up to `PlanterSeedStock`** (64 by default) the same way. Without the upgrades, all of these are exported like any other item.
 
 ## Compatibility
 
@@ -113,7 +125,8 @@ With `ExportToAdjacent` on (the default), at the end of every cycle (also when t
 - **AutoStorage:** it only pushes items out of its own chest and never pulls from other containers, so place a Harvester right next to an AutoStorage chest and let [export](#export-to-an-adjacent-container) move the harvest into it.
 - **Chests and other containers** that use the game's item storage work as export targets.
 - **LifeCrops:** its PoopCrop is a crop like any other, so a row of PoopCrop inside the Harvester's area can keep the Fertilizer upgrade supplied with poop (not tested yet).
-- **Eternal crops** (vanilla) are harvested and grow back on their own; regular annual crops have to be replanted.
+- **Eternal crops** (vanilla) are harvested and grow back on their own; regular annual crops are replanted by the Planter Upgrade (or by you).
+- **LifeCrops:** with the Planter Upgrade its seeds follow its own soil rules (on its essence soil they place the essence variant, as by hand).
 
 ## Admin commands
 
@@ -140,7 +153,7 @@ Permission nodes (operators hold them all through the `*` wildcard; nobody else 
 - **Only works while its chunk section is loaded and ticking**, i.e. near a player. There is no chunk loading: the part of an area that reaches into a neighbouring chunk that is not loaded is skipped until that chunk loads (`inspect` shows `unloaded=<n>`).
 - **Vacuums any dropped item** within radius + `CollectMargin` (2 by default), not only crops, unless `CollectAnyItem` is turned off (then tools, weapons and armor stay on the ground).
 - **Overlapping Harvesters compete.** Where areas overlap, whichever Harvester runs first takes the crop, and each dropped item in the overlap goes to whichever Harvester collects it first. Harvesters whose areas only touch (e.g. two Iron 7 blocks apart) keep their own drops: a Harvester leaves the items lying inside another active Harvester's area to that one, even within its own collect margin. A drop that rolls over the border into the neighbour's area goes to the neighbour.
-- **Annual crops are not replanted.** They are removed when harvested; replant them yourself or use Eternal crops. Bushes that reset after harvest (e.g. berries) regrow by themselves.
+- **Annual crops are only replanted with the Planter Upgrade** and seeds in the Harvester's storage; without it they are removed when harvested. Bushes that reset after harvest (e.g. berries) regrow by themselves.
 - **Crops wait on the plant when storage is full.** The Harvester stops harvesting once the drops of the next ripe crop would not fit and only resumes when space frees up; keep an export target with room for a farm that never stalls. The room check starts from the most each crop can drop and, after a few harvests of a crop type, uses 1.5 × what that type was seen to drop (never more than the maximum), so crops whose drop list allows far more than they usually give do not hold space they never use. A harvest that drops more than that leaves the excess on the ground until the next collect, and sends its crop type back to the maximum. Items that other sources drop in the collect area (e.g. a player) take space like any other.
 - If harvesting a crop type keeps failing with an error, that Harvester skips that crop type until its chunk reloads (one warning is logged). A crop the game is still updating is simply retried on the next cycle.
 - **Creative mode:** installing an upgrade does not use up the item, and removing one still gives an item back, so upgrade items can be multiplied in Creative (like any item there).
