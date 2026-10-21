@@ -2,6 +2,8 @@
 
 A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items. Upgrades let a Harvester also water and fertilize its farmland, and it can pass its harvest on to a chest next to it.
 
+**Keep animals on your farm and their manure becomes fertilizer.** With the Fertilizer Upgrade, every Poop your livestock drops inside the field is collected by the Harvester and used to fertilize the crops — no crafting, no bags, a closed loop from pasture to plant.
+
 Requires **Hytale 0.7.2**. Works in singleplayer and on dedicated servers.
 
 ## Tiers
@@ -35,6 +37,8 @@ A Harvester only harvests a crop while its storage has room for its reservation 
 ## Upgrades
 
 A Harvester holds up to two upgrades, one of each kind. They are stored in the Harvester itself, not in its storage slots, so automation never takes them out.
+
+> **Animals → manure → fertilizer.** Fence your cows, sheep, goats or horses inside the Harvester's area: their Poop is picked up like any drop and the Fertilizer Upgrade burns it (2 per soil block) before touching any Fertilizer bag. Manure above one stack is exported with the harvest, so the storage never clogs.
 
 | Upgrade | Recipe (Farming Bench) | What it does |
 |---|---|---|
