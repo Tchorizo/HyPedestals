@@ -120,7 +120,7 @@ class HytaleIdsTest {
     @ValueSource(strings = {"Copper", "Iron", "Thorium", "Cobalt"})
     void eachTierDeclaresUpgradeVisualStates(String tier) throws IOException {
         String json = resource(ITEMS + "Harvester/HyPedestals_Harvester_" + tier + ".json");
-        for (String state : new String[] {UpgradeVisual.WATERING, UpgradeVisual.FERTILIZER, UpgradeVisual.BOTH}) {
+        for (String state : UpgradeVisual.STATES) {
             assertTrue(json.contains("\"" + state + "\": {"), tier + " misses state " + state);
         }
         assertFalse(resource(ITEMS + "Harvester/HyPedestals_Harvester_Template.json").contains("\"State\""),
@@ -135,20 +135,12 @@ class HytaleIdsTest {
     @ValueSource(strings = {"Copper", "Iron", "Thorium", "Cobalt"})
     void stateParticlesMatchUpgradeVisual(String tier) throws IOException {
         String json = resource(ITEMS + "Harvester/HyPedestals_Harvester_" + tier + ".json");
-        assertStateParticles(tier, between(json, "\"" + UpgradeVisual.WATERING + "\": {", "\"" + UpgradeVisual.FERTILIZER + "\": {"),
-                UpgradeVisual.particlesFor(upgrades(UpgradeType.WATERING)));
-        assertStateParticles(tier, between(json, "\"" + UpgradeVisual.FERTILIZER + "\": {", "\"" + UpgradeVisual.BOTH + "\": {"),
-                UpgradeVisual.particlesFor(upgrades(UpgradeType.FERTILIZER)));
-        assertStateParticles(tier, between(json, "\"" + UpgradeVisual.BOTH + "\": {", "\"Recipe\""),
-                UpgradeVisual.particlesFor(upgrades(UpgradeType.WATERING, UpgradeType.FERTILIZER)));
-    }
-
-    private static UpgradeSet upgrades(UpgradeType... types) {
-        UpgradeSet set = new UpgradeSet();
-        for (UpgradeType type : types) {
-            set.install(type);
+        List<String> states = UpgradeVisual.STATES;
+        for (int i = 0; i < states.size(); i++) {
+            String end = i + 1 < states.size() ? "\"" + states.get(i + 1) + "\": {" : "\"Recipe\"";
+            assertStateParticles(tier, between(json, "\"" + states.get(i) + "\": {", end),
+                    UpgradeVisual.particlesFor(UpgradeVisual.upgradesOf(states.get(i))));
         }
-        return set;
     }
 
     private static void assertStateParticles(String tier, String state, List<UpgradeVisual.Particle> expected) {

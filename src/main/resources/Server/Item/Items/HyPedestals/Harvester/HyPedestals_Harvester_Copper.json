@@ -76,6 +76,86 @@
               }
             }
           ]
+        },
+        "Planter": {
+          "Particles": [
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#ffa31a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.1
+              }
+            }
+          ]
+        },
+        "Watering_Planter": {
+          "Particles": [
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#2a7cff",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.05
+              }
+            },
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#ffa31a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.2
+              }
+            }
+          ]
+        },
+        "Fertilizer_Planter": {
+          "Particles": [
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#3cff5a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.05
+              }
+            },
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#ffa31a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.2
+              }
+            }
+          ]
+        },
+        "All": {
+          "Particles": [
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#2a7cff",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.0
+              }
+            },
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#3cff5a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.15
+              }
+            },
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#ffa31a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.3
+              }
+            }
+          ]
         }
       }
     }

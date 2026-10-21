@@ -13,8 +13,7 @@ class SaplingRuleTest {
 
     private static final BlockPos CENTER = new BlockPos(0, 64, 0);
 
-    /** Air everywhere except the blocks put in {@code solid}; {@code soil} and {@code farmland} are subsets of it. */
-    static final class FakeGround implements SaplingRule.Ground {
+    static class FakeGround implements SaplingRule.Ground {
         final Set<BlockPos> solid = new HashSet<>();
         final Set<BlockPos> soil = new HashSet<>();
         final Set<BlockPos> farmland = new HashSet<>();

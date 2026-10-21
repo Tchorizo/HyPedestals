@@ -41,7 +41,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * takes its applications from the fuel in the container, whatever its slot: poop first
  * ({@code ManurePerApplication} per application), then fertilizer bags
  * ({@link HytaleFertilizerInput}), and the export leaves the bags and up to {@code ManureStock}
- * poop in place. Each cycle also
+ * poop in place. With the planter upgrade, each cycle schedules a planting pass
+ * ({@link HytalePlanter}) that plants the container's seeds and saplings in the area after the
+ * tick, and the export leaves up to {@code PlanterSeedStock} of each of them. Each cycle also
  * re-asserts the block state that shows the upgrades ({@link HarvesterVisual}); with
  * {@code UpgradeParticlesSeconds} above 0 the same effects are also spawned as world particles
  * on that period ({@link UpgradeParticles}); and, with {@code HarvestParticles}, it puffs a short particle burst when
@@ -214,13 +216,20 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             ParticleUtil.spawnParticleEffect(HARVEST_PARTICLES,
                     new Vector3d(pos.x + 0.5, pos.y, pos.z + 0.5), world.getEntityStore().getStore());
         }
+        // Planter: replant after the harvest, outside this tick (setBlock on the chunk store).
+        // Runs on the cycle timer, also with the container full (seeds come out of it).
+        if (harvester.hasUpgrade(UpgradeType.PLANTER)) {
+            HytalePlanter.request(world, new BlockPos(pos.x, pos.y, pos.z), settings.radius(), global.saplingSpacing());
+        }
         // After the cycle's second collect, so this cycle's items leave right away; also when the
         // container is full, which is when export matters most.
-        // With the fertilizer upgrade its fuel (bags, poop up to ManureStock) is the pass's supply: it stays in the Harvester.
+        // With the fertilizer upgrade its fuel (bags, poop up to ManureStock) is the pass's supply: it stays in the Harvester;
+        // with the planter upgrade, up to PlanterSeedStock of each seed and sapling kind stays too.
         if (global.exportToAdjacent()) {
             long exportStart = System.nanoTime();
             harvester.lastExport = new HytaleExport(world, cb).run(container, info, new BlockPos(pos.x, pos.y, pos.z),
-                    harvester.hasUpgrade(UpgradeType.FERTILIZER), global.manurePerApplication(), global.manureStock());
+                    harvester.hasUpgrade(UpgradeType.FERTILIZER), global.manurePerApplication(), global.manureStock(),
+                    harvester.hasUpgrade(UpgradeType.PLANTER), global.planterSeedStock());
             phase(harvester, CycleStats.Phase.EXPORT, micros(exportStart));
         } else {
             harvester.lastExport = ExportPlan.Result.NONE;

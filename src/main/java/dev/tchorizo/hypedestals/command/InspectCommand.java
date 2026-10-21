@@ -13,12 +13,14 @@ import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.block.HarvesterComponent;
 import dev.tchorizo.hypedestals.block.HytaleFertilizerInput;
+import dev.tchorizo.hypedestals.block.HytalePlantables;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleResult;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.FertilizerInput;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
+import dev.tchorizo.hypedestals.harvest.PlantPass;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import org.joml.Vector3i;
@@ -67,7 +69,7 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
         CycleStats stats = harvester.stats();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs upgrades=%s soil: %s%s"
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs upgrades=%s soil: %s%s%s"
                         + " perf: last=%dus p50=%dus p95=%dus max=%dus (n=%d)",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
@@ -76,7 +78,29 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
                         last.harvested(), last.collected(), full(last), export(harvester.lastExport())),
                 harvester.burstSecondsLeft(), harvester.upgrades(), soil(harvester),
                 harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "",
+                harvester.hasUpgrade(UpgradeType.PLANTER) ? " planter: " + planter(harvester, containerBlock) : "",
                 stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
+    }
+
+    /**
+     * {@code planted=<seeds>+<saplings> total=<seeds>+<saplings> seeds=<n>}: the last planting pass,
+     * the totals since the load and the seeds and saplings in the container; {@code none} instead
+     * of the first two before the first pass since the load.
+     */
+    private static String planter(HarvesterComponent harvester, ItemContainerBlock containerBlock) {
+        int seeds = 0;
+        if (containerBlock != null) {
+            ItemContainer container = containerBlock.getItemContainer();
+            for (short slot = 0; slot < container.getCapacity(); slot++) {
+                ItemStack stack = container.getItemStack(slot);
+                if (!ItemStack.isEmpty(stack) && HytalePlantables.isPlantable(stack.getItemId())) {
+                    seeds += stack.getQuantity();
+                }
+            }
+        }
+        PlantPass.Result last = harvester.lastPlant();
+        return (last == null ? "none" : String.format(Locale.ROOT, "planted=%d+%d total=%d+%d", last.seeds(),
+                last.saplings(), harvester.seedsPlantedTotal(), harvester.saplingsPlantedTotal())) + " seeds=" + seeds;
     }
 
     /**

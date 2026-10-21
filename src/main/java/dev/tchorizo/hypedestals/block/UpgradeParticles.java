@@ -24,9 +24,11 @@ import java.util.List;
  */
 public final class UpgradeParticles {
 
-    /** Shared by every packet and never mutated. */
-    private static final Color WATERING_COLOR = color(UpgradeVisual.rgb(UpgradeVisual.WATERING_COLOR));
-    private static final Color FERTILIZER_COLOR = color(UpgradeVisual.rgb(UpgradeVisual.FERTILIZER_COLOR));
+    /** Packet color of each ring color, shared by every packet and never mutated. */
+    private static final java.util.Map<String, Color> COLORS = java.util.Map.of(
+            UpgradeVisual.WATERING_COLOR, color(UpgradeVisual.rgb(UpgradeVisual.WATERING_COLOR)),
+            UpgradeVisual.FERTILIZER_COLOR, color(UpgradeVisual.rgb(UpgradeVisual.FERTILIZER_COLOR)),
+            UpgradeVisual.PLANTER_COLOR, color(UpgradeVisual.rgb(UpgradeVisual.PLANTER_COLOR)));
 
     private UpgradeParticles() {}
 
@@ -37,7 +39,7 @@ public final class UpgradeParticles {
     static void spawn(World world, Vector3i pos, UpgradeSet upgrades, float seconds) {
         for (UpgradeVisual.Particle particle : UpgradeVisual.particlesFor(upgrades)) {
             Vector3d at = new Vector3d(pos.x + 0.5, pos.y + particle.offsetY(), pos.z + 0.5);
-            Color color = particle.color().equals(UpgradeVisual.WATERING_COLOR) ? WATERING_COLOR : FERTILIZER_COLOR;
+            Color color = COLORS.get(particle.color());
             spawn(world, particle.systemId(), at, UpgradeVisual.PARTICLE_SCALE, color, seconds);
         }
     }

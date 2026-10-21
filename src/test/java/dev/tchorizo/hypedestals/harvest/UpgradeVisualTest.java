@@ -29,12 +29,36 @@ class UpgradeVisualTest {
     void singleUpgrades() {
         assertEquals("Watering", UpgradeVisual.stateFor(of(UpgradeType.WATERING)));
         assertEquals("Fertilizer", UpgradeVisual.stateFor(of(UpgradeType.FERTILIZER)));
+        assertEquals("Planter", UpgradeVisual.stateFor(of(UpgradeType.PLANTER)));
     }
 
     @Test
-    void bothInEitherOrder() {
+    void combinationsInAnyOrder() {
         assertEquals("Both", UpgradeVisual.stateFor(of(UpgradeType.WATERING, UpgradeType.FERTILIZER)));
         assertEquals("Both", UpgradeVisual.stateFor(of(UpgradeType.FERTILIZER, UpgradeType.WATERING)));
+        assertEquals("Watering_Planter", UpgradeVisual.stateFor(of(UpgradeType.PLANTER, UpgradeType.WATERING)));
+        assertEquals("Fertilizer_Planter", UpgradeVisual.stateFor(of(UpgradeType.FERTILIZER, UpgradeType.PLANTER)));
+        assertEquals("All", UpgradeVisual.stateFor(of(UpgradeType.PLANTER, UpgradeType.FERTILIZER, UpgradeType.WATERING)));
+    }
+
+    @Test
+    void everyCombinationHasItsOwnNamedState() {
+        assertEquals(List.of("Watering", "Fertilizer", "Both", "Planter", "Watering_Planter", "Fertilizer_Planter", "All"),
+                UpgradeVisual.STATES);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int mask = 1; mask < 8; mask++) {
+            UpgradeSet set = new UpgradeSet();
+            for (UpgradeType type : UpgradeType.values()) {
+                if ((mask & (1 << type.ordinal())) != 0) {
+                    set.install(type);
+                }
+            }
+            String state = UpgradeVisual.stateFor(set);
+            assertTrue(UpgradeVisual.STATES.contains(state), state);
+            assertTrue(seen.add(state), "two combinations share " + state);
+            assertEquals(UpgradeVisual.particlesFor(set), UpgradeVisual.particlesFor(UpgradeVisual.upgradesOf(state)));
+        }
+        assertTrue(UpgradeVisual.upgradesOf(UpgradeVisual.DEFAULT).isEmpty());
     }
 
     @Test
@@ -47,33 +71,45 @@ class UpgradeVisualTest {
     }
 
     @Test
-    void particlesFollowTheUpgradesWateringFirst() {
+    void particlesFollowTheUpgradesWateringFertilizerPlanter() {
         assertTrue(UpgradeVisual.particlesFor(new UpgradeSet()).isEmpty());
-        assertEquals(List.of(UpgradeVisual.WATERING_PARTICLE), UpgradeVisual.particlesFor(of(UpgradeType.WATERING)));
-        assertEquals(List.of(UpgradeVisual.FERTILIZER_PARTICLE), UpgradeVisual.particlesFor(of(UpgradeType.FERTILIZER)));
-        List<UpgradeVisual.Particle> both = List.of(UpgradeVisual.WATERING_BOTH_PARTICLE, UpgradeVisual.FERTILIZER_BOTH_PARTICLE);
+        assertEquals(List.of(new UpgradeVisual.Particle(UpgradeVisual.PARTICLE_SYSTEM, UpgradeVisual.WATERING_COLOR, 1.1)),
+                UpgradeVisual.particlesFor(of(UpgradeType.WATERING)));
+        assertEquals(List.of(new UpgradeVisual.Particle(UpgradeVisual.PARTICLE_SYSTEM, UpgradeVisual.PLANTER_COLOR, 1.1)),
+                UpgradeVisual.particlesFor(of(UpgradeType.PLANTER)));
+        List<UpgradeVisual.Particle> both = List.of(
+                new UpgradeVisual.Particle(UpgradeVisual.PARTICLE_SYSTEM, UpgradeVisual.WATERING_COLOR, 1.05),
+                new UpgradeVisual.Particle(UpgradeVisual.PARTICLE_SYSTEM, UpgradeVisual.FERTILIZER_COLOR, 1.2));
         assertEquals(both, UpgradeVisual.particlesFor(of(UpgradeType.WATERING, UpgradeType.FERTILIZER)));
         assertEquals(both, UpgradeVisual.particlesFor(of(UpgradeType.FERTILIZER, UpgradeType.WATERING)));
+        List<UpgradeVisual.Particle> all = UpgradeVisual.particlesFor(
+                of(UpgradeType.PLANTER, UpgradeType.WATERING, UpgradeType.FERTILIZER));
+        assertEquals(List.of(UpgradeVisual.WATERING_COLOR, UpgradeVisual.FERTILIZER_COLOR, UpgradeVisual.PLANTER_COLOR),
+                all.stream().map(UpgradeVisual.Particle::color).toList());
     }
 
     @Test
-    void particlesSitAboveTheCapAndApartWithBoth() {
+    void particlesSitAboveTheCapAndApart() {
         // The cap ends at about 0.97 of the block (Harvester.blockymodel).
-        for (UpgradeVisual.Particle particle : List.of(UpgradeVisual.WATERING_PARTICLE, UpgradeVisual.FERTILIZER_PARTICLE,
-                UpgradeVisual.WATERING_BOTH_PARTICLE, UpgradeVisual.FERTILIZER_BOTH_PARTICLE)) {
-            assertTrue(particle.offsetY() > 1.0, particle.toString());
+        for (String state : UpgradeVisual.STATES) {
+            List<UpgradeVisual.Particle> particles = UpgradeVisual.particlesFor(UpgradeVisual.upgradesOf(state));
+            for (int i = 0; i < particles.size(); i++) {
+                assertTrue(particles.get(i).offsetY() > 0.97, state + " " + particles.get(i));
+                if (i > 0) {
+                    assertTrue(particles.get(i).offsetY() - particles.get(i - 1).offsetY() >= 0.1, state);
+                }
+            }
         }
-        assertTrue(UpgradeVisual.FERTILIZER_BOTH_PARTICLE.offsetY() - UpgradeVisual.WATERING_BOTH_PARTICLE.offsetY() >= 0.1);
-        assertEquals(UpgradeVisual.WATERING_COLOR, UpgradeVisual.WATERING_BOTH_PARTICLE.color());
-        assertEquals(UpgradeVisual.FERTILIZER_COLOR, UpgradeVisual.FERTILIZER_BOTH_PARTICLE.color());
     }
 
     @Test
-    void wateringIsBlueAndFertilizerGreen() {
-        int[] blue = UpgradeVisual.WATERING_PARTICLE.rgb();
-        int[] green = UpgradeVisual.FERTILIZER_PARTICLE.rgb();
+    void wateringIsBlueFertilizerGreenPlanterAmber() {
+        int[] blue = UpgradeVisual.rgb(UpgradeVisual.WATERING_COLOR);
+        int[] green = UpgradeVisual.rgb(UpgradeVisual.FERTILIZER_COLOR);
+        int[] amber = UpgradeVisual.rgb(UpgradeVisual.PLANTER_COLOR);
         assertTrue(blue[2] > blue[0] && blue[2] > blue[1], "watering is blue");
         assertTrue(green[1] > green[0] && green[1] > green[2], "fertilizer is green");
+        assertTrue(amber[0] > amber[1] && amber[1] > amber[2], "planter is amber");
     }
 
     @Test

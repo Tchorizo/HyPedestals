@@ -1,9 +1,10 @@
 package dev.tchorizo.hypedestals.harvest;
 
-/** Upgrades a Harvester can hold, each backed by one item id. */
+/** Upgrades a Harvester can hold (at most one of each), each backed by one item id. */
 public enum UpgradeType {
     WATERING("HyPedestals_Upgrade_Watering", "Watering"),
-    FERTILIZER("HyPedestals_Upgrade_Fertilizer", "Fertilizer");
+    FERTILIZER("HyPedestals_Upgrade_Fertilizer", "Fertilizer"),
+    PLANTER("HyPedestals_Upgrade_Planter", "Planter");
 
     private final String itemId;
     private final String displayName;

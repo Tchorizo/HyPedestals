@@ -1,9 +1,12 @@
 package dev.tchorizo.hypedestals.harvest;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Export to an adjacent container ({@code ExportToAdjacent}): after a cycle, the Harvester moves
@@ -21,6 +24,9 @@ import java.util.Set;
  *       slots) only what is above {@code ManureStock} leaves, taken from the highest slot down,
  *       so poop collected without end does not fill the container. Without the upgrade (or
  *       poop with {@code ManurePerApplication = 0}) it moves like any other item.</li>
+ *   <li>With the planter upgrade installed, its seeds and saplings (the caller's
+ *       {@code plantable} predicate) keep up to {@code PlanterSeedStock} items <b>of each kind</b>
+ *       (item id) in the lowest slots; the rest leaves from the highest slot down.</li>
  *   <li>Partial moves are fine: what does not fit stays for the next cycle.</li>
  * </ul>
  */
@@ -108,7 +114,20 @@ public final class ExportPlan {
      */
     public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center,
                                                       boolean keepFertilizer, int manurePerApplication, int manureStock) {
-        int[] limits = exportLimits(source, keepFertilizer, manurePerApplication, manureStock);
+        return run(world, source, center, keepFertilizer, manurePerApplication, manureStock, null, 0);
+    }
+
+    /**
+     * {@link #run(ExportWorld, ExportSource, BlockPos, boolean, int, int)} with the planter upgrade's stock.
+     *
+     * @param plantable with the planter upgrade, whether an item id is one of its seeds or
+     *     saplings; {@code null} without the upgrade (seeds are ordinary items)
+     * @param seedStock the config's {@code PlanterSeedStock}: most items of each plantable kind kept
+     */
+    public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center,
+                                                      boolean keepFertilizer, int manurePerApplication, int manureStock,
+                                                      Predicate<String> plantable, int seedStock) {
+        int[] limits = exportLimits(source, keepFertilizer, manurePerApplication, manureStock, plantable, seedStock);
         if (limits == null) {
             return Result.NONE;
         }
@@ -146,11 +165,22 @@ public final class ExportPlan {
      * @return the limits, or {@code null} when nothing may leave
      */
     static int[] exportLimits(ExportSource source, boolean keepFertilizer, int manurePerApplication, int manureStock) {
+        return exportLimits(source, keepFertilizer, manurePerApplication, manureStock, null, 0);
+    }
+
+    /**
+     * {@link #exportLimits(ExportSource, boolean, int, int)} where, with {@code plantable}, the
+     * items of each plantable id above {@code seedStock} (summed over their slots) leave from the
+     * highest slot down, like the poop above its stock.
+     */
+    static int[] exportLimits(ExportSource source, boolean keepFertilizer, int manurePerApplication, int manureStock,
+                              Predicate<String> plantable, int seedStock) {
         int capacity = source.capacity();
         int[] limits = new int[capacity];
         boolean poopKept = keepFertilizer && manurePerApplication > 0;
         boolean any = false;
         int poop = 0;
+        Map<String, Integer> seeds = null;
         for (int slot = 0; slot < capacity; slot++) {
             if (source.isEmpty(slot)) {
                 continue;
@@ -158,17 +188,40 @@ public final class ExportPlan {
             String id = source.itemId(slot);
             if (poopKept && FertilizerInput.isPoop(id)) {
                 poop += source.quantity(slot);
-            } else if (isExportable(id, keepFertilizer, manurePerApplication)) {
+            } else if (!isExportable(id, keepFertilizer, manurePerApplication)) {
+                continue;
+            } else if (plantable != null && plantable.test(id)) {
+                if (seeds == null) {
+                    seeds = new HashMap<>();
+                }
+                seeds.merge(id, source.quantity(slot), Integer::sum);
+            } else {
                 limits[slot] = source.quantity(slot);
                 any = true;
             }
         }
         int excess = poop - Math.max(0, manureStock);
-        for (int slot = capacity - 1; slot >= 0 && excess > 0; slot--) {
-            if (!source.isEmpty(slot) && FertilizerInput.isPoop(source.itemId(slot))) {
-                limits[slot] = Math.min(source.quantity(slot), excess);
-                excess -= limits[slot];
-                any = true;
+        if (seeds != null) {
+            seeds.replaceAll((id, total) -> total - Math.max(0, seedStock));
+        }
+        for (int slot = capacity - 1; slot >= 0; slot--) {
+            if (source.isEmpty(slot)) {
+                continue;
+            }
+            String id = source.itemId(slot);
+            if (poopKept && FertilizerInput.isPoop(id)) {
+                if (excess > 0) {
+                    limits[slot] = Math.min(source.quantity(slot), excess);
+                    excess -= limits[slot];
+                    any = true;
+                }
+            } else if (seeds != null && seeds.containsKey(id)) {
+                int over = seeds.get(id);
+                if (over > 0) {
+                    limits[slot] = Math.min(source.quantity(slot), over);
+                    seeds.put(id, over - limits[slot]);
+                    any = true;
+                }
             }
         }
         return any ? limits : null;

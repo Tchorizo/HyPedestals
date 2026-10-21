@@ -112,6 +112,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new TimersCommand());
         addSubCommand(new StressCommand());
         addSubCommand(new ParticlesCommand());
+        addSubCommand(new DevPlanterCommands());
     }
 
     @Override
@@ -121,10 +122,11 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | break <x y z> | collect <x y z> <radius> | scene <x y z>"
                         + " | grow <x y z> <radius> <factor, 0 = off> | crop <x y z>"
                         + " | setblock <x y z> <block id|air> [--rotation <index>] | contents <x y z>"
-                        + " | upgrade <x y z> <add|remove> <watering|fertilizer> | fence <x y z> <radius>"
+                        + " | upgrade <x y z> <add|remove> <watering|fertilizer|planter> | fence <x y z> <radius>"
                         + " | water <x y z> <game seconds> | soil <x y z> | pin <x y z> | timers <x y z> <x2 y2 z2> [--sync true]"
                         + " | stress <x y z> <count> [--factor F]"
                         + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]"
+                        + " | planter seeds|resolve|plant|soil|decay|stage|snap|diff …"
                         + " | particles <x y z> <SystemId|off> [--scale S] [--offset Y] [--color rrggbb] [--seconds N]",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
@@ -1284,7 +1286,7 @@ final class DevCommands extends AbstractAsyncCommand {
     }
 
     /**
-     * {@code upgrade <x y z> <add|remove> <watering|fertilizer> [--save false]}: installs or removes
+     * {@code upgrade <x y z> <add|remove> <watering|fertilizer|planter> [--save false]}: installs or removes
      * an upgrade on the Harvester at the position without a client, replying with the upgrades
      * afterwards. A change marks the block's section for saving, as the install interaction does;
      * {@code --save false} skips that, to show that without it the change is lost on restart.
@@ -1293,7 +1295,7 @@ final class DevCommands extends AbstractAsyncCommand {
         private final RequiredArg<String> action =
                 withRequiredArg("action", "add or remove", ArgTypes.STRING);
         private final RequiredArg<String> upgrade =
-                withRequiredArg("upgrade", "watering or fertilizer", ArgTypes.STRING);
+                withRequiredArg("upgrade", "watering, fertilizer or planter", ArgTypes.STRING);
         private final DefaultArg<Boolean> save = withDefaultArg("save",
                 "Mark the block for saving after a change (false = persistence control)", ArgTypes.BOOLEAN, true, "true");
 
@@ -1314,7 +1316,7 @@ final class DevCommands extends AbstractAsyncCommand {
             boolean mark = context.get(save);
             if (!(act.equals("add") || act.equals("remove")) || type == null) {
                 HyPedestalsCommand.reply(context,
-                        "usage: hypedestals dev upgrade <x y z> <add|remove> <watering|fertilizer> [--save false]");
+                        "usage: hypedestals dev upgrade <x y z> <add|remove> <watering|fertilizer|planter> [--save false]");
                 return CompletableFuture.completedFuture(null);
             }
             return runAt(context, world -> HyPedestalsCommand.reply(context, "%s",
@@ -1354,7 +1356,7 @@ final class DevCommands extends AbstractAsyncCommand {
     }
 
     /**
-     * {@code state <x y z> <Default|Watering|Fertilizer|Both>}: puts the block at the position into
+     * {@code state <x y z> <Default|Watering|Fertilizer|Both|Planter|Watering_Planter|Fertilizer_Planter|All>}: puts the block at the position into
      * that {@code State.Definitions} entry with {@code setBlockInteractionState}, the call the
      * Harvester uses for its upgrades (upgrades spike S3). Replies with the id before and after,
      * whether the block entity and its Harvester component are the same objects afterwards, and the
@@ -1363,7 +1365,8 @@ final class DevCommands extends AbstractAsyncCommand {
      */
     private static final class StateCommand extends HyPedestalsCommand.PositionCommand {
         private final RequiredArg<String> state = withRequiredArg("state",
-                "Default, Watering, Fertilizer or Both (any state name of the block)", ArgTypes.STRING);
+                "Default or a Harvester upgrade state (Watering, Fertilizer, Both, Planter, Watering_Planter, Fertilizer_Planter, All)",
+                ArgTypes.STRING);
 
         StateCommand() {
             super("state", "Put the block at a position into a named block state (visual test)");

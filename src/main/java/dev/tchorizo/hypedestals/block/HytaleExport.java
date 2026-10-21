@@ -52,12 +52,16 @@ final class HytaleExport implements ExportPlan.ExportWorld<HytaleExport.Source> 
      * @param keepFertilizer whether the fertilizer upgrade is installed (its fuel stays)
      * @param manurePerApplication the config's {@code ManurePerApplication} ({@code 0}: poop is not fuel and leaves)
      * @param manureStock the config's {@code ManureStock} (poop kept as fuel; the rest leaves)
+     * @param keepSeeds whether the planter upgrade is installed (its seeds and saplings stay up to {@code seedStock} each)
+     * @param seedStock the config's {@code PlanterSeedStock}
      */
     ExportPlan.Result run(ItemContainer container, BlockModule.BlockStateInfo info, BlockPos center,
-                          boolean keepFertilizer, int manurePerApplication, int manureStock) {
+                          boolean keepFertilizer, int manurePerApplication, int manureStock,
+                          boolean keepSeeds, int seedStock) {
         ExportPlan.Result result;
         try {
-            result = ExportPlan.run(this, new Source(container), center, keepFertilizer, manurePerApplication, manureStock);
+            result = ExportPlan.run(this, new Source(container), center, keepFertilizer, manurePerApplication, manureStock,
+                    keepSeeds ? HytalePlantables::isPlantable : null, seedStock);
         } catch (RuntimeException e) {
             HyPedestalsPlugin.warn("export from the Harvester at %d %d %d failed: %s",
                     center.x(), center.y(), center.z(), e.toString());

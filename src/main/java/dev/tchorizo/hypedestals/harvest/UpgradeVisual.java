@@ -1,15 +1,18 @@
 package dev.tchorizo.hypedestals.harvest;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * How a Harvester shows its installed upgrades. Each tier's asset repeats the
- * {@code State.Definitions} entries named here (an inherited {@code State} would point at the
- * Template's own variant blocks); they differ only in {@code Particles}: {@link #WATERING_PARTICLE}
- * for watering, {@link #FERTILIZER_PARTICLE} for the fertilizer, {@link #WATERING_BOTH_PARTICLE}
- * and {@link #FERTILIZER_BOTH_PARTICLE} for both, none in the default state. {@link #particlesFor}
- * lists the same effects for the periodic spawn ({@code UpgradeParticlesSeconds}), which does not
- * depend on the client drawing state particles.
+ * How a Harvester shows its installed upgrades. Each combination of upgrades has a named block
+ * state ({@link #STATES}); each tier's asset repeats those {@code State.Definitions} entries (an
+ * inherited {@code State} would point at the Template's own variant blocks), and they differ only
+ * in {@code Particles}: one tinted ring per installed upgrade, watering (blue), fertilizer
+ * (green) and planter (amber) from the bottom up, none in the default state.
+ * {@link #particlesFor} lists the same effects for the periodic spawn
+ * ({@code UpgradeParticlesSeconds}), which does not depend on the client drawing state particles.
+ * The names of the watering/fertilizer states predate the planter and are kept: they are part of
+ * block ids saved in the world's chunks.
  */
 public final class UpgradeVisual {
 
@@ -18,6 +21,16 @@ public final class UpgradeVisual {
     public static final String WATERING = "Watering";
     public static final String FERTILIZER = "Fertilizer";
     public static final String BOTH = "Both";
+    public static final String PLANTER = "Planter";
+    public static final String WATERING_PLANTER = "Watering_Planter";
+    public static final String FERTILIZER_PLANTER = "Fertilizer_Planter";
+    public static final String ALL = "All";
+    /**
+     * Every non-default state, indexed by the upgrade bit mask minus one (watering 1, fertilizer
+     * 2, planter 4); also the order the tier assets declare them in.
+     */
+    public static final List<String> STATES =
+            List.of(WATERING, FERTILIZER, BOTH, PLANTER, WATERING_PLANTER, FERTILIZER_PLANTER, ALL);
 
     /**
      * Vanilla {@code Server/Particles/Item/Lantern/Temple_Light_Lantern.particlesystem}: one
@@ -38,25 +51,17 @@ public final class UpgradeVisual {
      * the cap (which ends at about 0.97), so the effect is not hidden under it.
      */
     public static final double PARTICLE_OFFSET_Y = 1.1;
-    /** Heights of the two rings with both upgrades, apart so they do not overlap. */
-    public static final double WATERING_BOTH_OFFSET_Y = 1.05;
-    public static final double FERTILIZER_BOTH_OFFSET_Y = 1.2;
+    /** Ring heights by number of upgrades, bottom up; at least 0.15 apart so they do not overlap. */
+    private static final double[][] OFFSETS = {{PARTICLE_OFFSET_Y}, {1.05, 1.2}, {1.0, 1.15, 1.3}};
     /**
-     * Saturated blue and green: the balls are additive ({@code BlendAdd}) and at most 55% opaque,
-     * so a pale tint (the former {@code #64c1ff}/{@code #60d682}) washes out to white-ish.
+     * Saturated colors: the balls are additive ({@code BlendAdd}) and at most 55% opaque, so a
+     * pale tint (the former {@code #64c1ff}/{@code #60d682}) washes out to white-ish.
      */
     public static final String WATERING_COLOR = "#2a7cff";
     public static final String FERTILIZER_COLOR = "#3cff5a";
-    public static final Particle WATERING_PARTICLE = new Particle(PARTICLE_SYSTEM, WATERING_COLOR, PARTICLE_OFFSET_Y);
-    public static final Particle FERTILIZER_PARTICLE = new Particle(PARTICLE_SYSTEM, FERTILIZER_COLOR, PARTICLE_OFFSET_Y);
-    public static final Particle WATERING_BOTH_PARTICLE =
-            new Particle(PARTICLE_SYSTEM, WATERING_COLOR, WATERING_BOTH_OFFSET_Y);
-    public static final Particle FERTILIZER_BOTH_PARTICLE =
-            new Particle(PARTICLE_SYSTEM, FERTILIZER_COLOR, FERTILIZER_BOTH_OFFSET_Y);
+    public static final String PLANTER_COLOR = "#ffa31a";
 
-    private static final List<Particle> WATERING_ONLY = List.of(WATERING_PARTICLE);
-    private static final List<Particle> FERTILIZER_ONLY = List.of(FERTILIZER_PARTICLE);
-    private static final List<Particle> BOTH_PARTICLES = List.of(WATERING_BOTH_PARTICLE, FERTILIZER_BOTH_PARTICLE);
+    private static final List<List<Particle>> PARTICLES = buildParticles();
 
     /**
      * One particle effect: a vanilla particle system, the {@code #rrggbb} color it is tinted with
@@ -79,31 +84,69 @@ public final class UpgradeVisual {
 
     /** State name for {@code upgrades}, independent of installation order. */
     public static String stateFor(UpgradeSet upgrades) {
-        boolean watering = upgrades.has(UpgradeType.WATERING);
-        boolean fertilizer = upgrades.has(UpgradeType.FERTILIZER);
-        if (watering && fertilizer) {
-            return BOTH;
+        int mask = mask(upgrades);
+        return mask == 0 ? DEFAULT : STATES.get(mask - 1);
+    }
+
+    /** The upgrades a state shows (the inverse of {@link #stateFor}); empty for the default or an unknown name. */
+    public static UpgradeSet upgradesOf(String state) {
+        UpgradeSet set = new UpgradeSet();
+        int mask = STATES.indexOf(state) + 1;
+        for (UpgradeType type : UpgradeType.values()) {
+            if ((mask & bit(type)) != 0) {
+                set.install(type);
+            }
         }
-        if (watering) {
-            return WATERING;
-        }
-        return fertilizer ? FERTILIZER : DEFAULT;
+        return set;
     }
 
     /**
-     * The effects of {@code upgrades}, watering first, independent of installation order; empty
-     * for none. Shared immutable lists.
+     * The effects of {@code upgrades}, watering, fertilizer, planter from the bottom up,
+     * independent of installation order; empty for none. Shared immutable lists.
      */
     public static List<Particle> particlesFor(UpgradeSet upgrades) {
-        boolean watering = upgrades.has(UpgradeType.WATERING);
-        boolean fertilizer = upgrades.has(UpgradeType.FERTILIZER);
-        if (watering && fertilizer) {
-            return BOTH_PARTICLES;
+        return PARTICLES.get(mask(upgrades));
+    }
+
+    /** The {@code #rrggbb} color of {@code type}'s ring. */
+    public static String color(UpgradeType type) {
+        return switch (type) {
+            case WATERING -> WATERING_COLOR;
+            case FERTILIZER -> FERTILIZER_COLOR;
+            case PLANTER -> PLANTER_COLOR;
+        };
+    }
+
+    private static int bit(UpgradeType type) {
+        return 1 << type.ordinal();
+    }
+
+    private static int mask(UpgradeSet upgrades) {
+        int mask = 0;
+        for (UpgradeType type : UpgradeType.values()) {
+            if (upgrades.has(type)) {
+                mask |= bit(type);
+            }
         }
-        if (watering) {
-            return WATERING_ONLY;
+        return mask;
+    }
+
+    private static List<List<Particle>> buildParticles() {
+        List<List<Particle>> all = new ArrayList<>(STATES.size() + 1);
+        for (int mask = 0; mask <= STATES.size(); mask++) {
+            List<UpgradeType> shown = new ArrayList<>(3);
+            for (UpgradeType type : UpgradeType.values()) {
+                if ((mask & bit(type)) != 0) {
+                    shown.add(type);
+                }
+            }
+            List<Particle> particles = new ArrayList<>(shown.size());
+            for (int i = 0; i < shown.size(); i++) {
+                particles.add(new Particle(PARTICLE_SYSTEM, color(shown.get(i)), OFFSETS[shown.size() - 1][i]));
+            }
+            all.add(List.copyOf(particles));
         }
-        return fertilizer ? FERTILIZER_ONLY : List.of();
+        return List.copyOf(all);
     }
 
     /**

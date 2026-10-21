@@ -14,6 +14,7 @@ import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.DropCalibration;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
 import dev.tchorizo.hypedestals.harvest.PendingDrops;
+import dev.tchorizo.hypedestals.harvest.PlantPass;
 import dev.tchorizo.hypedestals.harvest.SoilPass;
 import dev.tchorizo.hypedestals.harvest.UpgradeSet;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
@@ -111,6 +112,12 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     int fertilizedTotal;
     /** Result of the most recent export to an adjacent container; {@code NONE} before the first one or with export off. */
     ExportPlan.Result lastExport = ExportPlan.Result.NONE;
+    /** Result of the last planting pass (planter upgrade); {@code null} before the first one since the load. */
+    PlantPass.Result lastPlant;
+    /** Seeds planted since the load. */
+    int seedsPlantedTotal;
+    /** Saplings planted since the load. */
+    int saplingsPlantedTotal;
     /**
      * Seconds left of the post-harvest collect burst ({@code CollectBurst}): while positive,
      * {@code HarvesterSystem} collects drops on every tick between cycles. {@code 0} after a load.
@@ -210,6 +217,21 @@ public final class HarvesterComponent implements Component<ChunkStore> {
     /** See {@link #lastExport}. */
     public ExportPlan.Result lastExport() {
         return lastExport;
+    }
+
+    /** Result of the most recent planting pass, or {@code null} before the first one since the load. */
+    public PlantPass.Result lastPlant() {
+        return lastPlant;
+    }
+
+    /** Seeds planted since the load. */
+    public int seedsPlantedTotal() {
+        return seedsPlantedTotal;
+    }
+
+    /** Saplings planted since the load. */
+    public int saplingsPlantedTotal() {
+        return saplingsPlantedTotal;
     }
 
     /** Seconds left of the post-harvest collect burst; {@code 0} when none is running. */

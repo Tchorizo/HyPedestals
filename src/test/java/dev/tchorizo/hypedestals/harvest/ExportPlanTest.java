@@ -110,6 +110,36 @@ class ExportPlanTest {
     }
 
     @Test
+    void withThePlanterEachSeedKindKeepsItsStockFromTheLowestSlots() {
+        // wheat seeds 50 + 30 (stock 64: 16 leave from slot 3), saplings 10 (all stay), cobble leaves,
+        // carrot seeds 70 (6 leave).
+        FakeWorld world = new FakeWorld();
+        FakeSource source = new FakeSource(50, 10, 5, 30, 70)
+                .item(0, "Plant_Seeds_Wheat").item(1, "Plant_Sapling_Oak").item(3, "Plant_Seeds_Wheat")
+                .item(4, "Plant_Seeds_Carrot");
+        FakeTarget below = world.put(new BlockPos(10, 63, 20), new FakeTarget(1000));
+        java.util.function.Predicate<String> plantable = id -> id.startsWith("Plant_Seeds_") || id.startsWith("Plant_Sapling_");
+
+        ExportPlan.Result r = ExportPlan.run(world, source, CENTER, false, K, STOCK, plantable, 64);
+
+        assertEquals(5 + 16 + 6, r.moved());
+        assertEquals(27, below.received);
+        assertArrayEquals(new int[] {50, 10, 0, 14, 64}, source.counts);
+
+        FakeSource all = new FakeSource(50, 10).item(0, "Plant_Seeds_Wheat").item(1, "Plant_Sapling_Oak");
+        ExportPlan.run(world, all, CENTER, false, K, STOCK, plantable, 0);
+        assertArrayEquals(new int[] {0, 0}, all.counts, "PlanterSeedStock 0: every seed leaves");
+
+        FakeSource noPlanter = new FakeSource(50).item(0, "Plant_Seeds_Wheat");
+        ExportPlan.run(world, noPlanter, CENTER, false, K, STOCK, null, 64);
+        assertArrayEquals(new int[] {0}, noPlanter.counts, "without the upgrade seeds are ordinary items");
+
+        FakeSource bags = new FakeSource(1, 5).item(0, FERTILIZER).item(1, "Plant_Seeds_Wheat");
+        assertEquals(ExportPlan.Result.NONE, ExportPlan.run(world, bags, CENTER, true, K, STOCK, plantable, 64),
+                "both upgrades: bags and seeds under the stock stay");
+    }
+
+    @Test
     void emptySourceDoesNotLookAtTheWorld() {
         FakeWorld world = new FakeWorld();
         ExportPlan.Result r = ExportPlan.run(world, new FakeSource(0, 0, 0), CENTER, false, K, STOCK);

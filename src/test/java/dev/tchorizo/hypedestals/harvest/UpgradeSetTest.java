@@ -13,6 +13,7 @@ class UpgradeSetTest {
 
     private static final String WATERING = "HyPedestals_Upgrade_Watering";
     private static final String FERTILIZER = "HyPedestals_Upgrade_Fertilizer";
+    private static final String PLANTER = "HyPedestals_Upgrade_Planter";
 
     @Test
     void itemIdsRoundTrip() {
@@ -20,6 +21,16 @@ class UpgradeSetTest {
         assertEquals(FERTILIZER, UpgradeType.FERTILIZER.itemId());
         assertEquals(UpgradeType.WATERING, UpgradeType.fromItemId(WATERING));
         assertEquals(UpgradeType.FERTILIZER, UpgradeType.fromItemId(FERTILIZER));
+        assertEquals(PLANTER, UpgradeType.PLANTER.itemId());
+        assertEquals(UpgradeType.PLANTER, UpgradeType.fromItemId(PLANTER));
+    }
+
+    @Test
+    void allThreeTypesFitInOneHarvester() {
+        UpgradeSet set = UpgradeSet.parse(new String[] {PLANTER, WATERING, FERTILIZER});
+        assertArrayEquals(new String[] {PLANTER, WATERING, FERTILIZER}, set.toArray());
+        assertEquals("[Planter, Watering, Fertilizer]", set.toString());
+        assertFalse(set.install(UpgradeType.PLANTER), "still one per type");
     }
 
     @Test
