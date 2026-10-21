@@ -18,15 +18,20 @@ import java.util.List;
  *     block): the ground level; below it the tree replaced soil
  * @param replantSpot the wood block at {@code groundY} on the column whose wood goes deepest (the
  *     vanilla sapling's column, which carries the roots); ties: nearest the start
- * @param buried cut blocks below {@code groundY}, filled back with soil after the cut
+ * @param buried cut wood below {@code groundY}, filled back with the soil beside it after the cut
+ * @param visited blocks the search read as part of a tree (its cost, for the per-cycle budget)
  */
 public record Tree(Status status, List<BlockPos> wood, List<BlockPos> leaves, List<BlockPos> hanging,
-                   int groundY, BlockPos replantSpot, List<BlockPos> buried) {
+                   int groundY, BlockPos replantSpot, List<BlockPos> buried, int visited) {
 
     public enum Status {
         /** Whole tree found within the limits, not growing. */
         CUTTABLE,
-        /** The start is not a wood block. */
+        /**
+         * Not a natural tree (Ruling H): the start is not wood, or the wood has no leaves, fewer
+         * leaves than a quarter of its blocks, or its rooted column does not stand on soil (a log
+         * cabin, a leaf roof on a stone floor).
+         */
         NOT_A_TREE,
         /** A wood block carries a growing sapling's state. */
         GROWING,
@@ -36,8 +41,8 @@ public record Tree(Status status, List<BlockPos> wood, List<BlockPos> leaves, Li
         UNLOADED
     }
 
-    static Tree skipped(Status status, List<BlockPos> woodSoFar) {
-        return new Tree(status, List.copyOf(woodSoFar), List.of(), List.of(), 0, null, List.of());
+    static Tree skipped(Status status, List<BlockPos> woodSoFar, int visited) {
+        return new Tree(status, List.copyOf(woodSoFar), List.of(), List.of(), 0, null, List.of(), visited);
     }
 
     /** Every block to cut, top-down (the order they are removed in). */

@@ -60,6 +60,7 @@ final class FakeForest implements LumberWorld {
         for (int ty = y - roots; ty < y + height; ty++) {
             set(x, ty, z, "Wood_Oak_Trunk");
         }
+        blocks.putIfAbsent(new BlockPos(x, y - roots - 1, z), "Soil_Dirt");
         int top = y + height - 1;
         for (int ly = top - 1; ly <= top; ly++) {
             for (int dx = -1; dx <= 1; dx++) {
@@ -111,6 +112,12 @@ final class FakeForest implements LumberWorld {
     public boolean needsSupport(BlockPos p) {
         String id = blocks.get(p);
         return id != null && id.startsWith("Hang_");
+    }
+
+    @Override
+    public boolean soil(BlockPos p) {
+        String id = unloaded.contains(p) ? null : blocks.get(p);
+        return id != null && id.startsWith("Soil_");
     }
 
     @Override

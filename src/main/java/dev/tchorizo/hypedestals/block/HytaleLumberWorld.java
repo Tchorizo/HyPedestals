@@ -101,6 +101,12 @@ final class HytaleLumberWorld implements LumberWorld {
     }
 
     @Override
+    public boolean soil(BlockPos p) {
+        BlockType type = typeAt(p);
+        return type != null && HytalePlantables.isSaplingSoil(type);
+    }
+
+    @Override
     public boolean solid(BlockPos p) {
         BlockType type = typeAt(p);
         return type != null && type.getMaterial() == BlockMaterial.Solid;

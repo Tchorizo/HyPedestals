@@ -53,6 +53,7 @@ class TreeScanTest {
     void touchingCanopiesAreSplitByTheNearestWood() {
         // Trunks at x=0 and x=4; the leaf row y=5 runs x=-1..5 without a gap.
         FakeForest world = new FakeForest();
+        world.set(0, 0, 0, "Soil_Dirt").set(4, 0, 0, "Soil_Dirt");
         for (int y = 1; y <= 5; y++) {
             world.set(0, y, 0, "Wood_Oak_Trunk").set(4, y, 0, "Wood_Oak_Trunk");
         }
@@ -71,7 +72,7 @@ class TreeScanTest {
     @Test
     void farLeavesOfASingleTreeAreAllTaken() {
         // A fir-like tip 10 leaf steps above the wood (vanilla prefabs reach 13).
-        FakeForest world = new FakeForest().set(0, 1, 0, "Wood_Fir_Trunk");
+        FakeForest world = new FakeForest().set(0, 0, 0, "Soil_Dirt").set(0, 1, 0, "Wood_Fir_Trunk");
         for (int y = 2; y <= 11; y++) {
             world.set(0, y, 0, "Plant_Leaves_Fir");
         }
@@ -84,7 +85,7 @@ class TreeScanTest {
 
     @Test
     void leavesBeyondTheReachStay() {
-        FakeForest world = new FakeForest().set(0, 1, 0, "Wood_Oak_Trunk");
+        FakeForest world = new FakeForest().set(0, 0, 0, "Soil_Dirt").set(0, 1, 0, "Wood_Oak_Trunk");
         for (int x = 1; x <= 6; x++) {
             world.set(x, 1, 0, "Plant_Leaves_Oak");
         }
@@ -178,14 +179,65 @@ class TreeScanTest {
     }
 
     @Test
-    void treeOnStoneHasNothingBuried() {
-        FakeForest world = new FakeForest().set(0, 0, 0, "Rock_Stone").oak(0, 1, 0, 0, 5);
+    void treeOnTopOfTheGroundHasNothingBuried() {
+        FakeForest world = new FakeForest().set(0, 0, 0, "Soil_Dirt").oak(0, 1, 0, 0, 5);
 
         Tree tree = TreeScan.find(world, p(0, 3, 0), LIMITS);
 
         assertEquals(1, tree.groundY());
         assertEquals(p(0, 1, 0), tree.replantSpot());
         assertTrue(tree.buried().isEmpty());
+    }
+
+    @Test
+    void logCabinWithoutLeavesIsNotATree() {
+        FakeForest world = new FakeForest().ground(0, 0, 4, 0, 2);
+        for (int x = -2; x <= 2; x++) {
+            for (int y = 1; y <= 3; y++) {
+                world.set(x, y, -2, "Wood_Oak_Trunk").set(x, y, 2, "Wood_Oak_Trunk");
+            }
+        }
+
+        assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(world, p(0, 1, -2), LIMITS).status());
+    }
+
+    @Test
+    void cabinWithALeafRoofOnAStoneFloorIsNotATree() {
+        FakeForest world = new FakeForest();
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                world.set(x, 0, z, "Rock_Stone").set(x, 4, z, "Plant_Leaves_Oak");
+            }
+        }
+        for (int[] c : new int[][]{{-2, -2}, {-2, 2}, {2, -2}, {2, 2}}) {
+            for (int y = 1; y <= 3; y++) {
+                world.set(c[0], y, c[1], "Wood_Oak_Trunk");
+            }
+        }
+
+        assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(world, p(-2, 1, -2), LIMITS).status());
+    }
+
+    @Test
+    void fewLeavesForTheWoodIsNotATree() {
+        FakeForest world = new FakeForest().ground(0, 0, 2, 0, 2);
+        for (int y = 1; y <= 12; y++) {
+            world.set(0, y, 0, "Wood_Oak_Trunk");
+        }
+        world.set(0, 13, 0, "Plant_Leaves_Oak").set(1, 12, 0, "Plant_Leaves_Oak");
+
+        assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(world, p(0, 1, 0), LIMITS).status());
+    }
+
+    @Test
+    void buriedIsOnlyWood() {
+        FakeForest world = new FakeForest().ground(0, 0, 4, 0, 4).oak(0, 1, 0, 2, 5);
+        world.set(1, 0, 0, "Plant_Leaves_Oak"); // a leaf in the ground next to the roots
+
+        Tree tree = TreeScan.find(world, p(0, 1, 0), LIMITS);
+
+        assertEquals(2, tree.buried().size());
+        assertFalse(tree.buried().contains(p(1, 0, 0)));
     }
 
     @Test

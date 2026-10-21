@@ -17,6 +17,9 @@ public interface TreeWorld {
     /** Whether the block at {@code p} has support rules (it falls without what holds it). */
     boolean needsSupport(BlockPos p);
 
+    /** Whether the block at {@code p} is ground a tree grows from ({@code Type=Soil}: grass, dirt, sand…). */
+    boolean soil(BlockPos p);
+
     /** Whether the block at {@code p} is solid (a block other things can rest on). */
     boolean solid(BlockPos p);
 }

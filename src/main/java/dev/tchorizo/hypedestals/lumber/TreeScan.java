@@ -27,6 +27,7 @@ import java.util.Set;
  *       run the game's support physics (spike: branches and leaves floated for 65 s).</li>
  * </ol>
  *
+ * Wood that does not look like a natural tree ({@link #natural}) is {@link Tree.Status#NOT_A_TREE}.
  * Anything beyond the limits makes the tree {@link Tree.Status#TOO_BIG} rather than cutting a
  * part of it (the rest would float). A neighbour in a section that is not in memory makes it
  * {@link Tree.Status#UNLOADED}; a growing sapling's state on any wood block,
@@ -54,7 +55,7 @@ public final class TreeScan {
 
     public static Tree find(TreeWorld world, BlockPos start, TreeLimits limits) {
         if (world.part(start) != TreePart.WOOD) {
-            return Tree.skipped(Tree.Status.NOT_A_TREE, List.of());
+            return Tree.skipped(Tree.Status.NOT_A_TREE, List.of(), 1);
         }
         Set<BlockPos> seen = new HashSet<>();
         seen.add(start);
@@ -65,7 +66,7 @@ public final class TreeScan {
             BlockPos p = queue.poll();
             wood.add(p);
             if (wood.size() > limits.maxBlocks()) {
-                return Tree.skipped(Tree.Status.TOO_BIG, wood);
+                return Tree.skipped(Tree.Status.TOO_BIG, wood, seen.size());
             }
             for (int[] d : AROUND) {
                 BlockPos n = new BlockPos(p.x() + d[0], p.y() + d[1], p.z() + d[2]);
@@ -75,27 +76,31 @@ public final class TreeScan {
                 TreePart part = world.part(n);
                 if (part == TreePart.WOOD) {
                     if (!inBounds(start, n, limits)) {
-                        return Tree.skipped(Tree.Status.TOO_BIG, wood);
+                        return Tree.skipped(Tree.Status.TOO_BIG, wood, seen.size());
                     }
                     seen.add(n);
                     queue.add(n);
                 } else if (part == TreePart.NONE && !world.loaded(n)) {
-                    return Tree.skipped(Tree.Status.UNLOADED, wood);
+                    return Tree.skipped(Tree.Status.UNLOADED, wood, seen.size());
                 }
             }
         }
         for (BlockPos w : wood) {
             if (world.growing(w)) {
-                return Tree.skipped(Tree.Status.GROWING, wood);
+                return Tree.skipped(Tree.Status.GROWING, wood, seen.size());
             }
         }
 
         List<BlockPos> leaves = leaves(world, start, limits, wood, seen);
         if (leaves == null) {
-            return Tree.skipped(Tree.Status.TOO_BIG, wood);
+            return Tree.skipped(Tree.Status.TOO_BIG, wood, seen.size());
         }
         if (leaves.size() == 1 && leaves.getFirst() == UNLOADED_MARK) {
-            return Tree.skipped(Tree.Status.UNLOADED, wood);
+            return Tree.skipped(Tree.Status.UNLOADED, wood, seen.size());
+        }
+
+        if (!natural(world, wood, leaves)) {
+            return Tree.skipped(Tree.Status.NOT_A_TREE, wood, seen.size());
         }
 
         List<BlockPos> hanging = new ArrayList<>();
@@ -111,7 +116,7 @@ public final class TreeScan {
             }
         }
         if (wood.size() + leaves.size() + hanging.size() > limits.maxBlocks()) {
-            return Tree.skipped(Tree.Status.TOO_BIG, wood);
+            return Tree.skipped(Tree.Status.TOO_BIG, wood, seen.size());
         }
 
         int groundY = groundY(world, wood);
@@ -137,15 +142,13 @@ public final class TreeScan {
             }
         }
         List<BlockPos> buried = new ArrayList<>();
-        for (List<BlockPos> list : List.of(wood, leaves, hanging)) {
-            for (BlockPos p : list) {
-                if (p.y() < groundY) {
-                    buried.add(p);
-                }
+        for (BlockPos p : wood) {
+            if (p.y() < groundY) {
+                buried.add(p);
             }
         }
         return new Tree(Tree.Status.CUTTABLE, List.copyOf(wood), List.copyOf(leaves), List.copyOf(hanging),
-                groundY, spot, List.copyOf(buried));
+                groundY, spot, List.copyOf(buried), seen.size());
     }
 
     /**
@@ -237,6 +240,25 @@ public final class TreeScan {
             }
         }
         return wood.size() + leaves.size() > limits.maxBlocks() ? null : leaves;
+    }
+
+    /**
+     * Ruling H (review, Main): wood the Lumberjack may cut looks like a natural tree: it has leaves,
+     * at least a quarter as many leaves as wood blocks, and the lowest block of its deepest column
+     * (the trunk with the roots) stands on soil. A log cabin (no leaves), or one with a leaf roof on
+     * a stone floor, is left alone.
+     */
+    static boolean natural(TreeWorld world, List<BlockPos> wood, List<BlockPos> leaves) {
+        if (leaves.isEmpty() || leaves.size() * 4 < wood.size()) {
+            return false;
+        }
+        BlockPos lowest = null;
+        for (BlockPos w : wood) {
+            if (lowest == null || w.y() < lowest.y()) {
+                lowest = w;
+            }
+        }
+        return world.soil(new BlockPos(lowest.x(), lowest.y() - 1, lowest.z()));
     }
 
     /** A non-tree block with support rules that does not rest on a solid non-tree block. */
