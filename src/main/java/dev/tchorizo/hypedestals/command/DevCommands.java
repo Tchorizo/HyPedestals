@@ -6,6 +6,7 @@ import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
 import com.hypixel.hytale.builtin.adventure.farming.states.TilledSoilBlock;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.builtin.adventure.farming.config.stages.PrefabFarmingStageData;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.Color;
@@ -119,6 +120,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new DevPlanterCommands());
         addSubCommand(new TreesCommand());
         addSubCommand(new FillBoxCommand());
+        DevBuildCommands.register(this);
     }
 
     @Override
@@ -133,18 +135,21 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | stress <x y z> <count> [--factor F]"
                         + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]"
                         + " | planter seeds|resolve|plant|soil|decay|stage|snap|diff …"
+                        + " | platform <x y z> <x2 y2 z2> [--ground Y] [--air N] [--dry true] | field <x y z> <rx> <rz> <crop|none> [--pattern full|half|checker]"
+                        + " [--ripe true] [--skip dx,dz;…] [--fence true] | fillcontainer <x y z> <item> [--qty N]"
+                        + " | npc <x y z> <role> [--count N] [--spread S] | npcs <x y z> <r> [--kill true]"
                         + " | particles <x y z> <SystemId|off> [--scale S] [--offset Y] [--color rrggbb] [--seconds N]",
                 String.join("|", TIERS));
         return CompletableFuture.completedFuture(null);
     }
 
     /** {@code setBlock} at {@code p}, unrotated; the block's section must already be loaded. */
-    private static boolean setBlock(World world, Vector3i p, String blockId, BlockType type) {
+    static boolean setBlock(World world, Vector3i p, String blockId, BlockType type) {
         return setBlock(world, p, blockId, type, RotationTuple.NONE_INDEX);
     }
 
     /** {@code setBlock} at {@code p} with a {@link RotationTuple} index; the section must already be loaded. */
-    private static boolean setBlock(World world, Vector3i p, String blockId, BlockType type, int rotation) {
+    static boolean setBlock(World world, Vector3i p, String blockId, BlockType type, int rotation) {
         ChunkStore chunkStore = world.getChunkStore();
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x, p.y, p.z);
         return section != null && BlockOperations.setBlock(chunkStore, section, p.x, p.y, p.z,
@@ -152,19 +157,19 @@ final class DevCommands extends AbstractAsyncCommand {
     }
 
     /** {@link #setBlock} by asset id; {@code false} when the asset is not loaded. */
-    private static boolean setBlock(World world, Vector3i p, String blockId) {
+    static boolean setBlock(World world, Vector3i p, String blockId) {
         BlockType type = BlockType.getAssetMap().getAsset(blockId);
         return type != null && setBlock(world, p, blockId, type);
     }
 
     /** Tilled soil below and stage-zero {@code cropId} at the position; both sections must be loaded. */
-    private static boolean plant(World world, Vector3i pos, String cropId) {
+    static boolean plant(World world, Vector3i pos, String cropId) {
         boolean soil = setBlock(world, new Vector3i(pos.x, pos.y - 1, pos.z), TILLED_SOIL);
         return setBlock(world, pos, cropId) && soil;
     }
 
     /** Forces the crop at the position to its final growth stage; returns the reply line. */
-    private static String ripen(World world, Vector3i pos) {
+    static String ripen(World world, Vector3i pos) {
         String at = HyPedestalsCommand.format(pos);
         ChunkStore chunkStore = world.getChunkStore();
         Store<ChunkStore> store = chunkStore.getStore();
@@ -206,7 +211,7 @@ final class DevCommands extends AbstractAsyncCommand {
      * request expires. In game the player's presence keeps the section ticking, so production code
      * never pins anything. Idempotent per position; returns whether the chunk is now pinned.
      */
-    private static boolean pin(World world, Vector3i pos) {
+    static boolean pin(World world, Vector3i pos) {
         WorldChunk chunk = world.getChunkStore().getChunkComponent(
                 ChunkUtil.indexChunkFromBlock(pos.x, pos.z), WorldChunk.getComponentType());
         if (chunk == null) {
@@ -240,7 +245,7 @@ final class DevCommands extends AbstractAsyncCommand {
      * Turns {@code grow} on for the area (replacing any previous registration of the same center)
      * or off with {@code factor <= 0}; must run on the world thread. Returns the reply line.
      */
-    private static String grow(World world, Vector3i center, int radius, double factor) {
+    static String grow(World world, Vector3i center, int radius, double factor) {
         String at = HyPedestalsCommand.format(center);
         Vector3i key = new Vector3i(center);
         if (factor <= 0) {
@@ -280,11 +285,12 @@ final class DevCommands extends AbstractAsyncCommand {
     private static void growArea(World world, Grow grow, double seconds) {
         ChunkStore chunkStore = world.getChunkStore();
         SectionReader reader = new SectionReader(chunkStore);
+        Instant now = HytaleSoilWorld.gameTime(world);
         Vector3i c = grow.center();
         for (BlockPos p : HarvestArea.positions(new BlockPos(c.x, c.y, c.z), grow.radius())) {
             Vector3i pos = new Vector3i(p.x(), p.y(), p.z());
             try {
-                advance(chunkStore, reader, pos, seconds);
+                advance(chunkStore, reader, pos, seconds, now);
             } catch (RuntimeException e) {
                 if (grow.warned().add(pos)) {
                     HyPedestalsPlugin.warn("dev grow: crop at %s failed, skipped from now on: %s", pos, e);
@@ -293,16 +299,24 @@ final class DevCommands extends AbstractAsyncCommand {
         }
     }
 
+    /** Real-time gap between two pushes of the same sapling into its next prefab stage. */
+    private static final long NUDGE_GAP_NANOS = 3_000_000_000L;
+    /** Last push (nanoTime) of each sapling or growing tree, by origin block. */
+    private static final Map<Vector3i, Long> NUDGED = new ConcurrentHashMap<>();
+
     /**
      * Adds {@code seconds} of growth to the crop at {@code pos} (no-op unless it is a growing crop
      * with a {@link FarmingBlock} in a loaded section). {@code growthProgress} counts stages: its
      * integer part is the current stage of the stage set and its fraction the part of that stage's
      * duration already grown. Crossing into a later stage applies it as a block state, which every
-     * vanilla crop uses; a crop whose next stage is of another type is left alone. Growth
-     * modifiers (water, light, fertilizer) are not applied to the extra time. Returns whether the
-     * crop reached a later stage.
+     * vanilla crop uses. A sapling's next stage is a {@code Prefab} (the tree): the loop cannot
+     * apply it, so {@link #nudge} puts the block just before the stage and lets the vanilla tick
+     * paste the prefab, one stage per {@link #NUDGE_GAP_NANOS}; the origin block of a tree under
+     * construction (a log with the sapling's {@code FarmingBlock}) keeps growing the same way. A
+     * stage of another type is left alone. Growth modifiers (water, light, fertilizer) are not
+     * applied to the extra time. Returns whether the crop reached a later stage (or was pushed).
      */
-    private static boolean advance(ChunkStore chunkStore, SectionReader reader, Vector3i pos, double seconds) {
+    private static boolean advance(ChunkStore chunkStore, SectionReader reader, Vector3i pos, double seconds, Instant now) {
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
         if (section == null) {
             return false;
@@ -313,13 +327,19 @@ final class DevCommands extends AbstractAsyncCommand {
         }
         BlockType current = BlockType.getAssetMap().getAsset(id);
         BlockType crop = current == null ? null : BlockType.getAssetMap().getAsset(HytaleIds.baseBlockId(current.getId()));
-        if (crop == null || crop.getFarming() == null) {
+        boolean tree = (crop == null || crop.getFarming() == null) && HytaleTrees.part(current) != TreePart.NONE;
+        if (!tree && (crop == null || crop.getFarming() == null)) {
             return false;
         }
         Store<ChunkStore> store = chunkStore.getStore();
         Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
         FarmingBlock farm = ref == null ? null : store.getComponent(ref, FarmingBlock.getComponentType());
-        if (farm == null) {
+        if (tree && farm != null) {
+            // A tree under construction: its origin block holds the sapling's farming state.
+            String previous = farm.getPreviousBlockType();
+            crop = previous == null ? null : BlockType.getAssetMap().getAsset(previous);
+        }
+        if (crop == null || crop.getFarming() == null || farm == null) {
             return false;
         }
         String stageSet = farm.getCurrentStageSet() == null
@@ -352,7 +372,7 @@ final class DevCommands extends AbstractAsyncCommand {
         int reached = (int) next;
         if (reached != stage) {
             if (!(stages[reached] instanceof BlockStateFarmingStageData blockState)) {
-                return false;
+                return stages[stage + 1] instanceof PrefabFarmingStageData && nudge(store, section, ref, farm, pos, stage + 1, now);
             }
             BlockOperations.setBlockInteractionState(chunkStore, section, pos.x, pos.y, pos.z,
                     crop, blockState.getState(), true);
@@ -370,6 +390,39 @@ final class DevCommands extends AbstractAsyncCommand {
             info.markNeedsSaving(store);
         }
         return reached != stage;
+    }
+
+    /**
+     * Puts the farming block just before stage {@code k} with its last tick one game hour back and
+     * a tick scheduled now (what {@code planter stage} does), so the vanilla tick crosses into it.
+     * At most once per {@link #NUDGE_GAP_NANOS} per position: stages of a prefab tree must be
+     * pasted one at a time (jumping to the last one leaves a tree with no prefab). Returns whether
+     * the push was made.
+     */
+    private static boolean nudge(Store<ChunkStore> store, Ref<ChunkStore> section, Ref<ChunkStore> ref,
+            FarmingBlock farm, Vector3i pos, int k, Instant now) {
+        if (now == null) {
+            return false;
+        }
+        long t = System.nanoTime();
+        Long previous = NUDGED.get(pos);
+        if (previous != null && t - previous < NUDGE_GAP_NANOS) {
+            return false;
+        }
+        if (NUDGED.size() > 4096) {
+            NUDGED.clear();
+        }
+        NUDGED.put(new Vector3i(pos), t);
+        farm.setGrowthProgress(k - 0.001f);
+        farm.setLastTickGameTime(now.minusSeconds(3600));
+        BlockSection blocks = store.getComponent(section, BlockSection.getComponentType());
+        blocks.setTicking(pos.x, pos.y, pos.z, true);
+        blocks.scheduleTick(ChunkUtil.indexBlock(pos.x, pos.y, pos.z), now);
+        BlockModule.BlockStateInfo info = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
+        if (info != null) {
+            info.markNeedsSaving(store);
+        }
+        return true;
     }
 
     /** Mean of the stage's duration range in game seconds; 0 when it has none (final stages). */
@@ -930,14 +983,14 @@ final class DevCommands extends AbstractAsyncCommand {
      * before anyone joins. Replies with the terrain tops, one line per harvester, the suggested
      * spawn, and finally {@code scene done}.
      */
-    private static final class SceneCommand extends HyPedestalsCommand.PositionCommand {
+    static final class SceneCommand extends HyPedestalsCommand.PositionCommand {
         private static final String GRASS = "Soil_Grass";
         private static final String BERRY = "Plant_Crop_Berry_Block";
         private static final String CHEST = "Furniture_Crude_Chest_Small";
         /** Ring around each area that keeps drops from rolling off; see {@link #FENCE_DISTANCE}. */
-        private static final String FENCE = "Wood_Greenwood_Fence";
+        static final String FENCE = "Wood_Greenwood_Fence";
         /** Corner state of {@link #FENCE}; {@code setBlock} never picks it by itself. */
-        private static final String FENCE_CORNER = "*Wood_Greenwood_Fence_State_Definitions_Corner";
+        static final String FENCE_CORNER = "*Wood_Greenwood_Fence_State_Definitions_Corner";
         /**
          * Chebyshev distance of the fence ring from the harvester, as an offset from the radius:
          * {@code radius + 1}, right against the area with no free block in between, so every drop
@@ -1170,7 +1223,7 @@ final class DevCommands extends AbstractAsyncCommand {
          * Rotation index (yaw only) that turns the unrotated corner, whose arms point to -x and +z
          * (hitbox {@code Fence_Corner_Thin}), so they point to {@code (armX, 0, 0)} and {@code (0, 0, armZ)}.
          */
-        private static int cornerRotation(int armX, int armZ) {
+        static int cornerRotation(int armX, int armZ) {
             for (Rotation yaw : Rotation.VALUES) {
                 RotationTuple rotation = RotationTuple.of(yaw, Rotation.None, Rotation.None);
                 Vector3i a = new Vector3i(-1, 0, 0);
