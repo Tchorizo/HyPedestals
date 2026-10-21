@@ -17,7 +17,9 @@ import java.time.Instant;
 
 /**
  * {@link SoilWorld} over the {@code TilledSoilBlock} components of one Hytale world. Soil whose
- * section is not loaded, or that has no block entity, counts as absent (never created here).
+ * section is not loaded or not ticking (its block entities parked, {@link ParkedBlocks}: reading or
+ * writing it is skipped until the section ticks again, not treated as bare ground), or that has no
+ * block entity, counts as absent (never created here).
  */
 public final class HytaleSoilWorld implements SoilWorld {
 
@@ -57,7 +59,7 @@ public final class HytaleSoilWorld implements SoilWorld {
      */
     @Override
     public void water(BlockPos p, Instant until) {
-        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
+        Ref<ChunkStore> section = ParkedBlocks.tickingSection(chunkStore, p.x(), p.y(), p.z());
         Ref<ChunkStore> ref = section == null ? null : BlockModule.getBlockEntity(accessor, section, p.x(), p.y(), p.z());
         TilledSoilBlock soil = ref == null ? null : accessor.getComponent(ref, TilledSoilBlock.getComponentType());
         if (soil == null) {
@@ -91,7 +93,7 @@ public final class HytaleSoilWorld implements SoilWorld {
      */
     @Override
     public void fertilize(BlockPos p) {
-        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
+        Ref<ChunkStore> section = ParkedBlocks.tickingSection(chunkStore, p.x(), p.y(), p.z());
         Ref<ChunkStore> ref = section == null ? null : BlockModule.getBlockEntity(accessor, section, p.x(), p.y(), p.z());
         TilledSoilBlock soil = ref == null ? null : accessor.getComponent(ref, TilledSoilBlock.getComponentType());
         if (soil == null) {
@@ -114,7 +116,7 @@ public final class HytaleSoilWorld implements SoilWorld {
 
     /** The raw component, for the dev commands' fuller report; {@code null} where {@link #soilAt} is. */
     public TilledSoilBlock component(BlockPos p) {
-        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
+        Ref<ChunkStore> section = ParkedBlocks.tickingSection(chunkStore, p.x(), p.y(), p.z());
         if (section == null) {
             return null;
         }

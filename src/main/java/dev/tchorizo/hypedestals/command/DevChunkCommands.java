@@ -23,6 +23,8 @@ import com.hypixel.hytale.server.core.universe.world.storage.GetChunkFlags;
 import org.joml.Vector3i;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Section ticking state, for the {@code Duplicate block components} investigation (Task 40):
@@ -35,6 +37,9 @@ import java.util.concurrent.CompletableFuture;
 final class DevChunkCommands {
 
     private DevChunkCommands() {}
+
+    /** Chunks {@code park --keep} added a keep-loaded to, so {@code unpark} gives it back (one each). */
+    private static final Set<Long> PARK_KEPT = ConcurrentHashMap.newKeySet();
 
     static void register(AbstractAsyncCommand parent) {
         parent.addSubCommand(new ChunkStateCommand());
@@ -152,7 +157,7 @@ final class DevChunkCommands {
                     HyPedestalsCommand.reply(context, "park at %s: section not loaded", HyPedestalsCommand.format(p));
                     return;
                 }
-                if (keepLoaded) {
+                if (keepLoaded && PARK_KEPT.add(ChunkUtil.indexChunkFromBlock(p.x, p.z))) {
                     WorldChunk chunk = world.getChunkStore().getChunkComponent(
                             ChunkUtil.indexChunkFromBlock(p.x, p.z), WorldChunk.getComponentType());
                     if (chunk != null) {
@@ -166,7 +171,7 @@ final class DevChunkCommands {
         }
     }
 
-    /** {@code unpark <x y z>}: removes {@code NonTicking} (parked holders become live block entities). */
+    /** {@code unpark <x y z>}: removes {@code NonTicking} (parked holders become live block entities) and the keep-loaded {@code park --keep} added. */
     private static final class UnparkCommand extends HyPedestalsCommand.PositionCommand {
         UnparkCommand() {
             super("unpark", "Make a loaded section ticking again (what SET_TICKING does)");
@@ -179,6 +184,13 @@ final class DevChunkCommands {
                 if (section == null) {
                     HyPedestalsCommand.reply(context, "unpark at %s: section not loaded", HyPedestalsCommand.format(p));
                     return;
+                }
+                if (PARK_KEPT.remove(ChunkUtil.indexChunkFromBlock(p.x, p.z))) {
+                    WorldChunk chunk = world.getChunkStore().getChunkComponent(
+                            ChunkUtil.indexChunkFromBlock(p.x, p.z), WorldChunk.getComponentType());
+                    if (chunk != null) {
+                        chunk.removeKeepLoaded();
+                    }
                 }
                 world.getChunkStore().getStore().tryRemoveComponent(section, nonTicking());
                 HyPedestalsCommand.reply(context, "unpark at %s: ticking", HyPedestalsCommand.format(p));

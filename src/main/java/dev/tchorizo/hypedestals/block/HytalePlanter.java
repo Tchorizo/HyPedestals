@@ -28,7 +28,8 @@ import java.util.Map;
  * through {@code world.execute}, after the tick, re-reading the Harvester (it may be gone) and its
  * container then. A crop placed by {@code setBlock} gets its {@code FarmingBlock} from the block
  * type, as a player's seed does; the soil's {@code planted} flag is set by the vanilla soil tick
- * either way (planter spec §0 S5). Positions in a section that is not loaded count as occupied.
+ * either way (planter spec §0 S5). Positions in a section that is not loaded count as occupied; planting into a section that is not
+ * ticking (parked block entities, {@link ParkedBlocks}) is refused until it ticks again (reads there are fine: the blocks are in memory).
  */
 final class HytalePlanter implements PlantPass.PlantWorld {
 
@@ -146,7 +147,7 @@ final class HytalePlanter implements PlantPass.PlantWorld {
     @Override
     public boolean place(BlockPos p, String blockId) {
         BlockType type = BlockType.getAssetMap().getAsset(blockId);
-        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
+        Ref<ChunkStore> section = ParkedBlocks.tickingSection(chunkStore, p.x(), p.y(), p.z());
         return type != null && section != null && BlockOperations.setBlock(chunkStore, section, p.x(), p.y(), p.z(),
                 BlockType.getAssetMap().getIndex(blockId), type, RotationTuple.NONE_INDEX, 0, SetBlockSettings.NONE);
     }

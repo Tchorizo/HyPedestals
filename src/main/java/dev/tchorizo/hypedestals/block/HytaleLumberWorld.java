@@ -50,6 +50,8 @@ final class HytaleLumberWorld implements LumberWorld {
     private final HytaleTrees.Lists trees = HytaleTrees.Lists.current();
     /** Block index → its part, for this cycle (a tree reads the same few ids hundreds of times). */
     private final Map<Integer, TreePart> parts = new HashMap<>();
+    /** Section key → whether it is ticking (or not in memory), for this cycle. */
+    private final Map<Long, Boolean> tickingSections = new HashMap<>();
 
     /**
      * @param info the Lumberjack's block state, marked for saving when its container changes
@@ -71,6 +73,9 @@ final class HytaleLumberWorld implements LumberWorld {
 
     @Override
     public TreePart part(BlockPos p) {
+        if (!ticking(p)) {
+            return TreePart.NONE;
+        }
         int id = reader.getBlock(p.x(), p.y(), p.z());
         if (id == BlockType.EMPTY_ID) {
             return TreePart.NONE;
@@ -78,9 +83,22 @@ final class HytaleLumberWorld implements LumberWorld {
         return parts.computeIfAbsent(id, i -> trees.part(BlockType.getAssetMap().getAsset(i)));
     }
 
+    /**
+     * In memory and ticking. A section in memory that is not ticking has its block entities
+     * parked ({@link ParkedBlocks}): a growing sapling's {@code FarmingBlock} cannot be read there,
+     * so such a section reads as not loaded, whatever blocks it holds, and a tree touching it is
+     * left alone ({@code unloaded}).
+     */
     @Override
     public boolean loaded(BlockPos p) {
-        return reader.hasStorageInMemory(p.x(), p.y(), p.z());
+        return reader.hasStorageInMemory(p.x(), p.y(), p.z()) && ticking(p);
+    }
+
+    /** Whether the position's section is not parked; answered once per section for the cycle. */
+    private boolean ticking(BlockPos p) {
+        long key = ((long) Math.floorDiv(p.x(), 32) & 0x1FFFFF) << 42 | ((long) Math.floorDiv(p.y(), 32) & 0x1FFFFF) << 21
+                | ((long) Math.floorDiv(p.z(), 32) & 0x1FFFFF);
+        return tickingSections.computeIfAbsent(key, k -> !ParkedBlocks.notTicking(chunkStore, p.x(), p.y(), p.z()));
     }
 
     /**
@@ -204,7 +222,7 @@ final class HytaleLumberWorld implements LumberWorld {
     }
 
     private boolean set(BlockPos p, String id, BlockType type) {
-        Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
+        Ref<ChunkStore> section = ParkedBlocks.tickingSection(chunkStore, p.x(), p.y(), p.z());
         return section != null && BlockOperations.setBlock(chunkStore, section, p.x(), p.y(), p.z(),
                 BlockType.getAssetMap().getIndex(id), type, 0, 0, SetBlockSettings.NONE);
     }

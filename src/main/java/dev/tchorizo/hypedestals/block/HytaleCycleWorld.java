@@ -8,7 +8,6 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.spatial.SpatialResource;
-import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.HarvestingDropType;
@@ -26,7 +25,6 @@ import com.hypixel.hytale.server.core.modules.entity.component.TransformComponen
 import com.hypixel.hytale.server.core.modules.entity.item.ItemComponent;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.accessor.SectionReader;
-import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockComponentSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.HyPedestalsPlugin;
@@ -278,21 +276,10 @@ final class HytaleCycleWorld implements CycleWorld {
                 && BlockModule.getBlockEntity(chunkBuffer, section, p.x(), p.y(), p.z()) != null;
     }
 
-    /**
-     * Whether the block's entity sits parked in its section ({@code BlockComponentSection#getBlockHolder}
-     * non-null) instead of live: what the engine does to every block entity of a section in memory
-     * that is not ticking ({@code NonTicking}, [JAR] {@code BlockComponentSectionLoadingSystem}),
-     * for example the part of an area that crosses into a chunk no player is near. A block with
-     * both a ripe state and a parked entity cannot be harvested with {@code FarmingUtil.harvest}
-     * (see {@link #harvest}).
-     */
+    /** Whether the block's entity sits parked ({@link ParkedBlocks#holderAt}); see {@link #harvest}. */
     private boolean blockEntityParked(BlockPos p) {
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(p.x(), p.y(), p.z());
-        if (section == null || !section.isValid()) {
-            return false;
-        }
-        BlockComponentSection components = chunkBuffer.getComponent(section, BlockComponentSection.getComponentType());
-        return components != null && components.getBlockHolder(ChunkUtil.indexBlock(p.x(), p.y(), p.z())) != null;
+        return ParkedBlocks.holderAt(chunkBuffer, section, p.x(), p.y(), p.z());
     }
 
     /**

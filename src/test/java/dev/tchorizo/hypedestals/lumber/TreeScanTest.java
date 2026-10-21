@@ -137,6 +137,15 @@ class TreeScanTest {
     }
 
     @Test
+    void woodOfAnotherSectionThatIsNotTickingMakesTheTreeUnloaded() {
+        // The sapling's origin block (growing, entity parked) sits across the section boundary.
+        FakeForest world = new FakeForest().oak(0, 1, 0, 0, 5);
+        world.unloaded.add(p(0, 5, 0));
+
+        assertEquals(Tree.Status.UNLOADED, TreeScan.find(world, p(0, 1, 0), LIMITS).status());
+    }
+
+    @Test
     void hangingBlocksAreCutButBlocksRestingOnTheGroundStay() {
         FakeForest world = new FakeForest().ground(0, 0, 4, 0, 2).oak(0, 1, 0, 0, 5);
         world.set(1, 3, 1, "Hang_Fruit");   // under the leaf (1,4,1), air below: hangs

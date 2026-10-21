@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - A Harvester whose area reaches into a chunk that is loaded but not ticking (no player near it) could crash the world (`IllegalArgumentException: Duplicate block components`; the server reloads the world and disconnects the players in it) when a ripe crop there still had its farming data stored away by the game. The game's own harvest does not look at that stored data, queues a second one for the block and fails when the tick ends. The Harvester now leaves such a crop alone (`unloaded=` in `/hypedestals inspect`) and harvests it on the first cycle after the chunk ticks again; nothing is lost.
+- The Lumberjack could cut a growing sapling (a tree not yet grown) and the Planter and the watering and fertilizer upgrades acted wrongly on blocks in a chunk that is loaded but not ticking (no player near it): the game keeps the farming data of such blocks stored away, so a sapling there looked like a finished tree. Lumberjack, Planter, watering and fertilizer now leave a chunk that is not ticking alone until it ticks again (`unloaded=` in `/hypedestals inspect` for the Lumberjack and the Harvester).
 
 ## 0.3.1 — 2026-10-21
 

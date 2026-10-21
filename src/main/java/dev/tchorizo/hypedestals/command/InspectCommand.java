@@ -147,7 +147,8 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
      * {@code true (crops waiting)} when the cycle stopped at a crop whose drops did not fit (it and
      * the rest of the area stay ripe until room frees up, and the next cycle starts there), plain
      * {@code true|false} otherwise; then {@code unloaded=<n>} when the scan met positions in a chunk
-     * section that was not in memory (skipped this cycle).
+     * section that was not in memory, or in memory but not ticking (its block entities parked), which
+     * are skipped this cycle.
      */
     private static String full(CycleResult last) {
         String full = last.cropsWaiting() ? "true (crops waiting)" : Boolean.toString(last.containerFull());

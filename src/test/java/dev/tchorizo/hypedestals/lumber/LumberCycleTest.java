@@ -161,6 +161,23 @@ class LumberCycleTest {
     }
 
     @Test
+    void aGrowingSaplingInANonTickingSectionIsLeftAloneAndCountedUnloaded() {
+        // Task 40: a section in memory that is not ticking keeps its block entities parked, so the
+        // sapling's FarmingBlock cannot be read (`growing` is false) and the stage-4 sapling used to
+        // be cut. The adapter reads such a section as not loaded; the whole tree stays.
+        FakeForest world = field().oak(3, 1, 0, 0, 5);
+        world.saplings.put("Plant_Sapling_Oak", 1);
+        world.unloaded.add(new BlockPos(3, 1, 0));
+
+        LumberResult r = LumberCycle.run(world, CENTER, 4, LIMITS, 0, 4096, new TreeMemory());
+
+        assertEquals(0, r.trees());
+        assertTrue(r.unloaded() >= 1, "the parked position and the tree touching it are counted");
+        assertEquals(5, world.count("Wood_"));
+        assertEquals(1, world.saplings.get("Plant_Sapling_Oak"));
+    }
+
+    @Test
     void woodWithoutSoilBesideItBecomesAir() {
         // A trunk rooted 2 blocks into stone, on a dirt pocket: no soil beside the roots.
         FakeForest world = new FakeForest();
