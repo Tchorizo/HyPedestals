@@ -137,7 +137,7 @@ final class DevCommands extends AbstractAsyncCommand {
                         + " | setitem <x y z> <slot|last> <item id|empty> [--qty N] [--durability D]"
                         + " | planter seeds|resolve|plant|soil|decay|stage|snap|diff …"
                         + " | platform <x y z> <x2 y2 z2> [--ground Y] [--air N] [--dry true] | field <x y z> <rx> <rz> <crop|none> [--pattern full|half|checker]"
-                        + " [--ripe true] [--skip dx,dz;…] [--fence true] | fillcontainer <x y z> <item> [--qty N]"
+                        + " [--ripe true] [--omit dx:dz/dx:dz] [--fence true] | fillcontainer <x y z> <item> [--qty N]"
                         + " | npc <x y z> <role> [--count N] [--spread S] | npcs <x y z> <r> [--kill true]"
                         + " | particles <x y z> <SystemId|off> [--scale S] [--offset Y] [--color rrggbb] [--seconds N]",
                 String.join("|", TIERS));

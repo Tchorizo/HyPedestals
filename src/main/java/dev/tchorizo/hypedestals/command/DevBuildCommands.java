@@ -187,10 +187,10 @@ final class DevBuildCommands {
 
     /**
      * {@code field <x y z> <rx> <rz> <crop|none> [--pattern full|half|checker] [--ripe true]
-     * [--skip dx,dz/dx,dz] [--fence true]}: tilled soil at {@code y-1} over {@code x±rx, z±rz}
+     * [--omit dx:dz/dx:dz] [--fence true]}: tilled soil at {@code y-1} over {@code x±rx, z±rz}
      * and {@code crop} (stage zero, or its final stage with {@code --ripe}) on top; {@code none} = soil
      * only; {@code half} leaves the rows {@code dz > 0} as bare soil, {@code checker} every other
-     * cell; {@code --skip} lists offsets left alone (the Harvester, its chest); {@code --fence} puts the
+     * cell; {@code --omit} lists offsets left alone (the Harvester, its chest); {@code --fence} puts the
      * fence ring one block outside the rectangle. Replies {@code field <x y z> … soil=<n> planted=<n>
      * ripe=<n> fence=<n>/<ring>}.
      */
@@ -202,7 +202,7 @@ final class DevBuildCommands {
                 ArgTypes.STRING, "full", "full");
         private final DefaultArg<Boolean> ripe = withDefaultArg("ripe", "Ripen each planted crop",
                 ArgTypes.BOOLEAN, false, "false");
-        private final DefaultArg<String> skip = withDefaultArg("skip", "Offsets dx,dz;dx,dz left untouched",
+        private final DefaultArg<String> omit = withDefaultArg("omit", "Offsets dx:dz/dx:dz left untouched",
                 ArgTypes.STRING, "", "");
         private final DefaultArg<Boolean> fence = withDefaultArg("fence", "Fence ring outside the rectangle",
                 ArgTypes.BOOLEAN, false, "false");
@@ -220,7 +220,7 @@ final class DevBuildCommands {
             boolean ripen = context.get(ripe);
             boolean ring = context.get(fence);
             Set<String> skipped = new HashSet<>();
-            for (String pair : context.get(skip).split("[;/]")) {
+            for (String pair : context.get(omit).split("[;/]")) {
                 if (!pair.isBlank()) {
                     skipped.add(pair.trim());
                 }
@@ -240,7 +240,7 @@ final class DevBuildCommands {
                 int soil = 0, planted = 0, ripened = 0;
                 for (int dx = -sx; dx <= sx; dx++) {
                     for (int dz = -sz; dz <= sz; dz++) {
-                        if (skipped.contains(dx + "," + dz)) {
+                        if (skipped.contains(dx + ":" + dz)) {
                             continue;
                         }
                         Vector3i c = new Vector3i(p.x + dx, p.y, p.z + dz);
@@ -257,8 +257,8 @@ final class DevBuildCommands {
                     }
                 }
                 String fenced = ring ? fenceRect(world, p, sx + 1, sz + 1) + "/" + (4 * (sx + sz + 2)) : "off";
-                HyPedestalsCommand.reply(context, "field %s rx=%d rz=%d %s pattern=%s: soil=%d planted=%d ripe=%d fence=%s",
-                        HyPedestalsCommand.format(p), sx, sz, cropId, mode, soil, planted, ripened, fenced);
+                HyPedestalsCommand.reply(context, "field %s rx=%d rz=%d %s pattern=%s: soil=%d planted=%d ripe=%d omitted=%d fence=%s",
+                        HyPedestalsCommand.format(p), sx, sz, cropId, mode, soil, planted, ripened, skipped.size(), fenced);
             }, new Vector3i(p.x - sx - edge, p.y, p.z - sz - edge), new Vector3i(p.x + sx + edge, p.y, p.z + sz + edge),
                     new Vector3i(p.x - sx - edge, p.y, p.z + sz + edge), new Vector3i(p.x + sx + edge, p.y, p.z - sz - edge));
         }
