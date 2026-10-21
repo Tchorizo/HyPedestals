@@ -22,6 +22,12 @@ public final class SaplingRule {
     public static final int CLEARANCE = 1;
     /** Layers from the spot up that must be empty: the sapling and the first trunk blocks. */
     public static final int CLEAR_HEIGHT = 4;
+    /**
+     * Horizontal radius (Chebyshev) on the soil layer kept free of farmland: a grown prefab's roots
+     * replace the soil below and around the trunk (Oak, Birch: 3–5 blocks down), tilled soil
+     * included, so a sapling right next to a field would eat into it (review, Main).
+     */
+    public static final int ROOT_CLEARANCE = 3;
 
     private SaplingRule() {}
 
@@ -42,14 +48,21 @@ public final class SaplingRule {
 
     /**
      * Whether a sapling fits at {@code spot} (the block the sapling would occupy): sapling soil
-     * below that is not farmland, the spot and the {@link #CLEAR_HEIGHT} - 1 blocks above it
+     * below, no farmland within {@link #ROOT_CLEARANCE} of it on that layer, the spot and the {@link #CLEAR_HEIGHT} - 1 blocks above it
      * empty, and the ring of {@link #CLEARANCE} around the spot empty on the spot's layer and the
      * next one.
      */
     public static boolean canPlantAt(Ground ground, BlockPos spot) {
         BlockPos below = new BlockPos(spot.x(), spot.y() - 1, spot.z());
-        if (!ground.isSaplingSoil(below) || ground.isFarmland(below)) {
+        if (!ground.isSaplingSoil(below)) {
             return false;
+        }
+        for (int dx = -ROOT_CLEARANCE; dx <= ROOT_CLEARANCE; dx++) {
+            for (int dz = -ROOT_CLEARANCE; dz <= ROOT_CLEARANCE; dz++) {
+                if (ground.isFarmland(new BlockPos(below.x() + dx, below.y(), below.z() + dz))) {
+                    return false;
+                }
+            }
         }
         for (int dy = 0; dy < CLEAR_HEIGHT; dy++) {
             if (!ground.isEmpty(new BlockPos(spot.x(), spot.y() + dy, spot.z()))) {

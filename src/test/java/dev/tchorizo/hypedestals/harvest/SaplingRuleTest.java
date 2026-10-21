@@ -62,6 +62,15 @@ class SaplingRuleTest {
     }
 
     @Test
+    void farmlandWithinTheRootClearanceBlocksASapling() {
+        BlockPos spot = new BlockPos(0, 64, 0);
+        FakeGround near = new FakeGround().floor(6).tilled(new BlockPos(SaplingRule.ROOT_CLEARANCE, 63, -2));
+        assertFalse(SaplingRule.canPlantAt(near, spot), "the roots would eat the field");
+        FakeGround far = new FakeGround().floor(6).tilled(new BlockPos(SaplingRule.ROOT_CLEARANCE + 1, 63, 0));
+        assertTrue(SaplingRule.canPlantAt(far, spot));
+    }
+
+    @Test
     void plantsOnFreeGrass() {
         FakeGround g = new FakeGround().floor(6);
         assertTrue(SaplingRule.canPlantAt(g, new BlockPos(4, 64, 4)));
