@@ -9,7 +9,9 @@ import java.util.List;
  * Result of a {@link TreeScan}: a tree found from one of its wood blocks, or why it is not cut.
  * Only a {@link Status#CUTTABLE} tree is cut; for a skipped one, {@code wood} holds the wood
  * found before the search stopped (all of it for {@link Status#GROWING}), so a cycle does not
- * search the same tree again from its other blocks, and the other lists are empty.
+ * search the same tree again from its other blocks, and the other lists are empty (but for
+ * {@link Status#NOT_A_TREE} after the leaf search: its {@code leaves} and {@code groundY}, for
+ * diagnostics).
  *
  * @param wood trunk, branch and root blocks
  * @param leaves leaf blocks within the leaf reach of {@code wood}
@@ -43,6 +45,11 @@ public record Tree(Status status, List<BlockPos> wood, List<BlockPos> leaves, Li
 
     static Tree skipped(Status status, List<BlockPos> woodSoFar, int visited) {
         return new Tree(status, List.copyOf(woodSoFar), List.of(), List.of(), 0, null, List.of(), visited);
+    }
+
+    /** A tree that failed {@link TreeScan#natural}: its wood and leaves, for diagnostics only. */
+    static Tree rejected(List<BlockPos> wood, List<BlockPos> leaves, int groundY, int visited) {
+        return new Tree(Status.NOT_A_TREE, List.copyOf(wood), List.copyOf(leaves), List.of(), groundY, null, List.of(), visited);
     }
 
     /** Every block to cut, top-down (the order they are removed in). */

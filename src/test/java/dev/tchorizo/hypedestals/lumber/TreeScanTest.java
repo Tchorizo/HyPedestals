@@ -229,6 +229,83 @@ class TreeScanTest {
         assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(world, p(0, 1, 0), LIMITS).status());
     }
 
+    /** Bare rock terrain (4 layers up to y=0) with a trunk sunk {@code roots} blocks into it and a canopy of {@code layers} 5x5 leaf layers. */
+    private static FakeForest rockTree(int roots, int height, int firstLeafY, int layers) {
+        FakeForest world = new FakeForest();
+        for (int x = -4; x <= 4; x++) {
+            for (int z = -4; z <= 4; z++) {
+                for (int y = -3; y <= 0; y++) {
+                    world.set(x, y, z, "Rock_Stone");
+                }
+            }
+        }
+        for (int y = -roots + 1; y <= height; y++) {
+            world.set(0, y, 0, "Wood_Beech_Trunk");
+        }
+        for (int y = firstLeafY; y < firstLeafY + layers; y++) {
+            for (int x = -2; x <= 2; x++) {
+                for (int z = -2; z <= 2; z++) {
+                    if (x != 0 || z != 0) {
+                        world.set(x, y, z, "Plant_Leaves_Beech");
+                    }
+                }
+            }
+        }
+        return world;
+    }
+
+    @Test
+    void treeWhoseRootsGrewIntoBareRockIsATree() {
+        // Worldgen trees on a rock outcrop: the prefab sank 3 roots into the stone (Hybrothers, Beech and Birch: 8 of 9 mature trees).
+        FakeForest world = rockTree(3, 8, 5, 4);
+
+        Tree tree = TreeScan.find(world, p(0, 3, 0), LIMITS);
+
+        assertEquals(Tree.Status.CUTTABLE, tree.status());
+        assertEquals(1, tree.groundY());
+        assertEquals(3, tree.buried().size());
+    }
+
+    @Test
+    void rootedTreeOnRockWithALowCanopyIsATree() {
+        // Firs carry leaves along the whole trunk: 41% of them above the middle of the wood in the vanilla prefabs.
+        FakeForest world = rockTree(3, 14, 1, 7);
+
+        assertEquals(Tree.Status.CUTTABLE, TreeScan.find(world, p(0, 3, 0), LIMITS).status());
+    }
+
+    @Test
+    void trunkStandingOnTopOfRockIsNotATreeWhateverItsCanopy() {
+        FakeForest world = rockTree(0, 8, 4, 4);
+
+        assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(world, p(0, 3, 0), LIMITS).status());
+    }
+
+    @Test
+    void cabinWithAThickLeafRoofOnRockIsNotATree() {
+        // 4 pillars of 3 logs under a 5x5x2 roof: 50 leaves for 12 logs, more than the 3x of the old review suggestion.
+        FakeForest world = new FakeForest();
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                world.set(x, 0, z, "Rock_Stone").set(x, 4, z, "Plant_Leaves_Oak").set(x, 5, z, "Plant_Leaves_Oak");
+            }
+        }
+        for (int[] c : new int[][]{{-2, -2}, {-2, 2}, {2, -2}, {2, 2}}) {
+            for (int y = 1; y <= 3; y++) {
+                world.set(c[0], y, c[1], "Wood_Oak_Trunk");
+            }
+        }
+
+        assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(world, p(-2, 1, -2), LIMITS).status());
+    }
+
+    @Test
+    void logLetOneBlockIntoRockIsNotATree() {
+        // A pillar in a hole of the floor under a leaf roof (a build): the roots of a tree go at least 2 deep.
+        assertEquals(Tree.Status.NOT_A_TREE, TreeScan.find(rockTree(1, 8, 5, 4), p(0, 3, 0), LIMITS).status());
+        assertEquals(Tree.Status.CUTTABLE, TreeScan.find(rockTree(2, 8, 5, 4), p(0, 3, 0), LIMITS).status());
+    }
+
     @Test
     void buriedIsOnlyWood() {
         FakeForest world = new FakeForest().ground(0, 0, 4, 0, 4).oak(0, 1, 0, 2, 5);

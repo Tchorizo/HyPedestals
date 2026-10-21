@@ -129,7 +129,8 @@ class TreeScanPropertiesTest {
                 }
                 if (tree.status() != Tree.Status.CUTTABLE) {
                     notCuttable++;
-                    assertTrue(tree.leaves().isEmpty() && tree.hanging().isEmpty(), "case " + c + ": skipped tree lists leaves");
+                    assertTrue(tree.hanging().isEmpty() && (tree.status() == Tree.Status.NOT_A_TREE || tree.leaves().isEmpty()),
+                            "case " + c + ": skipped tree lists leaves");
                     continue;
                 }
                 cuttable++;

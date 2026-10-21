@@ -121,6 +121,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new DevPlanterCommands());
         addSubCommand(new TreesCommand());
         addSubCommand(new FillBoxCommand());
+        DevFindCommand.register(this);
         DevBuildCommands.register(this);
     }
 

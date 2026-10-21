@@ -44,6 +44,8 @@ public final class TreeScan {
     public static final int LEAF_REACH = 16;
     /** The leaf flood may cover this many times the block limit (other trees' leaves included). */
     static final int FLOOD_FACTOR = 4;
+    /** Blocks of buried roots that make a tree on non-soil ground natural ({@link #natural}). */
+    static final int MIN_ROOT_DEPTH = 2;
     /** Returned alone by {@link #leaves} when the flood met an unloaded section. */
     private static final BlockPos UNLOADED_MARK = new BlockPos(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE);
 
@@ -99,8 +101,9 @@ public final class TreeScan {
             return Tree.skipped(Tree.Status.UNLOADED, wood, seen.size());
         }
 
-        if (!natural(world, wood, leaves)) {
-            return Tree.skipped(Tree.Status.NOT_A_TREE, wood, seen.size());
+        int groundY = groundY(world, wood);
+        if (!natural(world, wood, leaves, groundY)) {
+            return Tree.rejected(wood, leaves, groundY, seen.size());
         }
 
         List<BlockPos> hanging = new ArrayList<>();
@@ -119,7 +122,6 @@ public final class TreeScan {
             return Tree.skipped(Tree.Status.TOO_BIG, wood, seen.size());
         }
 
-        int groundY = groundY(world, wood);
         // The sapling goes back on the column whose wood reaches deepest: a vanilla prefab is
         // anchored at the sapling and only that column carries the roots (itest: a 2x2 trunk base
         // put the sapling on a side column when the spot was the one nearest the scan's start).
@@ -243,12 +245,18 @@ public final class TreeScan {
     }
 
     /**
-     * Ruling H (review, Main): wood the Lumberjack may cut looks like a natural tree: it has leaves,
-     * at least a quarter as many leaves as wood blocks, and the lowest block of its deepest column
-     * (the trunk with the roots) stands on soil. A log cabin (no leaves), or one with a leaf roof on
-     * a stone floor, is left alone.
+     * Ruling H (review, Main; roots on rock: Task 42): wood the Lumberjack may cut looks like a
+     * natural tree: it has leaves and at least a quarter as many leaves as wood blocks, and either
+     * the lowest wood block stands on soil, or its roots are buried: the lowest wood is at least
+     * {@link #MIN_ROOT_DEPTH} blocks below {@code groundY} (a worldgen tree on a rock outcrop has
+     * its roots sunk into the stone; a log build stands on top of its floor, or one log deep in
+     * it). A log cabin (no leaves), a leaf roof on a stone floor or pillars standing on rock are
+     * left alone. Neither the leaf-to-wood ratio nor where the canopy is separates them from trees
+     * (Task 42, vanilla prefabs with leaves: 70% of those with roots have fewer than 3 leaves per
+     * wood block, 41% of a fir's leaves are above the middle of its wood); the root depth does
+     * (only 27 of 947 prefabs have exactly one block of roots, 640 have two or more).
      */
-    static boolean natural(TreeWorld world, List<BlockPos> wood, List<BlockPos> leaves) {
+    static boolean natural(TreeWorld world, List<BlockPos> wood, List<BlockPos> leaves, int groundY) {
         if (leaves.isEmpty() || leaves.size() * 4 < wood.size()) {
             return false;
         }
@@ -258,7 +266,7 @@ public final class TreeScan {
                 lowest = w;
             }
         }
-        return world.soil(new BlockPos(lowest.x(), lowest.y() - 1, lowest.z()));
+        return groundY - lowest.y() >= MIN_ROOT_DEPTH || world.soil(new BlockPos(lowest.x(), lowest.y() - 1, lowest.z()));
     }
 
     /** A non-tree block with support rules that does not rest on a solid non-tree block. */
