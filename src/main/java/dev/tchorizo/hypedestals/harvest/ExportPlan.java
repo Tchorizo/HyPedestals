@@ -106,21 +106,13 @@ public final class ExportPlan {
 
     /**
      * Moves every exportable stack of {@code source} into the containers around {@code center}:
-     * whole stacks of what {@link #isExportable}, and the poop the upgrade keeps above
-     * {@code manureStock} ({@link #exportLimits}). The world is not consulted when nothing may leave.
+     * whole stacks of what {@link #isExportable}, the poop the fertilizer upgrade keeps above
+     * {@code manureStock} and the plantables kept above {@code seedStock} ({@link #exportLimits}).
+     * The world is not consulted when nothing may leave.
      *
      * @param keepFertilizer whether the fertilizer upgrade is installed; see {@link #isExportable}
      * @param manurePerApplication the config's {@code ManurePerApplication}; see {@link #isExportable}
      * @param manureStock the config's {@code ManureStock}: most poop the upgrade keeps
-     */
-    public static <S extends ExportSource> Result run(ExportWorld<S> world, S source, BlockPos center,
-                                                      boolean keepFertilizer, int manurePerApplication, int manureStock) {
-        return run(world, source, center, keepFertilizer, manurePerApplication, manureStock, null, 0);
-    }
-
-    /**
-     * {@link #run(ExportWorld, ExportSource, BlockPos, boolean, int, int)} with the planter upgrade's stock.
-     *
      * @param plantable with the planter upgrade, whether an item id is one of its seeds or
      *     saplings; {@code null} without the upgrade (seeds are ordinary items)
      * @param seedStock the config's {@code PlanterSeedStock}: most items of each plantable kind kept
@@ -160,19 +152,12 @@ public final class ExportPlan {
 
     /**
      * Per slot, the most items that may leave: the whole stack when {@link #isExportable}, none
-     * for the bags the upgrade keeps, and for poop the upgrade keeps, what the poop of all slots
-     * has above {@code manureStock}, from the highest slot down (the lowest slots keep the stock).
+     * for the bags the fertilizer upgrade keeps; for poop the upgrade keeps, what the poop of all
+     * slots has above {@code manureStock}, from the highest slot down; and, with {@code plantable},
+     * the items of each plantable id above {@code seedStock} (summed over their slots) leave from the
+     * highest slot down, like the poop above its stock.
      *
      * @return the limits, or {@code null} when nothing may leave
-     */
-    static int[] exportLimits(ExportSource source, boolean keepFertilizer, int manurePerApplication, int manureStock) {
-        return exportLimits(source, keepFertilizer, manurePerApplication, manureStock, null, 0);
-    }
-
-    /**
-     * {@link #exportLimits(ExportSource, boolean, int, int)} where, with {@code plantable}, the
-     * items of each plantable id above {@code seedStock} (summed over their slots) leave from the
-     * highest slot down, like the poop above its stock.
      */
     static int[] exportLimits(ExportSource source, boolean keepFertilizer, int manurePerApplication, int manureStock,
                               Predicate<String> plantable, int seedStock) {

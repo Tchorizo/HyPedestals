@@ -1,5 +1,7 @@
 package dev.tchorizo.hypedestals.block;
 
+import dev.tchorizo.hypedestals.HyPedestalsPlugin;
+
 import com.hypixel.hytale.assetstore.AssetRegistry;
 import com.hypixel.hytale.builtin.adventure.farming.config.stages.PrefabFarmingStageData;
 import com.hypixel.hytale.builtin.adventure.farming.states.TilledSoilBlock;
@@ -58,6 +60,9 @@ public final class HytalePlantables {
     /** item id → whether it is a seed on some soil or a sapling (export stock). */
     private static final Map<String, Boolean> PLANTABLE = new ConcurrentHashMap<>();
 
+    /** Item ids whose interaction walk threw; warned about once each. */
+    private static final java.util.Set<String> RESOLVE_FAILED = ConcurrentHashMap.newKeySet();
+
     private HytalePlantables() {}
 
     /**
@@ -71,7 +76,13 @@ public final class HytalePlantables {
         }
         return SEEDS.computeIfAbsent(itemId + '\0' + soil.getId(), key -> {
             Item item = Item.getAssetMap().getAsset(itemId);
-            String block = item == null ? null : resolve(item, soil, null);
+            String block;
+            try {
+                block = item == null ? null : resolve(item, soil, null);
+            } catch (RuntimeException e) {
+                warnOnce(itemId, e);
+                block = null; // cached as "nothing": the walk is not retried every cycle
+            }
             return Optional.ofNullable(isCrop(block) ? block : null);
         }).orElse(null);
     }
@@ -102,11 +113,24 @@ public final class HytalePlantables {
                 return false;
             }
             List<String> blocks = new ArrayList<>(2);
-            for (Interaction i : rootInteractions(item)) {
-                collectAll(i, item, blocks, 0);
+            try {
+                for (Interaction i : rootInteractions(item)) {
+                    collectAll(i, item, blocks, 0);
+                }
+            } catch (RuntimeException e) {
+                warnOnce(id, e);
+                return false;
             }
             return blocks.stream().anyMatch(HytalePlantables::isCrop);
         });
+    }
+
+    /** Logs, once per item id, that its interaction assets could not be walked. */
+    private static void warnOnce(String itemId, RuntimeException e) {
+        if (RESOLVE_FAILED.add(itemId)) {
+            HyPedestalsPlugin.warn("planter: could not read the seed interaction of %s (treated as not plantable): %s",
+                    itemId, e.toString());
+        }
     }
 
     /** Whether a sapling can stand on {@code type} (the vanilla saplings' {@code Support.Down} tag). */
