@@ -3,6 +3,12 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- A Harvester whose area reaches into a chunk that is loaded but not ticking (no player near it) could crash the world (`IllegalArgumentException: Duplicate block components`; the server reloads the world and disconnects the players in it) when a ripe crop there still had its farming data stored away by the game. The game's own harvest does not look at that stored data, queues a second one for the block and fails when the tick ends. The Harvester now leaves such a crop alone (`unloaded=` in `/hypedestals inspect`) and harvests it on the first cycle after the chunk ticks again; nothing is lost.
+
 ## 0.3.1 — 2026-10-21
 
 ### Fixed

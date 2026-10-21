@@ -32,7 +32,8 @@ public final class HarvestCycle {
      * <p>A position whose chunk section is not in memory ({@link CycleWorld#loaded}) reads as
      * empty: it is skipped and counted in {@link CycleResult#unloaded()}. The Harvester's own
      * section is loaded (it is ticking), so this is the part of an area that crosses into a
-     * neighbouring chunk nobody keeps loaded.
+     * neighbouring chunk nobody keeps loaded. A ripe crop in a section that is in memory but not
+     * ticking (its block entities parked) is skipped the same way ({@link HarvestOutcome#UNLOADED}).
      *
      * <p>The scan is circular over {@link HarvestArea#positions}: it starts at {@code startIndex}
      * (taken modulo the area size, so a stale index after a radius change is harmless) and visits
@@ -106,6 +107,7 @@ public final class HarvestCycle {
                     }
                     case NOT_READY -> { }
                     case TRANSIENT_ERROR -> transientFailures++;
+                    case UNLOADED -> unloaded++;
                     case TYPE_ERROR -> {
                         warnedTypes.add(type);
                         newWarnings.add(type);

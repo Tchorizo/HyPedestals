@@ -15,7 +15,9 @@ import java.util.List;
  * @param newWarnings crop types that failed to harvest for the first time in this cycle
  * @param transientFailures positions whose harvest was deferred to a later cycle ({@link HarvestOutcome#TRANSIENT_ERROR})
  * @param unloaded positions the scan visited whose chunk section was not in memory (read as
- *     empty, so skipped); a crop there is harvested once a later cycle finds the section loaded
+ *     empty, so skipped), plus ripe crops in a section in memory whose block entities are parked
+ *     ({@link HarvestOutcome#UNLOADED}); a crop there is harvested once a later cycle finds the
+ *     section loaded and ticking
  * @param nextIndex index in {@link HarvestArea#positions} where the next cycle's scan starts
  */
 public record CycleResult(int harvested, int collected, boolean containerFull, boolean cropsWaiting,

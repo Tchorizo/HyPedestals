@@ -11,6 +11,14 @@ public enum HarvestOutcome {
      * that block); the crop type stays eligible and it does not count towards {@code MaxHarvestsPerCycle}.
      */
     TRANSIENT_ERROR,
+    /**
+     * The block's section is in memory but its block entities are parked (the section is not
+     * ticking): the game's harvest would queue a second entity for the block and crash the world.
+     * Nothing was touched; counted with the positions in unloaded sections ({@link CycleResult#unloaded()}),
+     * does not count towards {@code MaxHarvestsPerCycle}, and the crop is harvested by the cycle that
+     * finds the section ticking again.
+     */
+    UNLOADED,
     /** The harvest failed in a way that will repeat; the crop type is skipped from then on. */
     TYPE_ERROR
 }

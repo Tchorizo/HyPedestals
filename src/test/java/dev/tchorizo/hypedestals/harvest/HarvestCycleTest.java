@@ -393,6 +393,38 @@ class HarvestCycleTest {
     }
 
     @Test
+    void ripeCropWhoseBlockEntityIsParkedIsSkippedAsUnloadedAndRetried() {
+        // A ripe block in a section that is loaded but not ticking, whose block entity is still
+        // parked (Task 40): the game's harvest would queue a second entity for the block and crash
+        // the world when the tick's buffer is consumed. The position is skipped, counted with the
+        // unloaded ones, does not use up MaxHarvestsPerCycle or poison the crop type, and is
+        // harvested by the cycle that finds the entity live again.
+        BlockPos parked = new BlockPos(-1, 64, 0);
+        BlockPos other = new BlockPos(1, 64, 0);
+        Set<String> warnedTypes = new HashSet<>();
+        FakeCycleWorld world = new FakeCycleWorld();
+        world.mature(parked, WHEAT);
+        world.mature(other, WHEAT);
+        world.parkedPositions.add(parked);
+
+        CycleResult first = HarvestCycle.run(world, CENTER, 2, MARGIN, warnedTypes, 0, 1, new PendingDrops(new DropCalibration()));
+
+        assertEquals(1, first.harvested(), "the skipped crop does not use up the limit");
+        assertEquals(1, first.unloaded());
+        assertEquals(0, first.transientFailures());
+        assertEquals(List.of(), first.newWarnings());
+        assertEquals(Set.of(), warnedTypes, "the type stays eligible");
+
+        world.parkedPositions.clear();
+        world.calls.clear();
+        CycleResult second = HarvestCycle.run(world, CENTER, 2, MARGIN, warnedTypes, first.nextIndex(), 1, new PendingDrops(new DropCalibration()));
+
+        assertEquals(List.of("harvest " + parked), world.harvestCalls());
+        assertEquals(1, second.harvested());
+        assertEquals(0, second.unloaded());
+    }
+
+    @Test
     void nextIndexFollowsTheLastHarvestedPositionWhenCapped() {
         // Radius 1: 27 positions; (0, 63, 0) is index 4 and (1, 64, -1) is index 15.
         FakeCycleWorld world = new FakeCycleWorld();
@@ -525,6 +557,8 @@ class HarvestCycleTest {
         final Set<BlockPos> maturePositions = new HashSet<>();
         final Set<String> throwingTypes = new HashSet<>();
         final Set<BlockPos> transientPositions = new HashSet<>();
+        /** Ripe positions in a loaded section whose block entity is parked ({@link HarvestOutcome#UNLOADED}). */
+        final Set<BlockPos> parkedPositions = new HashSet<>();
         /** Positions whose chunk section is not in memory: they read as empty, like {@code SectionReader}. */
         final Set<BlockPos> unloadedPositions = new HashSet<>();
         boolean full;
@@ -583,6 +617,9 @@ class HarvestCycleTest {
             }
             if (transientPositions.contains(p)) {
                 return HarvestOutcome.TRANSIENT_ERROR;
+            }
+            if (parkedPositions.contains(p)) {
+                return HarvestOutcome.UNLOADED;
             }
             return maturePositions.contains(p) ? HarvestOutcome.HARVESTED : HarvestOutcome.NOT_READY;
         }
