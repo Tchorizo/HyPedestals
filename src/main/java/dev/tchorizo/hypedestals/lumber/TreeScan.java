@@ -115,9 +115,24 @@ public final class TreeScan {
         }
 
         int groundY = groundY(world, wood);
+        // The sapling goes back on the column whose wood reaches deepest: a vanilla prefab is
+        // anchored at the sapling and only that column carries the roots (itest: a 2x2 trunk base
+        // put the sapling on a side column when the spot was the one nearest the scan's start).
+        Map<Long, Integer> deepest = new HashMap<>();
+        for (BlockPos w : wood) {
+            deepest.merge(column(w), w.y(), Math::min);
+        }
         BlockPos spot = null;
         for (BlockPos w : wood) {
-            if (w.y() == groundY && (spot == null || closer(start, w, spot))) {
+            if (w.y() != groundY) {
+                continue;
+            }
+            if (spot == null) {
+                spot = w;
+                continue;
+            }
+            int dw = deepest.get(column(w)), ds = deepest.get(column(spot));
+            if (dw < ds || (dw == ds && closer(start, w, spot))) {
                 spot = w;
             }
         }
@@ -261,6 +276,10 @@ public final class TreeScan {
             return da < db;
         }
         return a.x() != b.x() ? a.x() < b.x() : a.z() < b.z();
+    }
+
+    private static long column(BlockPos p) {
+        return ((long) p.x() << 32) | (p.z() & 0xFFFFFFFFL);
     }
 
     private static long sq(int v) {

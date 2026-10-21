@@ -16,7 +16,8 @@ import java.util.List;
  * @param hanging non-tree blocks that hang from the tree (fruit, sap, snow…), cut with it
  * @param groundY lowest {@code y} where a wood block has an open side (air or a non-solid
  *     block): the ground level; below it the tree replaced soil
- * @param replantSpot the wood block at {@code groundY} nearest the start (where a sapling goes back)
+ * @param replantSpot the wood block at {@code groundY} on the column whose wood goes deepest (the
+ *     vanilla sapling's column, which carries the roots); ties: nearest the start
  * @param buried cut blocks below {@code groundY}, filled back with soil after the cut
  */
 public record Tree(Status status, List<BlockPos> wood, List<BlockPos> leaves, List<BlockPos> hanging,

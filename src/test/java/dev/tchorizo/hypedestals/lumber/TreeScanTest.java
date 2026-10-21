@@ -165,6 +165,19 @@ class TreeScanTest {
     }
 
     @Test
+    void theSpotIsTheColumnWithTheRootsNotTheOneNearestTheStart() {
+        // 2x2 trunk base on grass at y=0: only (0,z=0) has roots down to y=-3, as a vanilla Oak.
+        FakeForest world = new FakeForest().ground(0, 0, 4, 0, 5).oak(0, 1, 0, 4, 5);
+        world.set(1, 0, 0, "Wood_Oak_Trunk_Full").set(1, 1, 0, "Wood_Oak_Trunk_Full")
+                .set(0, 0, 1, "Wood_Oak_Trunk_Full").set(0, 1, 1, "Wood_Oak_Trunk_Full");
+
+        Tree tree = TreeScan.find(world, p(1, 0, 0), LIMITS);
+
+        assertEquals(1, tree.groundY());
+        assertEquals(p(0, 1, 0), tree.replantSpot());
+    }
+
+    @Test
     void treeOnStoneHasNothingBuried() {
         FakeForest world = new FakeForest().set(0, 0, 0, "Rock_Stone").oak(0, 1, 0, 0, 5);
 
