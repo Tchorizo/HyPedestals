@@ -66,7 +66,7 @@ Watering and Fertilizer work on a soil pass of their own, every `SoilSweepSecond
 
 ## Lumberjack
 
-A Lumberjack is a pedestal (rings of a cut log on top) that fells trees: every interval it cuts **one whole tree** whose trunk stands in its area — trunk, branches, roots and leaves, plus fruit, sap or snow hanging from it — and puts the drops straight into its storage (logs from the trunk, sticks and sap from branches, fibre from leaves, as if broken by hand). Nothing is left floating and nothing drops on the ground. The tree is only cut when all of its drops fit in the storage; otherwise it waits.
+A Lumberjack is a pedestal (rings of a cut log on top) that fells trees: every interval it cuts **one whole tree** whose trunk stands in its area — trunk, branches, roots and leaves, plus fruit, sap or snow hanging from it — and puts the drops straight into its storage (logs from the trunk, sticks and sap from branches). Leaves drop what they drop when a felled tree's leaves fall — mostly nothing, sometimes Plant Fibre (about 2% of the leaves; breaking leaves by hand gives about 50%). Nothing is left floating and nothing drops on the ground. The tree is only cut when all of its drops fit in the storage; otherwise it waits.
 
 | Tier | Block | Area | Interval | Slots | Recipe (Workbench) |
 |---|---|---|---|---|---|

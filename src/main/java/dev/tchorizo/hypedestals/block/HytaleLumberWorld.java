@@ -7,6 +7,7 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.PhysicsDropType;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
@@ -21,6 +22,7 @@ import dev.tchorizo.hypedestals.HyPedestalsPlugin;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.ContainerRoom;
 import dev.tchorizo.hypedestals.harvest.ItemCount;
+import dev.tchorizo.hypedestals.lumber.DropSource;
 import dev.tchorizo.hypedestals.lumber.LumberWorld;
 import dev.tchorizo.hypedestals.lumber.TreePart;
 
@@ -122,9 +124,11 @@ final class HytaleLumberWorld implements LumberWorld {
     }
 
     /**
-     * One roll of what breaking the block by hand drops: {@code Gathering.Breaking} (wood),
-     * else {@code Soft} (leaves: fibre), else {@code Harvest} (fruit), else {@code Physics}, through
-     * {@code BlockHarvestUtils.getDrops}. Filler parts of a multi-block drop nothing (the origin does).
+     * One roll of what the block drops when its tree is felled ({@link DropSource}): leaves roll
+     * {@code Gathering.Physics} (the drop of leaves that fall with a tree) when it names an item or
+     * a drop list, everything else {@code Breaking} (wood), else {@code Soft}, else {@code Harvest}
+     * (fruit), else {@code Physics}, through {@code BlockHarvestUtils.getDrops}. Filler parts of a
+     * multi-block drop nothing (the origin does).
      */
     @Override
     public List<ItemCount> drops(BlockPos p) {
@@ -133,18 +137,19 @@ final class HytaleLumberWorld implements LumberWorld {
         if (g == null || reader.getFiller(p.x(), p.y(), p.z()) != 0) {
             return List.of();
         }
+        PhysicsDropType fall = g.getPhysics();
+        boolean fallDrops = fall != null && (fall.getItemId() != null || fall.getDropListId() != null);
         List<ItemStack> stacks;
-        if (g.getBreaking() != null) {
-            stacks = BlockHarvestUtils.getDrops(type, Math.max(1, g.getBreaking().getQuantity()),
+        switch (DropSource.pick(part(p), g.getBreaking() != null, g.getSoft() != null, g.getHarvest() != null,
+                fall != null, fallDrops)) {
+            case BREAKING -> stacks = BlockHarvestUtils.getDrops(type, Math.max(1, g.getBreaking().getQuantity()),
                     g.getBreaking().getItemId(), g.getBreaking().getDropListId());
-        } else if (g.getSoft() != null) {
-            stacks = BlockHarvestUtils.getDrops(type, 1, g.getSoft().getItemId(), g.getSoft().getDropListId());
-        } else if (g.getHarvest() != null) {
-            stacks = BlockHarvestUtils.getDrops(type, 1, g.getHarvest().getItemId(), g.getHarvest().getDropListId());
-        } else if (g.getPhysics() != null) {
-            stacks = BlockHarvestUtils.getDrops(type, 1, g.getPhysics().getItemId(), g.getPhysics().getDropListId());
-        } else {
-            return List.of();
+            case SOFT -> stacks = BlockHarvestUtils.getDrops(type, 1, g.getSoft().getItemId(), g.getSoft().getDropListId());
+            case HARVEST -> stacks = BlockHarvestUtils.getDrops(type, 1, g.getHarvest().getItemId(), g.getHarvest().getDropListId());
+            case PHYSICS -> stacks = BlockHarvestUtils.getDrops(type, 1, fall.getItemId(), fall.getDropListId());
+            default -> {
+                return List.of();
+            }
         }
         Map<String, Integer> sum = new LinkedHashMap<>();
         for (ItemStack s : stacks) {
