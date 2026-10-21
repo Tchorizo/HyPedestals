@@ -73,6 +73,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         save.append(Event.UPGRADE_PARTICLES, "#UpgradeParticlesSeconds.Value");
         save.append(Event.MANURE, "#ManurePerApplication.Value");
         save.append(Event.MANURE_STOCK, "#ManureStock.Value");
+        save.append(Event.SEED_STOCK, "#PlanterSeedStock.Value");
+        save.append(Event.SAPLING_SPACING, "#SaplingSpacing.Value");
         events.addEventBinding(CustomUIEventBindingType.Activating, "#SaveButton", save, false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ResetButton", EventData.of(Event.ACTION, ACTION_RESET), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CloseConfigButton", EventData.of(Event.ACTION, ACTION_CLOSE), false);
@@ -149,6 +151,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         commands.set("#UpgradeParticlesSeconds.Value", (double) settings.upgradeParticlesSeconds());
         commands.set("#ManurePerApplication.Value", (double) settings.manurePerApplication());
         commands.set("#ManureStock.Value", (double) settings.manureStock());
+        commands.set("#PlanterSeedStock.Value", (double) settings.planterSeedStock());
+        commands.set("#SaplingSpacing.Value", (double) settings.saplingSpacing());
     }
 
     /** Element id of a tier's radius field, e.g. {@code CopperRadius}; the event key is the same with {@code @}. */
@@ -177,6 +181,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         static final String UPGRADE_PARTICLES = "@UpgradeParticlesSeconds";
         static final String MANURE = "@ManurePerApplication";
         static final String MANURE_STOCK = "@ManureStock";
+        static final String SEED_STOCK = "@PlanterSeedStock";
+        static final String SAPLING_SPACING = "@SaplingSpacing";
 
         public static final BuilderCodec<Event> CODEC = codec();
 
@@ -194,6 +200,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         Double upgradeParticlesSeconds;
         Double manurePerApplication;
         Double manureStock;
+        Double planterSeedStock;
+        Double saplingSpacing;
 
         private static BuilderCodec<Event> codec() {
             BuilderCodec.Builder<Event> builder = BuilderCodec.builder(Event.class, Event::new)
@@ -223,6 +231,12 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     .add()
                     .append(new KeyedCodec<>(MANURE_STOCK, Codec.DOUBLE),
                             (e, v) -> e.manureStock = v, e -> e.manureStock)
+                    .add()
+                    .append(new KeyedCodec<>(SEED_STOCK, Codec.DOUBLE),
+                            (e, v) -> e.planterSeedStock = v, e -> e.planterSeedStock)
+                    .add()
+                    .append(new KeyedCodec<>(SAPLING_SPACING, Codec.DOUBLE),
+                            (e, v) -> e.saplingSpacing = v, e -> e.saplingSpacing)
                     .add();
             // Number fields arrive as doubles, whole or not; they are rounded below.
             for (Tier tier : Tier.values()) {
@@ -241,7 +255,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         }
 
         /**
-         * Entered values as settings (radius, watering, sweep, harvest cap, poop per application and poop stock rounded to whole numbers,
+         * Entered values as settings (radius, watering, sweep, harvest cap, poop per application, poop stock, seed stock
+         * and sapling spacing rounded to whole numbers,
          * interval, post-harvest window and upgrade particle period to one decimal), or {@code null} if any value is
          * missing. Non-finite numbers (NaN, infinity) are added to {@code problems} instead of
          * being rounded to 0; other range checks are left to {@link ModSettings#problems()}.
@@ -250,7 +265,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             if (collectAnyItem == null || collectMargin == null || soilSweepSeconds == null
                     || exportToAdjacent == null || harvestParticles == null || postHarvestCollectSeconds == null
                     || maxHarvestsPerCycle == null || upgradeParticlesSeconds == null || manurePerApplication == null
-                    || manureStock == null) {
+                    || manureStock == null || planterSeedStock == null || saplingSpacing == null) {
                 return null;
             }
             Map<Tier, TierSettings> tiers = new EnumMap<>(Tier.class);
@@ -270,7 +285,9 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     whole("MaxHarvestsPerCycle", maxHarvestsPerCycle, problems),
                     tenths("UpgradeParticlesSeconds", upgradeParticlesSeconds, problems),
                     whole("ManurePerApplication", manurePerApplication, problems),
-                    whole("ManureStock", manureStock, problems));
+                    whole("ManureStock", manureStock, problems),
+                    whole("PlanterSeedStock", planterSeedStock, problems),
+                    whole("SaplingSpacing", saplingSpacing, problems));
         }
 
         private static int whole(String field, double value, List<String> problems) {
@@ -296,10 +313,10 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
             return String.format(Locale.ROOT, "Event[action=%s radius=%s interval=%s watering=%s collectAnyItem=%s"
                             + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s"
                             + " postHarvestCollectSeconds=%s maxHarvestsPerCycle=%s upgradeParticlesSeconds=%s"
-                            + " manurePerApplication=%s manureStock=%s]",
+                            + " manurePerApplication=%s manureStock=%s planterSeedStock=%s saplingSpacing=%s]",
                     action, radius, interval, watering, collectAnyItem, collectMargin, soilSweepSeconds,
                     exportToAdjacent, harvestParticles, postHarvestCollectSeconds, maxHarvestsPerCycle,
-                    upgradeParticlesSeconds, manurePerApplication, manureStock);
+                    upgradeParticlesSeconds, manurePerApplication, manureStock, planterSeedStock, saplingSpacing);
         }
     }
 }

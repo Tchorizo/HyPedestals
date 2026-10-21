@@ -23,6 +23,8 @@ ui.config.maxHarvests = Max crops harvested per cycle (0 = no limit)
 ui.config.soilSweep = Soil pass every (s)
 ui.config.manure = Poop per fertilizer application (0 = bags only)
 ui.config.manureStock = Poop kept as fuel (the rest is exported)
+ui.config.planterSeedStock = Seeds and saplings kept per kind (Planter; the rest is exported)
+ui.config.saplingSpacing = Sapling spacing (blocks, 0 = no saplings)
 ui.config.exportToAdjacent = Export to a container below or beside the Harvester
 ui.config.harvestParticles = Particle effect when a cycle harvests
 ui.config.upgradeParticles = Extra upgrade particles every (s, 0 = off, default)
@@ -37,6 +39,8 @@ items.Upgrade_Watering.name = Watering Upgrade
 items.Upgrade_Watering.description = Right-click a Harvester to install: it keeps the tilled soil of its area watered. Crouch + F on the Harvester removes the last upgrade.
 items.Upgrade_Fertilizer.name = Fertilizer Upgrade
 items.Upgrade_Fertilizer.description = Turns your animals' manure into fertilizer. Right-click a Harvester to install: it fertilizes planted soil in its area using the Poop your livestock drops in the field (2 per soil block by default) and then Fertilizer bags from any slot of the Harvester (and keeps the bags and up to 100 Poop by default out of the export). Crouch + F on the Harvester removes the last upgrade.
+items.Upgrade_Planter.name = Planter Upgrade
+items.Upgrade_Planter.description = Right-click a Harvester to install: it plants the seeds from any of its slots (lowest slot first) on every empty soil block of its area the seed grows on, and tree saplings on grass or dirt on a grid every 4 blocks (only where the space around is free). Keeps up to 64 of each seed or sapling out of the export by default. Crouch + F on the Harvester removes the last upgrade.
 upgrade.installed = {upgrade} installed.
 upgrade.alreadyInstalled = This Harvester already has the {upgrade}.
 upgrade.removed = {upgrade} removed.

@@ -23,7 +23,9 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
  *   "MaxHarvestsPerCycle": 0,
  *   "UpgradeParticlesSeconds": 0.0,
  *   "ManurePerApplication": 2,
- *   "ManureStock": 100
+ *   "ManureStock": 100,
+ *   "PlanterSeedStock": 64,
+ *   "SaplingSpacing": 4
  * }
  * }</pre>
  *
@@ -97,6 +99,14 @@ public final class HyPedestalsConfig {
                 .append(new KeyedCodec<>("ManureStock", Codec.INTEGER),
                         (c, v) -> c.settings = c.settings.withManureStock(v),
                         c -> c.settings.manureStock())
+                .add()
+                .append(new KeyedCodec<>("PlanterSeedStock", Codec.INTEGER),
+                        (c, v) -> c.settings = c.settings.withPlanterSeedStock(v),
+                        c -> c.settings.planterSeedStock())
+                .add()
+                .append(new KeyedCodec<>("SaplingSpacing", Codec.INTEGER),
+                        (c, v) -> c.settings = c.settings.withSaplingSpacing(v),
+                        c -> c.settings.saplingSpacing())
                 .add()
                 .build();
     }

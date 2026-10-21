@@ -23,6 +23,8 @@ ui.config.maxHarvests = Máx. de colheitas por ciclo (0 = sem limite)
 ui.config.soilSweep = Passada no solo a cada (s)
 ui.config.manure = Cocô por aplicação de fertilizante (0 = só sacos)
 ui.config.manureStock = Cocô guardado como combustível (o resto é exportado)
+ui.config.planterSeedStock = Sementes e mudas guardadas de cada tipo (Plantador; o resto é exportado)
+ui.config.saplingSpacing = Espaçamento das mudas (blocos, 0 = não planta mudas)
 ui.config.exportToAdjacent = Exportar para um container embaixo ou ao lado da colheitadeira
 ui.config.harvestParticles = Efeito de partículas quando o ciclo colhe
 ui.config.upgradeParticles = Partículas extras dos upgrades a cada (s, 0 = desligado, padrão)
@@ -37,6 +39,8 @@ items.Upgrade_Watering.name = Upgrade de Rega
 items.Upgrade_Watering.description = Clique com o botão direito numa colheitadeira para instalar: ela mantém regado o solo arado da área. Agachado + F remove o último upgrade.
 items.Upgrade_Fertilizer.name = Upgrade de Fertilizante
 items.Upgrade_Fertilizer.description = Transforma o cocô dos seus animais em adubo. Clique com o botão direito numa colheitadeira para instalar: ela aduba o solo plantado da área com o Cocô que o gado deixa no campo (2 por bloco de solo no padrão) e depois com os sacos de Fertilizante de qualquer espaço da colheitadeira (não exporta os sacos nem até 100 Cocôs no padrão). Agachado + F remove o último upgrade.
+items.Upgrade_Planter.name = Upgrade de Plantador
+items.Upgrade_Planter.description = Clique com o botão direito numa colheitadeira para instalar: ela planta as sementes de qualquer espaço dela (o espaço mais baixo primeiro) em cada solo vazio da área onde a semente pega, e mudas de árvore em grama ou terra numa grade a cada 4 blocos (só onde há espaço livre em volta). Não exporta até 64 de cada semente ou muda no padrão. Agachado + F remove o último upgrade.
 upgrade.installed = {upgrade} instalado.
 upgrade.alreadyInstalled = Esta colheitadeira já tem o {upgrade}.
 upgrade.removed = {upgrade} removido.

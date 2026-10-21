@@ -101,7 +101,7 @@ class ModSettingsTest {
     void everyTierIsRequired() {
         Map<Tier, TierSettings> partial = new EnumMap<>(Tier.class);
         partial.put(Tier.COPPER, Tier.COPPER.defaults());
-        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f, 2, 100));
+        assertThrows(IllegalArgumentException.class, () -> new ModSettings(partial, true, 2, 30, true, true, 3f, 0, 2f, 2, 100, 64, 4));
     }
 
     @Test
@@ -136,6 +136,36 @@ class ModSettingsTest {
         assertEquals(50, s.withChangesFrom(s, s.withManureStock(50)).manureStock(), "a change is applied");
         assertEquals(7, s.withManureStock(7).withChangesFrom(s, s).manureStock(),
                 "untouched in the window: a value set by command survives");
+    }
+
+    @Test
+    void planterSeedStock() {
+        assertEquals(64, ModSettings.DEFAULTS.planterSeedStock());
+        ModSettings s = ModSettings.DEFAULTS;
+        assertEquals(0, s.set("global", "PlanterSeedStock", "0").planterSeedStock(), "0 exports every seed");
+        assertEquals(1000, s.set("global", "plantERseedstock", "1000").planterSeedStock());
+        assertMessage("PlanterSeedStock must be 0..1000, got 1001", () -> s.set("global", "PlanterSeedStock", "1001"));
+        assertMessage("unknown tier field PlanterSeedStock", () -> s.set("Iron", "PlanterSeedStock", "2"));
+        assertEquals(List.of("PlanterSeedStock=-1 (allowed 0..1000)"), s.withPlanterSeedStock(-1).problems());
+        assertEquals(64, s.withPlanterSeedStock(-1).sanitized().planterSeedStock());
+        assertEquals(50, s.withChangesFrom(s, s.withPlanterSeedStock(50)).planterSeedStock(), "a change is applied");
+        assertEquals(7, s.withPlanterSeedStock(7).withChangesFrom(s, s).planterSeedStock(),
+                "untouched in the window: a value set by command survives");
+    }
+
+    @Test
+    void saplingSpacing() {
+        assertEquals(4, ModSettings.DEFAULTS.saplingSpacing());
+        ModSettings s = ModSettings.DEFAULTS;
+        assertEquals(0, s.set("global", "SaplingSpacing", "0").saplingSpacing(), "0 = no saplings");
+        assertEquals(16, s.set("global", "saplingspacing", "16").saplingSpacing());
+        assertMessage("SaplingSpacing must be 0..16 (0 = no saplings), got 1", () -> s.set("global", "SaplingSpacing", "1"));
+        assertMessage("SaplingSpacing must be 0..16 (0 = no saplings), got 17", () -> s.set("global", "SaplingSpacing", "17"));
+        assertEquals(List.of("SaplingSpacing=1 (allowed 0, 2..16)"), s.withSaplingSpacing(1).problems(),
+                "1 would plant saplings side by side");
+        assertEquals(4, s.withSaplingSpacing(1).sanitized().saplingSpacing());
+        assertEquals(3, s.withChangesFrom(s, s.withSaplingSpacing(3)).saplingSpacing(), "a change is applied");
+        assertEquals(6, s.withSaplingSpacing(6).withChangesFrom(s, s).saplingSpacing());
     }
 
     @Test
@@ -342,7 +372,7 @@ class ModSettingsTest {
                         + " | Cobalt Radius=5 IntervalSeconds=3.0 WateringSeconds=108000"
                         + " | CollectAnyItem=true CollectMargin=2 SoilSweepSeconds=30 ExportToAdjacent=true HarvestParticles=true"
                         + " PostHarvestCollectSeconds=3.0 MaxHarvestsPerCycle=0 UpgradeParticlesSeconds=0.0 ManurePerApplication=2"
-                        + " ManureStock=100",
+                        + " ManureStock=100 PlanterSeedStock=64 SaplingSpacing=4",
                 ModSettings.DEFAULTS.describe());
     }
 

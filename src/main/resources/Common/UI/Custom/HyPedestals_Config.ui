@@ -259,6 +259,38 @@ $C.@PageOverlay {
         }
       }
 
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.planterSeedStock;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #PlanterSeedStock {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 1000, Step: 8, MaxDecimalPlaces: 0);
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.saplingSpacing;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #SaplingSpacing {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+      }
+
       $C.@CheckBoxWithLabel #ExportToAdjacent {
         @Text = %hypedestals.ui.config.exportToAdjacent;
         @Checked = true;
