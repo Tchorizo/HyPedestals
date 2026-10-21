@@ -1,6 +1,6 @@
 # HyPedestals
 
-A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items. Upgrades let a Harvester also water, fertilize and replant its farmland, and it can pass its harvest on to a chest next to it.
+A Hytale server plugin that adds **Harvester** blocks: place one next to your crops and it harvests every ripe crop in range, storing the drops in its own inventory. Four material tiers (Copper, Iron, Thorium, Cobalt) — higher tiers cover a larger area, work faster and hold more items. Upgrades let a Harvester also water, fertilize and replant its farmland, and it can pass its harvest on to a chest next to it. The **Lumberjack** does the same for trees: it cuts whole trees around it, stores the wood and plants a sapling back.
 
 **Keep animals on your farm and their manure becomes fertilizer.** With the Fertilizer Upgrade, every Poop your livestock drops inside the field is collected by the Harvester and used to fertilize the crops — no crafting, no bags, a closed loop from pasture to plant.
 
@@ -64,6 +64,23 @@ Both upgrades work on a soil pass of their own, every `SoilSweepSeconds` (30 s b
 - The export keeps up to `PlanterSeedStock` (64 by default) of **each** seed and sapling kind in the Harvester; the rest leaves with the harvest.
 - Empty tilled soil turns back into dry mud after about an in-game day and a half (about an hour), the game's own rule; keep seeds in the Harvester and the soil stays planted.
 
+## Lumberjack
+
+A Lumberjack is a pedestal (rings of a cut log on top) that fells trees: every interval it cuts **one whole tree** whose trunk stands in its area — trunk, branches, roots and leaves, plus fruit, sap or snow hanging from it — and puts the drops straight into its storage (logs from the trunk, sticks and sap from branches, fibre from leaves, as if broken by hand). Nothing is left floating and nothing drops on the ground. The tree is only cut when all of its drops fit in the storage; otherwise it waits.
+
+| Tier | Block | Area | Interval | Slots | Recipe (Workbench) |
+|---|---|---|---|---|---|
+| 1 | Copper Lumberjack | 7×7×3 | 30 s | 9 | 1× Copper Hatchet + 12× Copper Bar + 10× any wood trunk |
+| 2 | Iron Lumberjack | 9×9×3 | 20 s | 18 | 1× Copper Lumberjack + 15× Iron Bar |
+| 3 | Thorium Lumberjack | 13×13×3 | 15 s | 27 | 1× Iron Lumberjack + 15× Thorium Bar |
+| 4 | Cobalt Lumberjack | 17×17×3 | 10 s | 36 | 1× Thorium Lumberjack + 15× Cobalt Bar |
+
+- **Which trees:** a tree counts when one of its wood blocks is in the area (a square of side `2R+1` around the Lumberjack, one block below to one block above it); its canopy may reach outside. Wood is what the game lists as tree wood (`BlockTypeList/TreeWood`), leaves are the game's tree leaves (`TreeLeaves`) and any block tagged `Family=Leaves`, so asset packs can extend both. **Apple trees and bamboo are never cut** (the Harvester picks the apples). Trees whose canopies touch are cut one at a time: each leaf goes with the tree whose wood is nearest (through leaves), so the neighbour keeps its side of the canopy.
+- **Growing trees are left alone:** a sapling the game is still growing into a tree (it keeps its growth state on the trunk) is skipped until it is fully grown.
+- **Big trees:** a tree with more than `Lumberjack.MaxTreeBlocks` blocks (2048 by default), or reaching more than 24 blocks sideways or 64 up from where it was found, is left standing — the Lumberjack never cuts part of a tree.
+- **Replanting:** put saplings in the Lumberjack. After a cut it fills the hole the tree's roots left in the ground with soil (the soil next to it: grass, dirt…) and plants one sapling where the trunk stood — the same species when it has it (`Wood_Oak_*` → `Plant_Sapling_Oak`), else the sapling in its lowest slot — if the soil below holds saplings and the spot and the ring of blocks around it are free (grass tufts or flowers next to the trunk block it). Saplings are kept out of the [export](#export-to-an-adjacent-container) up to `PlanterSeedStock` (64) of each kind. Saplings come from the Farming Bench (Life Essence, which the Harvester collects).
+- Export to an adjacent container, `inspect` and `perf` work as for the Harvester.
+
 ## Configuration
 
 The settings are global (the same for the whole server) and stored in `HyPedestals.json` in the plugin's data folder (on a dedicated server: `mods/Tchorizo_HyPedestals/HyPedestals.json`). The file is created with the defaults on the first start.
@@ -85,7 +102,14 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
   "ManurePerApplication": 2,
   "ManureStock": 100,
   "PlanterSeedStock": 64,
-  "SaplingSpacing": 4
+  "SaplingSpacing": 4,
+  "Lumberjack": {
+    "Copper":  { "Radius": 3, "IntervalSeconds": 30.0 },
+    "Iron":    { "Radius": 4, "IntervalSeconds": 20.0 },
+    "Thorium": { "Radius": 6, "IntervalSeconds": 15.0 },
+    "Cobalt":  { "Radius": 8, "IntervalSeconds": 10.0 },
+    "MaxTreeBlocks": 2048
+  }
 }
 ```
 
@@ -106,6 +130,9 @@ The settings are global (the same for the whole server) and stored in `HyPedesta
 | `ManureStock` | 0–1000 | Most Poop a Harvester with the Fertilizer upgrade keeps as fuel (100 by default, one stack); the Poop above it is exported like any other item, from the highest slot down, so manure collected from livestock does not fill the storage. 0 keeps none |
 | `PlanterSeedStock` | 0–1000 | With the Planter upgrade, most items of each seed or sapling kind the Harvester keeps out of the export (64 by default); the rest is exported, from the highest slot down. 0 keeps none |
 | `SaplingSpacing` | 0, 2–16 | Grid spacing of the saplings the Planter upgrade plants (4 by default); 0 = no saplings |
+| `Lumberjack.<Tier>.Radius` | 1–16 | Lumberjack area radius R |
+| `Lumberjack.<Tier>.IntervalSeconds` | 1–600 | Seconds between two Lumberjack cycles (one tree each) |
+| `Lumberjack.MaxTreeBlocks` | 64–8192 | Largest tree a Lumberjack cuts, in blocks (wood, leaves and what hangs from them); bigger trees are left standing |
 
 Out-of-range values in the file are replaced by their defaults at startup (one warning each). Edits to the file are read when the server starts; changes made in game apply to every Harvester from its next cycle.
 
@@ -113,11 +140,11 @@ In game (operators):
 
 - `/hypedestals config` — opens the settings window: radius, interval and watering duration for each tier and the global options. **Save** applies the fields you changed since the window opened (values changed meanwhile by someone else, e.g. with `config set`, are kept) and writes the file, **Reset defaults** fills in the default values (press Save to apply them), **Close** (or Esc) closes without saving. From the server console it prints the values instead.
 - `/hypedestals config show` — prints the current values and the file path.
-- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock|PlanterSeedStock|SaplingSpacing> <value>` — change one value, apply it and save the file. Also works from the server console.
+- `/hypedestals config set <Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds|WateringSeconds> <value>` and `/hypedestals config set global <CollectAnyItem|CollectMargin|SoilSweepSeconds|ExportToAdjacent|HarvestParticles|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock|PlanterSeedStock|SaplingSpacing> <value>`, `/hypedestals config set Lumberjack.<Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>` and `/hypedestals config set Lumberjack MaxTreeBlocks <value>` — change one value, apply it and save the file. Also works from the server console.
 
 ## Export to an adjacent container
 
-With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester is never a target, so Harvesters placed side by side do not pass items around. With the Fertilizer upgrade installed, **Fertilizer bags are never exported** and **Poop is kept up to `ManureStock`** (100 by default), whatever their slot (they are the upgrade's supply; Poop only while `ManurePerApplication` is above 0): the Poop above that stock leaves, from the highest slot down. With the Planter upgrade installed, **each seed and sapling kind is kept up to `PlanterSeedStock`** (64 by default) the same way. Without the upgrades, all of these are exported like any other item.
+With `ExportToAdjacent` on (the default), at the end of every cycle (also when the storage is full) the Harvester moves its items into a storage block touching it: below first, then the four sides (+X, −X, +Z, −Z; never above). Each stack goes to the first container with room; what does not fit stays in the Harvester for the next cycle. Chests and other blocks with the game's item storage work; another Harvester or a Lumberjack is never a target, so machines placed side by side do not pass items around. The Lumberjack exports the same way and keeps up to `PlanterSeedStock` saplings of each kind. With the Fertilizer upgrade installed, **Fertilizer bags are never exported** and **Poop is kept up to `ManureStock`** (100 by default), whatever their slot (they are the upgrade's supply; Poop only while `ManurePerApplication` is above 0): the Poop above that stock leaves, from the highest slot down. With the Planter upgrade installed, **each seed and sapling kind is kept up to `PlanterSeedStock`** (64 by default) the same way. Without the upgrades, all of these are exported like any other item.
 
 ## Compatibility
 
@@ -134,11 +161,11 @@ Operators, in chat (with `/`) or from the server console (without it):
 
 | Command | What it does |
 |---|---|
-| `/hypedestals inspect <x y z>` | Shows the Harvester at that position (see below) |
+| `/hypedestals inspect <x y z>` | Shows the Harvester or Lumberjack at that position (see below) |
 | `/hypedestals config` | Opens the settings window (from the console: prints the values) |
 | `/hypedestals config show` | Prints the current settings and the file path |
 | `/hypedestals config set …` | Changes one setting, applies it and saves the file (see [Configuration](#configuration)) |
-| `/hypedestals perf` | Shows how much server time the Harvesters use, per tier and in total (see below) |
+| `/hypedestals perf` | Shows how much server time the Harvesters and Lumberjacks use, per block type and in total (see below) |
 | `/hypedestals perf reset` | Starts a new `perf` measurement |
 
 Permission nodes (operators hold them all through the `*` wildcard; nobody else does by default): `tchorizo.hypedestals.command.hypedestals`, plus `.inspect`, `.config`, `.config.show`, `.config.set`, `.perf` and `.perf.reset` below it. A subcommand also needs the nodes of its parent commands, so letting a non-operator use `config set` takes `tchorizo.hypedestals.command.hypedestals`, `tchorizo.hypedestals.command.hypedestals.config` and `tchorizo.hypedestals.command.hypedestals.config.set`.
