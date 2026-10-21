@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TreeScanTest {
 
-    private static final TreeLimits LIMITS = new TreeLimits(512, 24, 8, 64, 4);
+    private static final TreeLimits LIMITS = TreeLimits.of(512);
 
     private static BlockPos p(int x, int y, int z) {
         return new BlockPos(x, y, z);
@@ -47,6 +47,39 @@ class TreeScanTest {
         assertTrue(tree.wood().contains(p(1, 3, 1)), "diagonal branch belongs to the tree");
         assertFalse(tree.wood().contains(p(3, 1, 0)), "the other trunk is not reached through leaves");
         assertFalse(tree.wood().contains(p(3, 5, 0)));
+    }
+
+    @Test
+    void touchingCanopiesAreSplitByTheNearestWood() {
+        // Trunks at x=0 and x=4; the leaf row y=5 runs x=-1..5 without a gap.
+        FakeForest world = new FakeForest();
+        for (int y = 1; y <= 5; y++) {
+            world.set(0, y, 0, "Wood_Oak_Trunk").set(4, y, 0, "Wood_Oak_Trunk");
+        }
+        for (int x = -1; x <= 5; x++) {
+            world.set(x, 6, 0, "Plant_Leaves_Oak");
+        }
+
+        Tree tree = TreeScan.find(world, p(0, 1, 0), new TreeLimits(512, 24, 8, 64, 16));
+
+        assertTrue(tree.leaves().contains(p(1, 6, 0)), "nearer to our trunk");
+        assertFalse(tree.leaves().contains(p(2, 6, 0)), "a tie stays with the other tree");
+        assertFalse(tree.leaves().contains(p(3, 6, 0)), "nearer to the other trunk");
+        assertEquals(3, tree.leaves().size()); // x=-1, 0, 1
+    }
+
+    @Test
+    void farLeavesOfASingleTreeAreAllTaken() {
+        // A fir-like tip 10 leaf steps above the wood (vanilla prefabs reach 13).
+        FakeForest world = new FakeForest().set(0, 1, 0, "Wood_Fir_Trunk");
+        for (int y = 2; y <= 11; y++) {
+            world.set(0, y, 0, "Plant_Leaves_Fir");
+        }
+
+        Tree tree = TreeScan.find(world, p(0, 1, 0), LIMITS);
+
+        assertEquals(Tree.Status.CUTTABLE, tree.status());
+        assertEquals(10, tree.leaves().size());
     }
 
     @Test

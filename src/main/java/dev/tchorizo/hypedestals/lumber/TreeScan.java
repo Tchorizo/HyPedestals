@@ -4,8 +4,11 @@ import dev.tchorizo.hypedestals.harvest.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -14,9 +17,10 @@ import java.util.Set;
  * <ol>
  *   <li>Wood: breadth-first over the 26 neighbours, wood to wood (a diagonal branch belongs to the
  *       trunk).</li>
- *   <li>Leaves: breadth-first from all of that wood through leaves, at most
- *       {@link TreeLimits#leafReach()} steps. Leaves never lead to more wood, so two trees whose
- *       canopies touch stay two trees.</li>
+ *   <li>Leaves: the leaves connected to that wood through leaves (at most
+ *       {@link TreeLimits#leafReach()} steps) that are nearer to it than to any other tree's wood.
+ *       Leaves never lead to more wood, so two trees whose canopies touch stay two trees, and a
+ *       neighbour keeps the leaves on its side of the canopy.</li>
  *   <li>Hanging blocks: non-tree blocks on a face of a tree block that have support rules and do
  *       not rest on a solid non-tree block (fruit under a leaf, sap on the trunk, snow on the
  *       canopy). Cutting the tree without them would leave them floating: removing blocks does not
@@ -31,10 +35,16 @@ import java.util.Set;
 public final class TreeScan {
 
     /**
-     * Leaf steps from the wood. The vanilla leaves' {@code MaxSupportDistance} is 4; the spike's
-     * grown Oak, Birch and Spruce and a natural Birch had every leaf within this reach.
+     * Leaf steps from the wood a tree's leaves can be. Over the 1150 vanilla tree prefabs
+     * ({@code Server/Prefabs/Trees}) the farthest leaf is 13 steps (26-neighbour, through leaves)
+     * from its tree's wood (Oak Stage 7, Fir_Dead_Large); 28% of them have leaves farther than the
+     * leaves' {@code MaxSupportDistance} of 4, which the game ignores for placed prefabs.
      */
-    public static final int LEAF_REACH = 4;
+    public static final int LEAF_REACH = 16;
+    /** The leaf flood may cover this many times the block limit (other trees' leaves included). */
+    static final int FLOOD_FACTOR = 4;
+    /** Returned alone by {@link #leaves} when the flood met an unloaded section. */
+    private static final BlockPos UNLOADED_MARK = new BlockPos(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE);
 
     private static final int[][] AROUND = around();
     private static final int[][] FACES = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
@@ -80,33 +90,12 @@ public final class TreeScan {
             }
         }
 
-        List<BlockPos> leaves = new ArrayList<>();
-        List<BlockPos> frontier = wood;
-        for (int step = 1; step <= limits.leafReach() && !frontier.isEmpty(); step++) {
-            List<BlockPos> next = new ArrayList<>();
-            for (BlockPos p : frontier) {
-                for (int[] d : AROUND) {
-                    BlockPos n = new BlockPos(p.x() + d[0], p.y() + d[1], p.z() + d[2]);
-                    if (seen.contains(n)) {
-                        continue;
-                    }
-                    TreePart part = world.part(n);
-                    if (part == TreePart.LEAVES) {
-                        if (!inBounds(start, n, limits)) {
-                            return Tree.skipped(Tree.Status.TOO_BIG, wood);
-                        }
-                        seen.add(n);
-                        leaves.add(n);
-                        next.add(n);
-                        if (wood.size() + leaves.size() > limits.maxBlocks()) {
-                            return Tree.skipped(Tree.Status.TOO_BIG, wood);
-                        }
-                    } else if (part == TreePart.NONE && !world.loaded(n)) {
-                        return Tree.skipped(Tree.Status.UNLOADED, wood);
-                    }
-                }
-            }
-            frontier = next;
+        List<BlockPos> leaves = leaves(world, start, limits, wood, seen);
+        if (leaves == null) {
+            return Tree.skipped(Tree.Status.TOO_BIG, wood);
+        }
+        if (leaves.size() == 1 && leaves.getFirst() == UNLOADED_MARK) {
+            return Tree.skipped(Tree.Status.UNLOADED, wood);
         }
 
         List<BlockPos> hanging = new ArrayList<>();
@@ -142,6 +131,97 @@ public final class TreeScan {
         }
         return new Tree(Tree.Status.CUTTABLE, List.copyOf(wood), List.copyOf(leaves), List.copyOf(hanging),
                 groundY, spot, List.copyOf(buried));
+    }
+
+    /**
+     * The leaves of the tree whose wood is {@code wood}: flood through leaves from that wood for
+     * {@link TreeLimits#leafReach()} steps, noting the wood of other trees the flood touches; then
+     * every flooded leaf goes to the nearest wood (steps through flooded leaves), ours only when it
+     * is strictly nearer than any other tree's. Along a leaf's shortest path to its own tree every
+     * leaf belongs to that tree too, so what stays is still connected to its wood. {@code null}
+     * when the tree is too big (a leaf of ours beyond the bounds, the flood above
+     * {@link #FLOOD_FACTOR} × the block limit, or more blocks than the limit),
+     * {@link #UNLOADED_MARK} alone when the flood met a section not in memory.
+     */
+    private static List<BlockPos> leaves(TreeWorld world, BlockPos start, TreeLimits limits, List<BlockPos> wood,
+                                         Set<BlockPos> seen) {
+        Map<BlockPos, Integer> fromOurs = new LinkedHashMap<>();
+        List<BlockPos> foreign = new ArrayList<>();
+        List<BlockPos> clipped = new ArrayList<>();
+        int floodCap = limits.maxBlocks() * FLOOD_FACTOR;
+        List<BlockPos> frontier = wood;
+        for (int step = 1; step <= limits.leafReach() && !frontier.isEmpty(); step++) {
+            List<BlockPos> next = new ArrayList<>();
+            for (BlockPos p : frontier) {
+                boolean fromLeaf = step > 1;
+                for (int[] d : AROUND) {
+                    BlockPos n = new BlockPos(p.x() + d[0], p.y() + d[1], p.z() + d[2]);
+                    if (seen.contains(n)) {
+                        continue;
+                    }
+                    TreePart part = world.part(n);
+                    if (part == TreePart.LEAVES) {
+                        if (!inBounds(start, n, limits)) {
+                            if (!fromLeaf) {
+                                return null; // beside our own wood: ours whatever else is around
+                            }
+                            clipped.add(p);
+                            continue;
+                        }
+                        seen.add(n);
+                        fromOurs.put(n, step);
+                        next.add(n);
+                        if (fromOurs.size() > floodCap) {
+                            return null;
+                        }
+                    } else if (part == TreePart.WOOD) {
+                        seen.add(n); // not ours (ours is all seen): another tree's wood
+                        foreign.add(n);
+                    } else if (part == TreePart.NONE && !world.loaded(n)) {
+                        return List.of(UNLOADED_MARK);
+                    }
+                }
+            }
+            frontier = next;
+        }
+
+        Map<BlockPos, Integer> fromOthers = new HashMap<>();
+        frontier = foreign;
+        for (int step = 1; !frontier.isEmpty(); step++) {
+            List<BlockPos> next = new ArrayList<>();
+            for (BlockPos p : frontier) {
+                for (int[] d : AROUND) {
+                    BlockPos n = new BlockPos(p.x() + d[0], p.y() + d[1], p.z() + d[2]);
+                    if (fromOurs.containsKey(n) && !fromOthers.containsKey(n)) {
+                        fromOthers.put(n, step);
+                        next.add(n);
+                    }
+                }
+            }
+            frontier = next;
+        }
+
+        List<BlockPos> leaves = new ArrayList<>();
+        Set<BlockPos> ours = new HashSet<>();
+        fromOurs.forEach((leaf, distance) -> {
+            Integer other = fromOthers.get(leaf);
+            if (other == null || distance < other) {
+                leaves.add(leaf);
+                ours.add(leaf);
+            }
+        });
+        for (BlockPos p : clipped) {
+            if (ours.contains(p)) {
+                return null; // one of our leaves goes on beyond the bounds
+            }
+        }
+        // The other trees' leaves stay: free them for the hanging pass.
+        for (BlockPos leaf : fromOurs.keySet()) {
+            if (!ours.contains(leaf)) {
+                seen.remove(leaf);
+            }
+        }
+        return wood.size() + leaves.size() > limits.maxBlocks() ? null : leaves;
     }
 
     /** A non-tree block with support rules that does not rest on a solid non-tree block. */

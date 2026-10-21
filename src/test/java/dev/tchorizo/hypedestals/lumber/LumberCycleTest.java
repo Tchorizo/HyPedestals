@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LumberCycleTest {
 
-    private static final TreeLimits LIMITS = new TreeLimits(512, 24, 8, 64, 4);
+    private static final TreeLimits LIMITS = TreeLimits.of(512);
     /** The Lumberjack stands on the grass at y=1, like the saplings. */
     private static final BlockPos CENTER = new BlockPos(0, 1, 0);
 
