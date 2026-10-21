@@ -6,6 +6,7 @@ import com.hypixel.hytale.builtin.adventure.farming.states.FarmingBlock;
 import com.hypixel.hytale.builtin.adventure.farming.states.TilledSoilBlock;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.builtin.adventure.farming.config.stages.PrefabFarmingStageData;
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.util.ChunkUtil;
@@ -918,26 +919,30 @@ final class DevCommands extends AbstractAsyncCommand {
     }
 
     /**
-     * Lists the item entities within {@code radius} of the block center (id and quantity) without
-     * removing them. The item spatial index lags a few seconds behind spawns, so call it a few
-     * seconds after the drop.
+     * Lists the item entities within {@code radius} of the block center (id and quantity); with
+     * {@code --remove true} it also removes them (a showcase rebuild clears the old drops).
+     * The item spatial index lags a few seconds behind spawns, so call it a few seconds after the
+     * drop.
      */
     private static final class CollectCommand extends HyPedestalsCommand.PositionCommand {
         private final RequiredArg<Double> radius =
                 withRequiredArg("radius", "Search radius in blocks", ArgTypes.DOUBLE);
 
+        private final DefaultArg<Boolean> remove = withDefaultArg("remove", "Remove the item entities found",
+                ArgTypes.BOOLEAN, false, "false");
         CollectCommand() {
-            super("collect", "List item entities around a position (does not remove them)");
+            super("collect", "List item entities around a position (--remove true removes them)");
         }
 
         @Override
         protected CompletableFuture<Void> executeAsync(CommandContext context) {
             Vector3i pos = position(context);
             double r = context.get(radius);
-            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", list(world, pos, r)), pos);
+            boolean delete = context.get(remove);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", list(world, pos, r, delete)), pos);
         }
 
-        private static String list(World world, Vector3i pos, double r) {
+        private static String list(World world, Vector3i pos, double r, boolean delete) {
             Store<EntityStore> entityStore = world.getEntityStore().getStore();
             var spatial = entityStore.getResource(EntityModule.get().getItemSpatialResourceType());
             if (spatial == null || spatial.getSpatialStructure() == null) {
@@ -947,16 +952,21 @@ final class DevCommands extends AbstractAsyncCommand {
             refs.clear();
             spatial.getSpatialStructure().collect(new Vector3d(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5), r, refs);
             List<String> items = new ArrayList<>();
-            for (Ref<EntityStore> ref : refs) {
+            List<Ref<EntityStore>> found = new ArrayList<>(refs);
+            refs.clear();
+            for (Ref<EntityStore> ref : found) {
                 ItemComponent item = ref == null || !ref.isValid()
                         ? null : entityStore.getComponent(ref, ItemComponent.getComponentType());
                 if (item != null && item.getItemStack() != null) {
                     items.add(item.getItemStack().getItemId() + " x" + item.getItemStack().getQuantity());
                 }
+                    if (delete) {
+                        entityStore.removeEntity(ref, RemoveReason.REMOVE);
+                    }
             }
-            refs.clear();
-            return String.format(Locale.ROOT, "collect at %s r=%.1f: %d item entities [%s]",
-                    HyPedestalsCommand.format(pos), r, items.size(), String.join(", ", items));
+            return String.format(Locale.ROOT, "collect at %s r=%.1f: %d item entities%s [%s]",
+                    HyPedestalsCommand.format(pos), r, items.size(), delete ? " removed" : "",
+                    items.size() > 12 ? String.join(", ", items.subList(0, 12)) + ", …" : String.join(", ", items));
         }
     }
 
