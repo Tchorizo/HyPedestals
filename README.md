@@ -44,7 +44,7 @@ A Harvester holds up to three upgrades, one of each kind. They are stored in the
 |---|---|---|
 | **Watering Upgrade** | tier 2: 1× Watering Can + 4× Iron Bar + 3× Tree Sap + 25× Life Essence | Keeps the tilled soil in the Harvester's area watered, like a watering can, with no water source needed and nothing consumed |
 | **Fertilizer Upgrade** | tier 3: 1× Fertilizer + 4× Iron Bar + 25× Life Essence | Fertilizes the planted soil in its area with Poop and Fertilizer bags you put in the Harvester's storage (any slot) |
-| **Planter Upgrade** | tier 2: 1× Iron Hoe + 4× Iron Bar + 25× Life Essence | Plants the seeds in the Harvester's storage (any slot) on every empty soil block of its area, and tree saplings on grass or dirt on a grid |
+| **Planter Upgrade** | tier 2: 1× Iron Hoe + 4× Iron Bar + 25× Life Essence | Plants the seeds in the Harvester's storage (any slot) on every empty soil block of its area, and tree saplings on grass or dirt on a grid (never within 3 blocks of tilled soil) |
 
 - **Install:** hold the upgrade and **right-click** the Harvester. One item is used (not in Creative). A Harvester that already has that upgrade tells you so and keeps your item.
 - **Remove:** **crouch + Use (F)** on the Harvester takes out the most recently installed upgrade and puts it in your inventory (or drops it at your feet when the inventory is full). Plain Use still opens the storage.
