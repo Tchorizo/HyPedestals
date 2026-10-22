@@ -10,7 +10,7 @@
   ],
   "Website": "https://github.com/Tchorizo/HyPedestals",
   "Main": "dev.tchorizo.hypedestals.HyPedestalsPlugin",
-  "ServerVersion": ">=0.7.2 <0.8.0",
+  "ServerVersion": ">=0.7.4 <0.8.0",
   "Dependencies": {
     "Hytale:Universe": "*",
     "Hytale:BlockModule": "*",

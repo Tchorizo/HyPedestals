@@ -4,7 +4,7 @@ A Hytale server plugin that adds **Harvester** blocks: place one next to your cr
 
 **Keep animals on your farm and their manure becomes fertilizer.** With the Fertilizer Upgrade, every Poop your livestock drops inside the field is collected by the Harvester and used to fertilize the crops — no crafting, no bags, a closed loop from pasture to plant.
 
-Requires **Hytale 0.7.2**. Works in singleplayer and on dedicated servers.
+Requires **Hytale 0.7.4**. Works in singleplayer and on dedicated servers.
 
 ## Tiers
 
@@ -214,7 +214,7 @@ Requires JDK 25.
 ./gradlew build
 ```
 
-The plugin jar is written to `build/libs/`. The Hytale server API (`com.hypixel.hytale:Server:0.7.2`) is resolved from `https://maven.hytale.com/release` at compile time only; the jar has no bundled dependencies.
+The plugin jar is written to `build/libs/`. The Hytale server API (`com.hypixel.hytale:Server:0.7.4`) is resolved from `https://maven.hytale.com/release` at compile time only; the jar has no bundled dependencies.
 
 ## Support
 

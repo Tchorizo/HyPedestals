@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Requires Hytale 0.7.4** (was 0.7.2); the plugin is built against the 0.7.4 server API and `manifest.json` now declares `ServerVersion` `>=0.7.4 <0.8.0`. The farming, block, container and interaction API the mod uses is unchanged between the two versions.
 - The Lumberjack's crouch + Use now removes its last upgrade (plain Use still opens the storage), and a sapling's space that reaches into a chunk that is not loaded counts as occupied.
 
 ## 0.3.2 — 2026-10-21

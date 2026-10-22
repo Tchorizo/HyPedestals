@@ -18,10 +18,10 @@ repositories {
 
 dependencies {
     // The server API is provided by Hytale at runtime; never bundle it.
-    compileOnly("com.hypixel.hytale:Server:0.7.2")
+    compileOnly("com.hypixel.hytale:Server:0.7.4")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testCompileOnly("com.hypixel.hytale:Server:0.7.2")
+    testCompileOnly("com.hypixel.hytale:Server:0.7.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
