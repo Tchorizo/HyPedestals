@@ -30,6 +30,22 @@
           "Capacity": 18
         }
       }
+    },
+    "State": {
+      "Definitions": {
+        "Planter": {
+          "Particles": [
+            {
+              "SystemId": "Temple_Light_Lantern",
+              "Color": "#ffa31a",
+              "Scale": 1.5,
+              "PositionOffset": {
+                "Y": 1.1
+              }
+            }
+          ]
+        }
+      }
     }
   },
   "Recipe": {

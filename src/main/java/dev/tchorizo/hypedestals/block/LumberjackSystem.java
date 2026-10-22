@@ -18,6 +18,8 @@ import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleStagger;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
+import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
 import dev.tchorizo.hypedestals.lumber.LumberCycle;
 import dev.tchorizo.hypedestals.lumber.LumberResult;
 import dev.tchorizo.hypedestals.lumber.TreeLimits;
@@ -27,8 +29,12 @@ import org.joml.Vector3i;
 /**
  * Runs one {@link LumberCycle} per Lumberjack block every {@code Lumberjack.<Tier>.IntervalSeconds}
  * (Lumberjack spec §2): cut the first whole tree standing in the area, store its drops, fill the
- * stump with soil and plant a sapling back; then, with {@code ExportToAdjacent}, export into a
- * container touching the block, keeping up to {@code PlanterSeedStock} saplings of each kind.
+ * stump with soil and plant a sapling back; with the Planter upgrade, then plant the container's
+ * saplings on the {@code Lumberjack.SaplingSpacing} grid of the area; then, with
+ * {@code ExportToAdjacent}, export into a container touching the block, keeping up to
+ * {@code PlanterSeedStock} saplings of each kind. Each cycle also re-asserts the block state that
+ * shows the upgrades ({@link MachineVisual}), and with {@code UpgradeParticlesSeconds} above 0 the
+ * upgrade particles are spawned on that period ({@link UpgradeParticles}), as the Harvester does.
  *
  * <p>The tick only runs the timer; the cycle itself is queued with {@code world.execute} and runs
  * on the world thread after the systems: it writes the chunk store directly (removing blocks,
@@ -89,6 +95,24 @@ public final class LumberjackSystem extends EntityTickingSystem<ChunkStore> {
             lumberjack.center = new BlockPos(at.x, at.y, at.z);
             lumberjack.elapsed = CycleStagger.initialElapsed(lumberjack.center, settings.intervalSeconds());
         }
+        if (!lumberjack.ignoredUpgradesWarned && !lumberjack.ignoredUpgrades.isEmpty()) {
+            lumberjack.ignoredUpgradesWarned = true;
+            HyPedestalsPlugin.warn("Lumberjack at %s: ignored unknown, repeated or unaccepted upgrades %s; they are dropped on the next save",
+                    lumberjack.center, lumberjack.ignoredUpgrades);
+        }
+        // Own timer, so the effect keeps going between slow cycles; each spawn lasts one period.
+        float particleSeconds = HyPedestalsPlugin.settings().upgradeParticlesSeconds();
+        if (particleSeconds > 0 && !lumberjack.upgrades().isEmpty()) {
+            lumberjack.upgradeParticlesElapsed += dt;
+            if (lumberjack.upgradeParticlesElapsed >= particleSeconds) {
+                lumberjack.upgradeParticlesElapsed = 0;
+                long particlesStart = System.nanoTime();
+                UpgradeParticles.spawn(store.getExternalData().getWorld(),
+                        new Vector3i(lumberjack.center.x(), lumberjack.center.y(), lumberjack.center.z()),
+                        lumberjack.upgrades(), particleSeconds);
+                phase(lumberjack, CycleStats.Phase.VISUAL, micros(particlesStart));
+            }
+        }
         if (lumberjack.queued) {
             return;
         }
@@ -128,16 +152,24 @@ public final class LumberjackSystem extends EntityTickingSystem<ChunkStore> {
             }
             return;
         }
+        // Once per cycle, so a state lost to something else comes back; written only when it differs.
+        Vector3i at = new Vector3i(center.x(), center.y(), center.z());
+        if (!UpgradeVisual.stateFor(lumberjack.upgrades()).equals(MachineVisual.currentState(world, at))) {
+            MachineVisual.request(world, at);
+        }
         ModSettings global = HyPedestalsPlugin.settings();
         LumberSettings.Lumber settings = lumberjack.settings();
 
+        // Planter: after the cut and the stump's replant (one operation inside the cycle), the grid.
+        int gridSpacing = lumberjack.hasUpgrade(UpgradeType.PLANTER) ? global.lumber().saplingSpacing() : 0;
         LumberResult result = LumberCycle.run(new HytaleLumberWorld(world, containerBlock.getItemContainer(), info),
                 center, settings.radius(), TreeLimits.of(global.lumber().maxTreeBlocks()), lumberjack.scanIndex,
-                global.lumber().maxBlocksPerCycle(), lumberjack.memory);
+                global.lumber().maxBlocksPerCycle(), lumberjack.memory, gridSpacing);
         phase(lumberjack, CycleStats.Phase.SCAN, micros(cycleStart));
         lumberjack.scanIndex = result.nextIndex();
         lumberjack.lastResult = result;
         lumberjack.treesTotal += result.trees();
+        lumberjack.gridPlantedTotal += result.gridPlanted();
         lumberjack.lastCycleTick = world.getTick();
 
         if (global.harvestParticles() && result.trees() > 0) {

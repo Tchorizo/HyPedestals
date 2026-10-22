@@ -13,14 +13,14 @@ import dev.tchorizo.hypedestals.harvest.UpgradeVisual;
 import org.joml.Vector3i;
 
 /**
- * Keeps a Harvester block in the {@link UpgradeVisual} state of its upgrades (each tier's
- * {@code State.Definitions}: particles only; model and tier texture inherited from the tier).
- * The state is part of the block id, so it is saved with the chunk and survives restarts; the
- * switch keeps the block entity (Harvester component and container).
+ * Keeps a Harvester or Lumberjack block in the {@link UpgradeVisual} state of its upgrades (each
+ * tier's {@code State.Definitions}: particles only; model and tier texture inherited from the
+ * tier). The state is part of the block id, so it is saved with the chunk and survives restarts;
+ * the switch keeps the block entity (machine component and container).
  */
-final class HarvesterVisual {
+final class MachineVisual {
 
-    private HarvesterVisual() {}
+    private MachineVisual() {}
 
     /** State name of the block at {@code pos} ({@link UpgradeVisual#DEFAULT} for the base block). */
     static String currentState(World world, Vector3i pos) {
@@ -31,7 +31,7 @@ final class HarvesterVisual {
     /**
      * Applies {@link #apply} after the current tick. {@code setBlockInteractionState} replaces the
      * block in the chunk store itself, not through a {@code CommandBuffer}; from inside a system
-     * (the Harvester's tick) or an interaction that may end in "Store is currently processing".
+     * (the machine's tick) or an interaction that may end in "Store is currently processing".
      */
     static void request(World world, Vector3i pos) {
         Vector3i at = new Vector3i(pos);
@@ -39,7 +39,7 @@ final class HarvesterVisual {
     }
 
     /**
-     * Puts the Harvester at {@code pos} into the state of its current upgrades, re-read here, and
+     * Puts the machine at {@code pos} into the state of its current upgrades, re-read here, and
      * only when the block shows another state. {@code false} when nothing was written.
      */
     static boolean apply(World world, Vector3i pos) {
@@ -47,20 +47,20 @@ final class HarvesterVisual {
         Store<ChunkStore> store = chunkStore.getStore();
         Ref<ChunkStore> section = chunkStore.getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
         Ref<ChunkStore> ref = section == null ? null : BlockModule.getBlockEntity(store, section, pos.x, pos.y, pos.z);
-        HarvesterComponent harvester = ref == null || !ref.isValid() ? null : store.getComponent(ref, HarvesterComponent.TYPE);
-        BlockType type = harvester == null ? null : blockAt(chunkStore, pos);
+        UpgradeHost host = ref == null || !ref.isValid() ? null : UpgradeHost.of(store, ref);
+        BlockType type = host == null ? null : blockAt(chunkStore, pos);
         if (type == null) {
             return false;
         }
-        String desired = UpgradeVisual.stateFor(harvester.upgrades());
+        String desired = UpgradeVisual.stateFor(host.upgrades());
         String current = stateOf(type);
         if (desired.equals(current)) {
             return false;
         }
         BlockOperations.setBlockInteractionState(chunkStore, section, pos.x, pos.y, pos.z, type, desired, false);
         String after = currentState(world, pos);
-        HyPedestalsPlugin.log("visual: Harvester at %d %d %d %s -> %s%s", pos.x, pos.y, pos.z, current, desired,
-                desired.equals(after) ? "" : " (block still shows " + after + ")");
+        HyPedestalsPlugin.log("visual: %s at %d %d %d %s -> %s%s", host.machineName(), pos.x, pos.y, pos.z, current,
+                desired, desired.equals(after) ? "" : " (block still shows " + after + ")");
         return desired.equals(after);
     }
 

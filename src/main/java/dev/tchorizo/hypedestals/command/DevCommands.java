@@ -45,6 +45,7 @@ import dev.tchorizo.hypedestals.block.HytaleIds;
 import dev.tchorizo.hypedestals.block.HytaleSoilWorld;
 import dev.tchorizo.hypedestals.block.HytaleTrees;
 import dev.tchorizo.hypedestals.block.LumberjackComponent;
+import dev.tchorizo.hypedestals.block.UpgradeHost;
 import dev.tchorizo.hypedestals.block.UpgradeParticles;
 import dev.tchorizo.hypedestals.config.Tier;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
@@ -1456,7 +1457,8 @@ final class DevCommands extends AbstractAsyncCommand {
 
     /**
      * {@code upgrade <x y z> <add|remove> <watering|fertilizer|planter> [--save false]}: installs or removes
-     * an upgrade on the Harvester at the position without a client, replying with the upgrades
+     * an upgrade on the Harvester or Lumberjack at the position without a client (a Lumberjack accepts
+     * the planter only: the others reply {@code accepted=false}), replying with the upgrades
      * afterwards. A change marks the block's section for saving, as the install interaction does;
      * {@code --save false} skips that, to show that without it the change is lost on restart.
      */
@@ -1469,7 +1471,7 @@ final class DevCommands extends AbstractAsyncCommand {
                 "Mark the block for saving after a change (false = persistence control)", ArgTypes.BOOLEAN, true, "true");
 
         UpgradeCommand() {
-            super("upgrade", "Install or remove an upgrade on the Harvester at a position");
+            super("upgrade", "Install or remove an upgrade on the Harvester or Lumberjack at a position");
         }
 
         @Override
@@ -1505,11 +1507,12 @@ final class DevCommands extends AbstractAsyncCommand {
             String at = HyPedestalsCommand.format(pos);
             Store<ChunkStore> store = world.getChunkStore().getStore();
             Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z);
-            HarvesterComponent harvester = ref == null ? null : store.getComponent(ref, HarvesterComponent.TYPE);
-            if (harvester == null) {
-                return "upgrade: no Harvester at " + at;
+            UpgradeHost machine = ref == null ? null : UpgradeHost.of(store, ref);
+            if (machine == null) {
+                return "upgrade: no Harvester or Lumberjack at " + at;
             }
-            UpgradeSet upgrades = harvester.upgrades();
+            UpgradeSet upgrades = machine.upgrades();
+            boolean accepted = upgrades.accepts(type);
             boolean changed = add ? upgrades.install(type) : upgrades.remove(type);
             boolean marked = false;
             if (changed && mark) {
@@ -1519,8 +1522,9 @@ final class DevCommands extends AbstractAsyncCommand {
                     marked = true;
                 }
             }
-            return String.format(Locale.ROOT, "upgrade %s %s at %s: changed=%b markedForSave=%b upgrades=%s",
-                    add ? "add" : "remove", type.displayName(), at, changed, marked, upgrades);
+            return String.format(Locale.ROOT, "upgrade %s %s at %s (%s): changed=%b markedForSave=%b upgrades=%s accepted=%b",
+                    add ? "add" : "remove", type.displayName(), at, machine.machineName(), changed, marked,
+                    upgrades, accepted);
         }
     }
 

@@ -2,6 +2,8 @@ package dev.tchorizo.hypedestals.lumber;
 
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.HarvestArea;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -244,5 +246,154 @@ class LumberCycleTest {
             }
         }
         assertEquals(TreeMemory.CYCLES, searchedAgainAfter, "searched again once the memory expires");
+    }
+
+    // ------------------------------------------------------------ Planter: the sapling grid
+
+    private static LumberResult withGrid(FakeForest world, int radius, int spacing) {
+        return LumberCycle.run(world, CENTER, radius, LIMITS, 0, 4096, new TreeMemory(), spacing);
+    }
+
+    @Test
+    void gridPlantsTheContainersSaplingsFromTheLowestSlotOnTheGridPoints() {
+        FakeForest world = field();
+        world.saplings.put("Plant_Sapling_Birch", 2);
+        world.saplings.put("Plant_Sapling_Oak", 2);
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertEquals(0, r.trees());
+        assertEquals(8, r.gridSpots(), "dx, dz in {-4, 0, 4} without the Lumberjack's own column");
+        assertEquals(4, r.gridPlanted(), "all four saplings fit the eight points");
+        assertEquals(List.of("Plant_Sapling_Birch", "Plant_Sapling_Birch", "Plant_Sapling_Oak", "Plant_Sapling_Oak"),
+                world.planted.stream().map(s -> s.substring(0, s.indexOf('@'))).toList(), "slot order, lowest first");
+        assertTrue(world.saplings.isEmpty());
+        for (String entry : world.planted) {
+            String[] xyz = entry.substring(entry.indexOf('@') + 1).split(" ");
+            assertEquals(1, Integer.parseInt(xyz[1]));
+            assertEquals(0, Math.floorMod(Integer.parseInt(xyz[0]), 4), entry);
+            assertEquals(0, Math.floorMod(Integer.parseInt(xyz[2]), 4), entry);
+        }
+    }
+
+    @Test
+    void gridStopsWhenTheSaplingsRunOutButStillCountsTheSpots() {
+        FakeForest world = field();
+        world.saplings.put("Plant_Sapling_Oak", 3);
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertEquals(3, r.gridPlanted());
+        assertEquals(8, r.gridSpots());
+        assertEquals(3, world.count("Plant_Sapling_"));
+    }
+
+    @Test
+    void gridPlantsAfterTheStumpIsReplantedWithTheTreesOwnSpecies() {
+        // The stump is on the grid (4, 0) and the container's first sapling is a Birch: the stump
+        // gets the Oak (replant first), the grid takes the rest in slot order.
+        FakeForest world = field().oak(4, 1, 0, 3, 5);
+        world.saplings.put("Plant_Sapling_Birch", 1);
+        world.saplings.put("Plant_Sapling_Oak", 1);
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertEquals(1, r.trees());
+        assertEquals(LumberResult.Replant.PLANTED, r.replant());
+        assertEquals("Plant_Sapling_Oak", r.sapling());
+        assertEquals("Plant_Sapling_Oak", world.at(4, 1, 0));
+        assertEquals(1, r.gridPlanted());
+        assertEquals(2, world.planted.size());
+        assertEquals("Plant_Sapling_Oak@4 1 0", world.planted.get(0), "the stump first");
+        assertTrue(world.planted.get(1).startsWith("Plant_Sapling_Birch@"), world.planted.get(1));
+        assertEquals(0, world.count("Wood_"));
+    }
+
+    @Test
+    void gridDoesNotPlantOnTheStumpWhenReplantingItFailed() {
+        // No room at the stump (a rock in the ring): the grid point of the stump is blocked by the
+        // same rule, so the saplings go elsewhere and the stump stays empty.
+        FakeForest world = field().oak(4, 1, 0, 0, 5);
+        world.set(5, 1, 0, "Rock_Stone");
+        world.saplings.put("Plant_Sapling_Oak", 3);
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertEquals(LumberResult.Replant.NO_ROOM, r.replant());
+        assertNull(world.at(4, 1, 0), "nothing planted on the stump");
+        assertTrue(r.gridPlanted() > 0);
+        assertEquals(r.gridPlanted(), world.count("Plant_Sapling_"));
+    }
+
+    @Test
+    void gridPlantsWhileATreeWaitsForRoomButNotUnderIt() {
+        FakeForest world = field().oak(3, 1, 0, 3, 5);
+        world.freeSlots = 0;
+        world.saplings.put("Plant_Sapling_Oak", 8);
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertTrue(r.containerFull());
+        assertEquals(0, r.trees());
+        assertTrue(world.count("Wood_") > 0, "the tree stays");
+        assertTrue(r.gridPlanted() > 0, "the grid does not depend on the tree");
+        assertNull(world.at(4, 1, 0), "the tree's ring blocks the point beside it");
+    }
+
+    @Test
+    void spacingZeroPlantsNoGridSaplingsAndCountsNoSpots() {
+        FakeForest world = field();
+        world.saplings.put("Plant_Sapling_Oak", 3);
+
+        LumberResult r = withGrid(world, 4, 0);
+
+        assertEquals(0, r.gridPlanted());
+        assertEquals(0, r.gridSpots());
+        assertEquals(3, world.saplings.get("Plant_Sapling_Oak"));
+    }
+
+    @Test
+    void spacingBeyondTheRadiusHasNoGridPoint() {
+        FakeForest world = field();
+        world.saplings.put("Plant_Sapling_Oak", 3);
+
+        LumberResult r = withGrid(world, 3, 4);
+
+        assertEquals(0, r.gridSpots(), "a radius-3 area (Copper) has no point at spacing 4");
+        assertEquals(0, r.gridPlanted());
+        assertEquals(3, world.saplings.get("Plant_Sapling_Oak"));
+        assertEquals(8, withGrid(world, 3, 3).gridSpots(), "spacing 3 has the eight points at +-3");
+    }
+
+    @Test
+    void gridClearsGrassTuftsOfTheFootprintAndSkipsPointsBlockedByAFlower() {
+        FakeForest world = field();
+        world.saplings.put("Plant_Sapling_Oak", 8);
+        world.set(-4, 1, -3, "Plant_Grass_Lush").set(-3, 2, -4, "Plant_Grass_Lush_Tall"); // in the footprint of (-4, -4)
+        world.set(4, 1, 5, "Plant_Flower_Common_Yellow"); // ring of (4, 4)... outside radius 4 but still in its ring
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertEquals("Plant_Sapling_Oak", world.at(-4, 1, -4));
+        assertNull(world.at(-4, 1, -3), "grass of the footprint cleared");
+        assertNull(world.at(-3, 2, -4));
+        assertNull(world.at(4, 1, 4), "a flower in the ring keeps blocking");
+        assertEquals("Plant_Flower_Common_Yellow", world.at(4, 1, 5));
+        assertEquals(7, r.gridPlanted());
+        assertEquals(7, r.gridSpots());
+    }
+
+    @Test
+    void gridNeverPlantsOnFarmlandSoil() {
+        FakeForest world = field();
+        world.set(-2, 0, -2, "Soil_Dirt_Tilled"); // within 3 of the points (-4, -4), (0, -4) and (-4, 0)
+        world.saplings.put("Plant_Sapling_Oak", 8);
+
+        LumberResult r = withGrid(world, 4, 4);
+
+        assertNull(world.at(-4, 1, -4));
+        assertNull(world.at(0, 1, -4), "farmland within the root clearance of the point");
+        assertNull(world.at(-4, 1, 0));
+        assertEquals(5, r.gridPlanted(), "8 points minus the three near the farmland");
     }
 }

@@ -290,9 +290,15 @@ final class HytaleLumberWorld implements LumberWorld {
 
     // ---------------------------------------------------------------- SaplingRule.Ground
 
+    /**
+     * Air in a section that is in memory: a section that is not loaded reads as air from the
+     * reader, and a sapling's clearance ring or column crossing into one would be checked against
+     * nothing (the grid's points near a chunk edge), so it counts as occupied.
+     */
     @Override
     public boolean isEmpty(BlockPos p) {
-        return reader.getBlock(p.x(), p.y(), p.z()) == BlockType.EMPTY_ID;
+        return reader.hasStorageInMemory(p.x(), p.y(), p.z())
+                && reader.getBlock(p.x(), p.y(), p.z()) == BlockType.EMPTY_ID;
     }
 
     @Override

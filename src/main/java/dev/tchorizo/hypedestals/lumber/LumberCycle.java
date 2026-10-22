@@ -14,11 +14,52 @@ import java.util.Set;
 
 /**
  * One Lumberjack cycle (spec §2): cut the first whole tree whose wood stands in the area, store
- * its drops, fill the stump's hole with soil and plant a sapling back. Pure.
+ * its drops, fill the stump's hole with soil and plant a sapling back; with the Planter upgrade,
+ * then plant the container's saplings on the {@link SaplingRule} grid of the area. Pure.
  */
 public final class LumberCycle {
 
     private LumberCycle() {}
+
+    /** {@link #run(LumberWorld, BlockPos, int, TreeLimits, int, int, TreeMemory, int)} without the sapling grid. */
+    public static LumberResult run(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex,
+                                   int maxBlocksPerCycle, TreeMemory memory) {
+        return run(world, center, radius, limits, startIndex, maxBlocksPerCycle, memory, 0);
+    }
+
+    /**
+     * The tree search and cut ({@link #scan}), then the Planter's grid pass: every grid point of
+     * {@code gridSpacing} ({@link SaplingRule#onGrid}, origin = {@code center}) in the area where
+     * {@link SaplingRule#canPlantAt} holds counts as a spot and, while the container has saplings,
+     * gets the one of the lowest slot ({@link LumberWorld#saplings()}), after clearing the grass
+     * tufts of its footprint like the stump's replant. The grid runs after the cut and the stump's
+     * replant (the stump gets the tree's own species first, and a point still occupied by the tree
+     * is blocked by the rule), and also when the tree search found nothing or a tree waits for room.
+     *
+     * @param gridSpacing the config's {@code Lumberjack.SaplingSpacing}; {@code 0} = no grid (also the
+     *     value for a Lumberjack without the Planter)
+     */
+    public static LumberResult run(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex,
+                                   int maxBlocksPerCycle, TreeMemory memory, int gridSpacing) {
+        LumberResult result = scan(world, center, radius, limits, startIndex, maxBlocksPerCycle, memory);
+        if (gridSpacing <= 0) {
+            return result;
+        }
+        int spots = 0;
+        int planted = 0;
+        SaplingRule.Ground ground = new TuftsAsAir(world);
+        for (BlockPos p : HarvestArea.positions(center, radius)) {
+            if (!SaplingRule.onGrid(center, p, gridSpacing) || !SaplingRule.canPlantAt(ground, p)) {
+                continue;
+            }
+            spots++;
+            List<String> saplings = world.saplings();
+            if (!saplings.isEmpty() && place(world, p, saplings.getFirst())) {
+                planted++;
+            }
+        }
+        return result.withGrid(spots, planted);
+    }
 
     /**
      * Scans {@link HarvestArea#positions} circularly from {@code startIndex} (taken modulo the area
@@ -31,10 +72,10 @@ public final class LumberCycle {
      * are removed top-down, the wood below its ground level becomes the soil beside it (air when
      * there is none), the drops are stored, and a sapling from the container is planted at the
      * stump when {@link SaplingRule#canPlantAt} ({@link SaplingChoice}), after clearing the grass tufts
- * of the sapling's footprint (flowers, mushrooms and anything with a block entity still block).
+     * of the sapling's footprint (flowers, mushrooms and anything with a block entity still block).
      */
-    public static LumberResult run(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex,
-                                   int maxBlocksPerCycle, TreeMemory memory) {
+    private static LumberResult scan(LumberWorld world, BlockPos center, int radius, TreeLimits limits, int startIndex,
+                                     int maxBlocksPerCycle, TreeMemory memory) {
         memory.nextCycle();
         List<BlockPos> positions = HarvestArea.positions(center, radius);
         int size = positions.size();
@@ -131,18 +172,28 @@ public final class LumberCycle {
             return new Planted(LumberResult.Replant.NO_SAPLING, null);
         }
         BlockPos spot = tree.replantSpot();
-        if (!SaplingRule.canPlantAt(new TuftsAsAir(world), spot)) {
-            return new Planted(LumberResult.Replant.NO_ROOM, null);
-        }
+        return plant(world, spot, sapling)
+                ? new Planted(LumberResult.Replant.PLANTED, sapling)
+                : new Planted(LumberResult.Replant.NO_ROOM, null);
+    }
+
+    /**
+     * Plants {@code sapling} at {@code spot} when {@link SaplingRule#canPlantAt} (grass tufts count
+     * as air), after clearing the tufts of its footprint: grass drops nothing worth keeping, and
+     * is only cleared once the sapling fits. {@code false} when it does not fit or the world refused.
+     */
+    private static boolean plant(LumberWorld world, BlockPos spot, String sapling) {
+        return SaplingRule.canPlantAt(new TuftsAsAir(world), spot) && place(world, spot, sapling);
+    }
+
+    /** The clearing and placing half of {@link #plant}, for a spot already known to fit. */
+    private static boolean place(LumberWorld world, BlockPos spot, String sapling) {
         for (BlockPos p : SaplingRule.footprint(spot)) {
             if (world.isTuft(p)) {
-                world.remove(p); // grass drops nothing worth keeping; only cleared once the sapling fits
+                world.remove(p);
             }
         }
-        if (!world.plant(spot, sapling)) {
-            return new Planted(LumberResult.Replant.NO_ROOM, null);
-        }
-        return new Planted(LumberResult.Replant.PLANTED, sapling);
+        return world.plant(spot, sapling);
     }
 
     /** One roll of every block's drops, summed per item id (first-seen order). */

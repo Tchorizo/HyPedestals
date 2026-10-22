@@ -117,4 +117,57 @@ class UpgradeSetTest {
         assertEquals("[Watering, Fertilizer]", set.toString());
         assertEquals("[]", new UpgradeSet().toString());
     }
+
+    @Test
+    void harvesterAcceptsEveryUpgrade() {
+        for (UpgradeType type : UpgradeType.values()) {
+            assertTrue(UpgradeMachine.HARVESTER.accepts(type), type.displayName());
+        }
+        assertEquals(UpgradeMachine.HARVESTER, new UpgradeSet().machine());
+    }
+
+    @Test
+    void lumberjackAcceptsOnlyThePlanter() {
+        assertTrue(UpgradeMachine.LUMBERJACK.accepts(UpgradeType.PLANTER));
+        assertFalse(UpgradeMachine.LUMBERJACK.accepts(UpgradeType.WATERING));
+        assertFalse(UpgradeMachine.LUMBERJACK.accepts(UpgradeType.FERTILIZER));
+    }
+
+    @Test
+    void lumberjackSetRefusesTheOtherUpgradesAndTakesThePlanterOnce() {
+        UpgradeSet set = new UpgradeSet(UpgradeMachine.LUMBERJACK);
+        assertFalse(set.accepts(UpgradeType.WATERING));
+        assertFalse(set.install(UpgradeType.WATERING));
+        assertFalse(set.install(UpgradeType.FERTILIZER));
+        assertTrue(set.isEmpty());
+        assertTrue(set.accepts(UpgradeType.PLANTER));
+        assertTrue(set.install(UpgradeType.PLANTER));
+        assertFalse(set.install(UpgradeType.PLANTER), "still one per type");
+        assertArrayEquals(new String[] {PLANTER}, set.toArray());
+        assertEquals("[Planter]", set.toString());
+    }
+
+    @Test
+    void parseForTheLumberjackDropsWhatItDoesNotAccept() {
+        UpgradeSet set = UpgradeSet.parse(new String[] {WATERING, PLANTER, FERTILIZER, PLANTER}, UpgradeMachine.LUMBERJACK);
+        assertArrayEquals(new String[] {PLANTER}, set.toArray());
+        assertEquals(List.of(WATERING, FERTILIZER, PLANTER), set.ignored());
+        assertEquals(UpgradeMachine.LUMBERJACK, set.machine());
+    }
+
+    @Test
+    void copyKeepsTheMachine() {
+        UpgradeSet copy = new UpgradeSet(UpgradeMachine.LUMBERJACK).copy();
+        assertEquals(UpgradeMachine.LUMBERJACK, copy.machine());
+        assertFalse(copy.install(UpgradeType.WATERING));
+    }
+
+    @Test
+    void clearEmptiesTheSet() {
+        UpgradeSet set = UpgradeSet.parse(new String[] {WATERING, FERTILIZER});
+        set.clear();
+        assertTrue(set.isEmpty());
+        assertArrayEquals(new String[0], set.toArray());
+        assertEquals(UpgradeMachine.HARVESTER, set.machine());
+    }
 }

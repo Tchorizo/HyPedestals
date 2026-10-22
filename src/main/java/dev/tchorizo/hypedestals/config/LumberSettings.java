@@ -18,8 +18,10 @@ import java.util.StringJoiner;
  *     trees are left standing
  * @param maxBlocksPerCycle most blocks the tree searches of one Lumberjack cycle read; the next
  *     cycle goes on where it stopped
+ * @param saplingSpacing grid spacing of the saplings a Lumberjack with the Planter upgrade plants
+ *     in its area ({@code 0} = only the stump's replant)
  */
-public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int maxBlocksPerCycle) {
+public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int maxBlocksPerCycle, int saplingSpacing) {
 
     /** Radius and cycle interval of one Lumberjack tier. */
     public record Lumber(int radius, float intervalSeconds) {}
@@ -36,6 +38,10 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
     public static final int MAX_BLOCKS_PER_CYCLE = 65536;
     /** About 2 ms of search at the spike's 1–2 µs per block. */
     public static final int DEFAULT_BLOCKS_PER_CYCLE = 4096;
+    public static final int MIN_SAPLING_SPACING = 2;
+    public static final int MAX_SAPLING_SPACING = 16;
+    /** Same default as the Harvester Planter's grid; a Copper (radius 3) has no point at 4, see the README. */
+    public static final int DEFAULT_SAPLING_SPACING = 4;
     /** {@code config set} target of {@link #maxTreeBlocks}; a tier is {@code Lumberjack.<Tier>}. */
     public static final String TARGET = "Lumberjack";
 
@@ -67,7 +73,7 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
         for (Tier t : Tier.values()) {
             tiers.put(t, defaults(t));
         }
-        return new LumberSettings(tiers, DEFAULT_TREE_BLOCKS, DEFAULT_BLOCKS_PER_CYCLE);
+        return new LumberSettings(tiers, DEFAULT_TREE_BLOCKS, DEFAULT_BLOCKS_PER_CYCLE, DEFAULT_SAPLING_SPACING);
     }
 
     public static boolean validRadius(int radius) {
@@ -85,6 +91,11 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
 
     public static boolean validTreeBlocks(int blocks) {
         return blocks >= MIN_TREE_BLOCKS && blocks <= MAX_TREE_BLOCKS;
+    }
+
+    /** {@code 0} (only the stump) or {@code 2..16} blocks. */
+    public static boolean validSaplingSpacing(int value) {
+        return value == 0 || (value >= MIN_SAPLING_SPACING && value <= MAX_SAPLING_SPACING);
     }
 
     /** A block JSON radius in range, else {@code 0} (inactive Lumberjack). */
@@ -113,15 +124,19 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
     public LumberSettings withTier(Tier tier, Lumber lumber) {
         EnumMap<Tier, Lumber> copy = new EnumMap<>(tiers);
         copy.put(tier, lumber);
-        return new LumberSettings(copy, maxTreeBlocks, maxBlocksPerCycle);
+        return new LumberSettings(copy, maxTreeBlocks, maxBlocksPerCycle, saplingSpacing);
     }
 
     public LumberSettings withMaxTreeBlocks(int value) {
-        return new LumberSettings(tiers, value, maxBlocksPerCycle);
+        return new LumberSettings(tiers, value, maxBlocksPerCycle, saplingSpacing);
     }
 
     public LumberSettings withMaxBlocksPerCycle(int value) {
-        return new LumberSettings(tiers, maxTreeBlocks, value);
+        return new LumberSettings(tiers, maxTreeBlocks, value, saplingSpacing);
+    }
+
+    public LumberSettings withSaplingSpacing(int value) {
+        return new LumberSettings(tiers, maxTreeBlocks, maxBlocksPerCycle, value);
     }
 
     /** One message per out-of-range value (e.g. {@code Lumberjack.Copper.Radius=0 (allowed 1..16)}). */
@@ -146,6 +161,10 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
             problems.add(String.format(Locale.ROOT, "%s.MaxBlocksPerCycle=%d (allowed %d..%d)",
                     TARGET, maxBlocksPerCycle, MIN_BLOCKS_PER_CYCLE, MAX_BLOCKS_PER_CYCLE));
         }
+        if (!validSaplingSpacing(saplingSpacing)) {
+            problems.add(String.format(Locale.ROOT, "%s.SaplingSpacing=%d (allowed 0, %d..%d)",
+                    TARGET, saplingSpacing, MIN_SAPLING_SPACING, MAX_SAPLING_SPACING));
+        }
         return problems;
     }
 
@@ -159,7 +178,8 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
                     validInterval(l.intervalSeconds()) ? l.intervalSeconds() : d.intervalSeconds()));
         }
         return new LumberSettings(fixed, validTreeBlocks(maxTreeBlocks) ? maxTreeBlocks : DEFAULT_TREE_BLOCKS,
-                validBlocksPerCycle(maxBlocksPerCycle) ? maxBlocksPerCycle : DEFAULT_BLOCKS_PER_CYCLE);
+                validBlocksPerCycle(maxBlocksPerCycle) ? maxBlocksPerCycle : DEFAULT_BLOCKS_PER_CYCLE,
+                validSaplingSpacing(saplingSpacing) ? saplingSpacing : DEFAULT_SAPLING_SPACING);
     }
 
     /**
@@ -177,7 +197,8 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
         }
         return new LumberSettings(merged,
                 entered.maxTreeBlocks != opened.maxTreeBlocks ? entered.maxTreeBlocks : maxTreeBlocks,
-                entered.maxBlocksPerCycle != opened.maxBlocksPerCycle ? entered.maxBlocksPerCycle : maxBlocksPerCycle);
+                entered.maxBlocksPerCycle != opened.maxBlocksPerCycle ? entered.maxBlocksPerCycle : maxBlocksPerCycle,
+                entered.saplingSpacing != opened.saplingSpacing ? entered.saplingSpacing : saplingSpacing);
     }
 
     /** Whether {@code target} of {@code config set} is the Lumberjack's ({@code Lumberjack} or {@code Lumberjack.<Tier>}). */
@@ -204,9 +225,18 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
             }
             return withMaxBlocksPerCycle(blocks);
         }
+        if (dot < 0 && f.equals("saplingspacing")) {
+            int spacing = ModSettings.parseIntValue(value);
+            if (!validSaplingSpacing(spacing)) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT,
+                        "SaplingSpacing must be 0..%d (0 = only the stump), got %s", MAX_SAPLING_SPACING, value));
+            }
+            return withSaplingSpacing(spacing);
+        }
         if (dot < 0) {
             if (!f.equals("maxtreeblocks")) {
-                throw new IllegalArgumentException("unknown Lumberjack field " + field + "; expected MaxTreeBlocks or MaxBlocksPerCycle"
+                throw new IllegalArgumentException("unknown Lumberjack field " + field
+                        + "; expected MaxTreeBlocks, MaxBlocksPerCycle or SaplingSpacing"
                         + " (or Lumberjack.<Tier> Radius|IntervalSeconds)");
             }
             int blocks = ModSettings.parseIntValue(value);
@@ -251,7 +281,8 @@ public record LumberSettings(Map<Tier, Lumber> tiers, int maxTreeBlocks, int max
             Lumber l = tier(t);
             out.add(String.format(Locale.ROOT, "%s Radius=%d IntervalSeconds=%s", t.displayName(), l.radius(), l.intervalSeconds()));
         }
-        out.add("MaxTreeBlocks=" + maxTreeBlocks + " MaxBlocksPerCycle=" + maxBlocksPerCycle);
+        out.add("MaxTreeBlocks=" + maxTreeBlocks + " MaxBlocksPerCycle=" + maxBlocksPerCycle
+                + " SaplingSpacing=" + saplingSpacing);
         return out.toString();
     }
 }

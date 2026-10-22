@@ -375,6 +375,22 @@ $C.@PageOverlay {
         }
       }
 
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 12);
+
+        Label {
+          Text: %hypedestals.ui.config.lumberSaplingSpacing;
+          Anchor: (Width: 340);
+          Style: @RowLabelStyle;
+        }
+
+        $C.@NumberField #LumberjackSaplingSpacing {
+          @Anchor = (Width: 120);
+          Format: (MinValue: 0, MaxValue: 16, Step: 1, MaxDecimalPlaces: 0);
+        }
+      }
+
       $C.@CheckBoxWithLabel #ExportToAdjacent {
         @Text = %hypedestals.ui.config.exportToAdjacent;
         @Checked = true;

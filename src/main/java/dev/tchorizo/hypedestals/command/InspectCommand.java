@@ -92,7 +92,9 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
      * The Lumberjack's line: {@code lumberjack tier= radius= interval= next= scan= slots= saplings=}
      * then the last cycle ({@code cut=<blocks> trees=<0|1> items=<n> replant=<planted|no-sapling|no-room|none>
      * [sapling=<id>] skipped growing=<n> tooBig=<n> notTree=<n> unloaded=<n> budgetHit=<bool> containerFull=<bool> exported=<n>→<x y z>},
-     * or {@code none} before the first cycle since the load), {@code treesTotal=} and the cycle timings.
+     * or {@code none} before the first cycle since the load), {@code treesTotal=}, {@code upgrades=[…]}
+     * and, with the Planter, {@code planter: planted= total= spots=} ({@link #planter(LumberjackComponent)}),
+     * then the cycle timings.
      */
     private static String describe(LumberjackComponent lumberjack, ItemContainerBlock containerBlock) {
         LumberSettings.Lumber settings = lumberjack.settings();
@@ -109,7 +111,7 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
             }
         }
         return String.format(Locale.ROOT, "lumberjack tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s saplings=%d"
-                        + " last: %s treesTotal=%d perf: last=%dus p50=%dus p95=%dus max=%dus (n=%d)",
+                        + " last: %s treesTotal=%d upgrades=%s%s perf: last=%dus p50=%dus p95=%dus max=%dus (n=%d)",
                 lumberjack.tier(), settings.radius(), settings.intervalSeconds(), lumberjack.secondsToNextCycle(),
                 lumberjack.scanIndex(), HarvestArea.size(settings.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()), saplings,
@@ -119,7 +121,22 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
                         last.sapling() == null ? "" : " sapling=" + last.sapling(),
                         last.growing(), last.tooBig(), last.notTree(), last.unloaded(), last.budgetHit(),
                         last.containerFull() ? "true (trees waiting)" : "false", export(lumberjack.lastExport())),
-                lumberjack.treesTotal(), stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
+                lumberjack.treesTotal(), lumberjack.upgrades(),
+                lumberjack.hasUpgrade(UpgradeType.PLANTER) ? " planter: " + planter(lumberjack) : "",
+                stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());
+    }
+
+    /**
+     * The Lumberjack's Planter: {@code planted=<n> total=<n> spots=<n>}, the saplings the grid
+     * planted in the last cycle, since the load, and the grid points that could take one in the
+     * last cycle ({@code spots=0}: the grid has no free point in the area, e.g. a Copper at the
+     * default spacing 4, or {@code Lumberjack.SaplingSpacing} is 0); {@code none} before the first
+     * cycle since the load. The stump's own replant is {@code replant=} in the last-cycle part.
+     */
+    private static String planter(LumberjackComponent lumberjack) {
+        LumberResult last = lumberjack.lastResult();
+        return last == null ? "none" : String.format(Locale.ROOT, "planted=%d total=%d spots=%d",
+                last.gridPlanted(), lumberjack.gridPlantedTotal(), last.gridSpots());
     }
 
     /**

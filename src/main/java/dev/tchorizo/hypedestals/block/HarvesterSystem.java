@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * poop in place. With the planter upgrade, each cycle schedules a planting pass
  * ({@link HytalePlanter}) that plants the container's seeds and saplings in the area after the
  * tick, and the export leaves up to {@code PlanterSeedStock} of each of them. Each cycle also
- * re-asserts the block state that shows the upgrades ({@link HarvesterVisual}); with
+ * re-asserts the block state that shows the upgrades ({@link MachineVisual}); with
  * {@code UpgradeParticlesSeconds} above 0 the same effects are also spawned as world particles
  * on that period ({@link UpgradeParticles}); and, with {@code HarvestParticles}, it puffs a short particle burst when
  * something was harvested. After a cycle that harvested, a {@link CollectBurst} collects drops on
@@ -168,8 +168,8 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
         World world = store.getExternalData().getWorld();
         // Once per cycle, so a state lost to something else (e.g. a state change by another
         // interaction) comes back; written only when it differs (upgrades spec §5.1).
-        if (!UpgradeVisual.stateFor(harvester.upgrades()).equals(HarvesterVisual.currentState(world, pos))) {
-            HarvesterVisual.request(world, pos);
+        if (!UpgradeVisual.stateFor(harvester.upgrades()).equals(MachineVisual.currentState(world, pos))) {
+            MachineVisual.request(world, pos);
         }
         phase(harvester, CycleStats.Phase.VISUAL, micros(cycleStart));
 

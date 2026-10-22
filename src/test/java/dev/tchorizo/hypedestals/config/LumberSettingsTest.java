@@ -78,6 +78,35 @@ class LumberSettingsTest {
     void describeListsEveryTier() {
         String line = LumberSettings.DEFAULTS.describe();
         assertTrue(line.startsWith("Lumberjack: Copper Radius=3 IntervalSeconds=30.0"), line);
-        assertTrue(line.endsWith("MaxTreeBlocks=2048 MaxBlocksPerCycle=4096"), line);
+        assertTrue(line.endsWith("MaxTreeBlocks=2048 MaxBlocksPerCycle=4096 SaplingSpacing=4"), line);
+    }
+
+    @Test
+    void saplingSpacingDefaultsToFourAndAcceptsZeroOrTwoToSixteen() {
+        assertEquals(4, LumberSettings.DEFAULTS.saplingSpacing());
+        ModSettings s = ModSettings.DEFAULTS;
+        assertEquals(0, s.set("Lumberjack", "SaplingSpacing", "0").lumber().saplingSpacing(), "0 = only the stump");
+        assertEquals(2, s.set("lumberjack", "saplingspacing", "2").lumber().saplingSpacing());
+        assertEquals(16, s.set("Lumberjack", "SaplingSpacing", "16").lumber().saplingSpacing());
+        ModSettings lumber = s.set("Lumberjack", "SaplingSpacing", "2");
+        assertEquals(4, lumber.saplingSpacing(), "the Harvester Planter's SaplingSpacing is a different key");
+        for (String bad : new String[] {"1", "17", "-1", "x"}) {
+            assertThrows(IllegalArgumentException.class, () -> s.set("Lumberjack", "SaplingSpacing", bad), bad);
+        }
+        assertThrows(IllegalArgumentException.class, () -> s.set("Lumberjack.Copper", "SaplingSpacing", "4"),
+                "it is not a tier field");
+    }
+
+    @Test
+    void saplingSpacingProblemsSanitizedAndWindowChanges() {
+        LumberSettings bad = LumberSettings.DEFAULTS.withSaplingSpacing(1);
+        assertEquals(java.util.List.of("Lumberjack.SaplingSpacing=1 (allowed 0, 2..16)"), bad.problems());
+        assertEquals(4, bad.sanitized().saplingSpacing());
+        assertEquals(0, LumberSettings.DEFAULTS.withSaplingSpacing(0).sanitized().saplingSpacing());
+
+        LumberSettings opened = LumberSettings.DEFAULTS;
+        assertEquals(3, opened.withChangesFrom(opened, opened.withSaplingSpacing(3)).saplingSpacing());
+        assertEquals(6, opened.withSaplingSpacing(6).withChangesFrom(opened, opened).saplingSpacing(),
+                "a value set by command meanwhile survives an untouched field");
     }
 }

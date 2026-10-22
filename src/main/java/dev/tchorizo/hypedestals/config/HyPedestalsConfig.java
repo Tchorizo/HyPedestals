@@ -35,7 +35,8 @@ import java.util.Map;
  *     "Thorium": { "Radius": 6, "IntervalSeconds": 15.0 },
  *     "Cobalt":  { "Radius": 8, "IntervalSeconds": 10.0 },
  *     "MaxTreeBlocks": 2048,
- *     "MaxBlocksPerCycle": 4096
+ *     "MaxBlocksPerCycle": 4096,
+ *     "SaplingSpacing": 4
  *   }
  * }
  * }</pre>
@@ -163,6 +164,7 @@ public final class HyPedestalsConfig {
         final Map<Tier, LumberTierEntry> tiers = new EnumMap<>(Tier.class);
         Integer maxTreeBlocks;
         Integer maxBlocksPerCycle;
+        Integer saplingSpacing;
 
         private static BuilderCodec<LumberEntry> codec() {
             BuilderCodec.Builder<LumberEntry> builder = BuilderCodec.builder(LumberEntry.class, LumberEntry::new);
@@ -177,6 +179,9 @@ public final class HyPedestalsConfig {
                     .append(new KeyedCodec<>("MaxBlocksPerCycle", Codec.INTEGER),
                             (e, v) -> e.maxBlocksPerCycle = v, e -> e.maxBlocksPerCycle)
                     .add()
+                    .append(new KeyedCodec<>("SaplingSpacing", Codec.INTEGER),
+                            (e, v) -> e.saplingSpacing = v, e -> e.saplingSpacing)
+                    .add()
                     .build();
         }
 
@@ -190,6 +195,7 @@ public final class HyPedestalsConfig {
             }
             e.maxTreeBlocks = s.maxTreeBlocks();
             e.maxBlocksPerCycle = s.maxBlocksPerCycle();
+            e.saplingSpacing = s.saplingSpacing();
             return e;
         }
 
@@ -204,7 +210,8 @@ public final class HyPedestalsConfig {
                 }
             }
             out = maxTreeBlocks != null ? out.withMaxTreeBlocks(maxTreeBlocks) : out;
-            return maxBlocksPerCycle != null ? out.withMaxBlocksPerCycle(maxBlocksPerCycle) : out;
+            out = maxBlocksPerCycle != null ? out.withMaxBlocksPerCycle(maxBlocksPerCycle) : out;
+            return saplingSpacing != null ? out.withSaplingSpacing(saplingSpacing) : out;
         }
     }
 

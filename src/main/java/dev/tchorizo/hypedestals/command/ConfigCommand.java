@@ -29,7 +29,7 @@ final class ConfigCommand extends AbstractAsyncCommand {
             + "|PostHarvestCollectSeconds|MaxHarvestsPerCycle|UpgradeParticlesSeconds|ManurePerApplication|ManureStock"
             + "|PlanterSeedStock|SaplingSpacing> <value>"
             + " | config set Lumberjack.<Copper|Iron|Thorium|Cobalt> <Radius|IntervalSeconds> <value>"
-            + " | config set Lumberjack MaxTreeBlocks <value>";
+            + " | config set Lumberjack <MaxTreeBlocks|MaxBlocksPerCycle|SaplingSpacing> <value>";
 
     ConfigCommand() {
         super("config", "Open the HyPedestals settings window");
@@ -100,7 +100,7 @@ final class ConfigCommand extends AbstractAsyncCommand {
                         + " SoilSweepSeconds, ExportToAdjacent, HarvestParticles, PostHarvestCollectSeconds,"
                         + " MaxHarvestsPerCycle, UpgradeParticlesSeconds, ManurePerApplication, ManureStock,"
                         + " PlanterSeedStock or SaplingSpacing (global); Radius or IntervalSeconds (Lumberjack.<Tier>);"
-                        + " MaxTreeBlocks (Lumberjack)",
+                        + " MaxTreeBlocks, MaxBlocksPerCycle or SaplingSpacing (Lumberjack)",
                         ArgTypes.STRING);
         private final RequiredArg<String> value = withRequiredArg("value", "New value", ArgTypes.STRING);
 

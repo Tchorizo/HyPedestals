@@ -79,6 +79,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         save.append(Event.SAPLING_SPACING, "#SaplingSpacing.Value");
         save.append(Event.MAX_TREE_BLOCKS, "#LumberjackMaxTreeBlocks.Value");
         save.append(Event.MAX_BLOCKS_PER_CYCLE, "#LumberjackMaxBlocksPerCycle.Value");
+        save.append(Event.LUMBER_SAPLING_SPACING, "#LumberjackSaplingSpacing.Value");
         events.addEventBinding(CustomUIEventBindingType.Activating, "#SaveButton", save, false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ResetButton", EventData.of(Event.ACTION, ACTION_RESET), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CloseConfigButton", EventData.of(Event.ACTION, ACTION_CLOSE), false);
@@ -162,6 +163,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         commands.set("#SaplingSpacing.Value", (double) settings.saplingSpacing());
         commands.set("#LumberjackMaxTreeBlocks.Value", (double) settings.lumber().maxTreeBlocks());
         commands.set("#LumberjackMaxBlocksPerCycle.Value", (double) settings.lumber().maxBlocksPerCycle());
+        commands.set("#LumberjackSaplingSpacing.Value", (double) settings.lumber().saplingSpacing());
     }
 
     /** Element id of a tier's radius field, e.g. {@code CopperRadius}; the event key is the same with {@code @}. */
@@ -203,6 +205,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         static final String SAPLING_SPACING = "@SaplingSpacing";
         static final String MAX_TREE_BLOCKS = "@LumberjackMaxTreeBlocks";
         static final String MAX_BLOCKS_PER_CYCLE = "@LumberjackMaxBlocksPerCycle";
+        static final String LUMBER_SAPLING_SPACING = "@LumberjackSaplingSpacing";
 
         public static final BuilderCodec<Event> CODEC = codec();
 
@@ -226,6 +229,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
         Double saplingSpacing;
         Double maxTreeBlocks;
         Double maxBlocksPerCycle;
+        Double lumberSaplingSpacing;
 
         private static BuilderCodec<Event> codec() {
             BuilderCodec.Builder<Event> builder = BuilderCodec.builder(Event.class, Event::new)
@@ -267,6 +271,9 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     .add()
                     .append(new KeyedCodec<>(MAX_BLOCKS_PER_CYCLE, Codec.DOUBLE),
                             (e, v) -> e.maxBlocksPerCycle = v, e -> e.maxBlocksPerCycle)
+                    .add()
+                    .append(new KeyedCodec<>(LUMBER_SAPLING_SPACING, Codec.DOUBLE),
+                            (e, v) -> e.lumberSaplingSpacing = v, e -> e.lumberSaplingSpacing)
                     .add();
             // Number fields arrive as doubles, whole or not; they are rounded below.
             for (Tier tier : Tier.values()) {
@@ -302,7 +309,7 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     || exportToAdjacent == null || harvestParticles == null || postHarvestCollectSeconds == null
                     || maxHarvestsPerCycle == null || upgradeParticlesSeconds == null || manurePerApplication == null
                     || manureStock == null || planterSeedStock == null || saplingSpacing == null
-                    || maxTreeBlocks == null || maxBlocksPerCycle == null) {
+                    || maxTreeBlocks == null || maxBlocksPerCycle == null || lumberSaplingSpacing == null) {
                 return null;
             }
             Map<Tier, TierSettings> tiers = new EnumMap<>(Tier.class);
@@ -331,7 +338,8 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                     whole("PlanterSeedStock", planterSeedStock, problems),
                     whole("SaplingSpacing", saplingSpacing, problems),
                     new LumberSettings(lumber, whole(LumberSettings.TARGET + ".MaxTreeBlocks", maxTreeBlocks, problems),
-                            whole(LumberSettings.TARGET + ".MaxBlocksPerCycle", maxBlocksPerCycle, problems)));
+                            whole(LumberSettings.TARGET + ".MaxBlocksPerCycle", maxBlocksPerCycle, problems),
+                            whole(LumberSettings.TARGET + ".SaplingSpacing", lumberSaplingSpacing, problems)));
         }
 
         private static int whole(String field, double value, List<String> problems) {
@@ -358,11 +366,11 @@ public final class ConfigPage extends InteractiveCustomUIPage<ConfigPage.Event> 
                             + " collectMargin=%s soilSweepSeconds=%s exportToAdjacent=%s harvestParticles=%s"
                             + " postHarvestCollectSeconds=%s maxHarvestsPerCycle=%s upgradeParticlesSeconds=%s"
                             + " manurePerApplication=%s manureStock=%s planterSeedStock=%s saplingSpacing=%s"
-                            + " lumberRadius=%s lumberInterval=%s maxTreeBlocks=%s]",
+                            + " lumberRadius=%s lumberInterval=%s maxTreeBlocks=%s lumberSaplingSpacing=%s]",
                     action, radius, interval, watering, collectAnyItem, collectMargin, soilSweepSeconds,
                     exportToAdjacent, harvestParticles, postHarvestCollectSeconds, maxHarvestsPerCycle,
                     upgradeParticlesSeconds, manurePerApplication, manureStock, planterSeedStock, saplingSpacing,
-                    lumberRadius, lumberInterval, maxTreeBlocks);
+                    lumberRadius, lumberInterval, maxTreeBlocks, lumberSaplingSpacing);
         }
     }
 }

@@ -33,7 +33,7 @@ import java.util.Set;
  * global config for its {@code Tier} ({@link #settings()}); the JSON values are only the fallback
  * for a tier the config does not know.
  */
-public final class HarvesterComponent implements Component<ChunkStore> {
+public final class HarvesterComponent implements Component<ChunkStore>, UpgradeHost {
 
     /** Assigned once in {@code HyPedestalsPlugin.setup()} by the chunk-store registry. */
     public static ComponentType<ChunkStore, HarvesterComponent> TYPE;
@@ -186,6 +186,7 @@ public final class HarvesterComponent implements Component<ChunkStore> {
      * call {@code BlockModule.BlockStateInfo.markNeedsSaving} on the block entity, or the change
      * may not reach disk.
      */
+    @Override
     public UpgradeSet upgrades() {
         return upgrades;
     }

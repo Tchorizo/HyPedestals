@@ -24,10 +24,10 @@ import org.joml.Vector3i;
 import java.util.List;
 
 /**
- * Interaction type {@code HyPedestalsRemoveUpgrade}: the crouching branch of the Harvester's
- * {@code Use}. Takes out the newest upgrade and gives its item back to the player; what does not
- * fit in the inventory is dropped at the player. An interactor that is not a player gets nothing
- * handed: the item drops on top of the block. Fails when the Harvester has no upgrade. The item is
+ * Interaction type {@code HyPedestalsRemoveUpgrade}: the crouching branch of the Harvester's and
+ * Lumberjack's {@code Use}. Takes out the newest upgrade and gives its item back to the player; what
+ * does not fit in the inventory is dropped at the player. An interactor that is not a player gets
+ * nothing handed: the item drops on top of the block. Fails when the machine has no upgrade. The item is
  * handed over first and the upgrade removed only after that succeeded, so an engine exception on
  * the way never leaves the player with neither the item nor the upgrade.
  */
@@ -37,7 +37,7 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
 
     public static final BuilderCodec<RemoveUpgradeInteraction> CODEC = BuilderCodec
             .builder(RemoveUpgradeInteraction.class, RemoveUpgradeInteraction::new, SimpleBlockInteraction.CODEC)
-            .documentation("Removes the newest upgrade from the targeted Harvester and gives it back.")
+            .documentation("Removes the newest upgrade from the targeted Harvester or Lumberjack and gives it back.")
             .build();
 
     @Override
@@ -48,7 +48,7 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        UpgradeType removed = target.harvester().upgrades().newest();
+        UpgradeType removed = target.machine().upgrades().newest();
         if (removed == null) {
             UpgradeTarget.tell(cb, ctx, "none", null);
             ctx.getState().state = InteractionState.Failed;
@@ -69,12 +69,12 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
             }
         }
 
-        target.harvester().upgrades().remove(removed);
+        target.machine().upgrades().remove(removed);
         target.markNeedsSaving();
-        HarvesterVisual.request(world, pos);
+        MachineVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "removed", removed);
-        HyPedestalsPlugin.log("upgrade: %s removed at %d %d %d -> %s",
-                removed.displayName(), pos.x, pos.y, pos.z, target.harvester().upgrades());
+        HyPedestalsPlugin.log("upgrade: %s removed from %s at %d %d %d -> %s",
+                removed.displayName(), target.machine().machineName(), pos.x, pos.y, pos.z, target.machine().upgrades());
     }
 
     @Override

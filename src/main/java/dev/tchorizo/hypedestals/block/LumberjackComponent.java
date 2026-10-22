@@ -11,16 +11,22 @@ import dev.tchorizo.hypedestals.config.LumberSettings;
 import dev.tchorizo.hypedestals.harvest.BlockPos;
 import dev.tchorizo.hypedestals.harvest.CycleStats;
 import dev.tchorizo.hypedestals.harvest.ExportPlan;
+import dev.tchorizo.hypedestals.harvest.UpgradeMachine;
+import dev.tchorizo.hypedestals.harvest.UpgradeSet;
+import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import dev.tchorizo.hypedestals.lumber.LumberResult;
 import dev.tchorizo.hypedestals.lumber.TreeMemory;
+
+import java.util.List;
 
 /**
  * Lumberjack block state (Lumberjack spec §1). {@code Tier}, {@code Radius} and
  * {@code IntervalSeconds} come from the tier's block JSON and are the fallback for a tier the
- * global config does not know ({@link #settings()}); nothing else is persisted: the area scan's
- * rotation, timers and results start fresh after a load.
+ * global config does not know ({@link #settings()}); {@code Upgrades} (item ids, installation
+ * order) is absent there and persisted with the block, like the Harvester's. Nothing else is
+ * persisted: the area scan's rotation, timers and results start fresh after a load.
  */
-public final class LumberjackComponent implements Component<ChunkStore> {
+public final class LumberjackComponent implements Component<ChunkStore>, UpgradeHost {
 
     /** Assigned once in {@code HyPedestalsPlugin.setup()} by the chunk-store registry. */
     public static ComponentType<ChunkStore, LumberjackComponent> TYPE;
@@ -36,6 +42,9 @@ public final class LumberjackComponent implements Component<ChunkStore> {
                     .append(new KeyedCodec<>("IntervalSeconds", Codec.FLOAT),
                             (c, v) -> c.intervalSeconds = LumberSettings.sanitizeInterval(v), c -> c.intervalSeconds)
                     .add()
+                    .append(new KeyedCodec<>("Upgrades", Codec.STRING_ARRAY),
+                            LumberjackComponent::readUpgrades, c -> c.upgrades.toArray())
+                    .add()
                     .build();
 
     // Persisted.
@@ -44,6 +53,8 @@ public final class LumberjackComponent implements Component<ChunkStore> {
     int radius;
     /** Asset interval: positive, or {@code 0} when the JSON value was not. */
     float intervalSeconds;
+    /** Installed upgrades; mutate through {@link #upgrades()} and mark the block for saving. */
+    UpgradeSet upgrades = new UpgradeSet(UpgradeMachine.LUMBERJACK);
 
     // Transient.
     /** Seconds on the cycle timer; set to the position's stagger offset on the first tick after a load. */
@@ -64,8 +75,26 @@ public final class LumberjackComponent implements Component<ChunkStore> {
     final CycleStats stats = new CycleStats();
     /** The block's position, once read on the first tick (a block does not move); {@code null} after a load. */
     BlockPos center;
+    /**
+     * Persisted upgrade ids the last decode dropped (unknown, repeated, or not accepted by a
+     * Lumberjack); warned about once, with the block position, by {@code LumberjackSystem}.
+     */
+    List<String> ignoredUpgrades = List.of();
+    boolean ignoredUpgradesWarned;
+    /**
+     * Seconds since the last spawn of the upgrade particles ({@code UpgradeParticlesSeconds});
+     * infinite after a load, so a Lumberjack with the Planter shows them on its first tick.
+     */
+    float upgradeParticlesElapsed = Float.POSITIVE_INFINITY;
+    /** Saplings the Planter's grid planted since the load. */
+    int gridPlantedTotal;
 
     public LumberjackComponent() {}
+
+    private static void readUpgrades(LumberjackComponent c, String[] ids) {
+        c.upgrades = UpgradeSet.parse(ids, UpgradeMachine.LUMBERJACK);
+        c.ignoredUpgrades = c.upgrades.ignored();
+    }
 
     public int tier() {
         return tier;
@@ -104,18 +133,36 @@ public final class LumberjackComponent implements Component<ChunkStore> {
         return Math.max(0f, settings().intervalSeconds() - elapsed);
     }
 
+    /** Installed upgrades (the Planter is the only one a Lumberjack accepts); see {@link UpgradeHost#upgrades()}. */
+    @Override
+    public UpgradeSet upgrades() {
+        return upgrades;
+    }
+
+    public boolean hasUpgrade(UpgradeType type) {
+        return upgrades.has(type);
+    }
+
+    /** Saplings the Planter's grid planted since the load. */
+    public int gridPlantedTotal() {
+        return gridPlantedTotal;
+    }
+
     /** Puts the cycle timer back to 0 (dev only; on the world thread). */
     public void restartCycleTimer() {
         elapsed = 0f;
     }
 
-    /** Copies the persisted fields; runtime state starts fresh. */
+    /** Copies the persisted fields and what the decode reported about them; runtime state starts fresh. */
     @Override
     public LumberjackComponent clone() {
         LumberjackComponent copy = new LumberjackComponent();
         copy.tier = tier;
         copy.radius = LumberSettings.sanitizeRadius(radius);
         copy.intervalSeconds = LumberSettings.sanitizeInterval(intervalSeconds);
+        copy.upgrades = upgrades.copy();
+        copy.ignoredUpgrades = ignoredUpgrades;
+        copy.ignoredUpgradesWarned = ignoredUpgradesWarned;
         return copy;
     }
 }

@@ -13,10 +13,10 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.tchorizo.hypedestals.harvest.UpgradeType;
 import org.joml.Vector3i;
 
-/** The Harvester an upgrade interaction targets, plus the helpers both interactions share. */
-record UpgradeTarget(HarvesterComponent harvester, BlockModule.BlockStateInfo info, Store<ChunkStore> store) {
+/** The Harvester or Lumberjack an upgrade interaction targets, plus the helpers both interactions share. */
+record UpgradeTarget(UpgradeHost machine, BlockModule.BlockStateInfo info, Store<ChunkStore> store) {
 
-    /** The Harvester at {@code pos}, or {@code null} when that block is not one (or is not loaded). */
+    /** The machine at {@code pos}, or {@code null} when that block is not one (or is not loaded). */
     static UpgradeTarget at(World world, Vector3i pos) {
         Store<ChunkStore> store = world.getChunkStore().getStore();
         Ref<ChunkStore> section = world.getChunkStore().getChunkSectionReferenceAtBlock(pos.x, pos.y, pos.z);
@@ -24,9 +24,9 @@ record UpgradeTarget(HarvesterComponent harvester, BlockModule.BlockStateInfo in
         if (ref == null || !ref.isValid()) {
             return null;
         }
-        HarvesterComponent harvester = store.getComponent(ref, HarvesterComponent.TYPE);
+        UpgradeHost machine = UpgradeHost.of(store, ref);
         BlockModule.BlockStateInfo info = store.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
-        return harvester == null || info == null ? null : new UpgradeTarget(harvester, info, store);
+        return machine == null || info == null ? null : new UpgradeTarget(machine, info, store);
     }
 
     /** The upgrade list changed outside the engine; unmarked, the change is lost on the next unload or restart. */

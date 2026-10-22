@@ -19,10 +19,11 @@ import org.joml.Vector3i;
 
 /**
  * Interaction type {@code HyPedestalsInstallUpgrade}: the upgrade item's {@code Secondary}. Installs
- * the held upgrade into the Harvester under the cursor and consumes one item from the hand (not in
- * Creative, like the vanilla inventory-modifying interactions). Checked before paid: any other
- * target, an upgrade the Harvester already has, or a hand that cannot give up the item fails the
- * interaction without side effects.
+ * the held upgrade into the Harvester or Lumberjack under the cursor and consumes one item from the
+ * hand (not in Creative, like the vanilla inventory-modifying interactions). Checked before paid:
+ * any other target, an upgrade the machine does not accept (a Lumberjack takes the Planter only),
+ * one it already has, or a hand that cannot give up the item fails the interaction without side
+ * effects.
  */
 public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
 
@@ -30,7 +31,7 @@ public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
 
     public static final BuilderCodec<InstallUpgradeInteraction> CODEC = BuilderCodec
             .builder(InstallUpgradeInteraction.class, InstallUpgradeInteraction::new, SimpleBlockInteraction.CODEC)
-            .documentation("Installs the held HyPedestals upgrade into the targeted Harvester.")
+            .documentation("Installs the held HyPedestals upgrade into the targeted Harvester or Lumberjack.")
             .build();
 
     @Override
@@ -39,11 +40,11 @@ public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
         UpgradeType upgrade = held == null ? null : UpgradeType.fromItemId(held.getItemId());
         UpgradeTarget target = upgrade == null ? null : UpgradeTarget.at(world, pos);
         ItemContainer hand = ctx.getHeldItemContainer();
-        if (target == null || hand == null) {
+        if (target == null || hand == null || !target.machine().upgrades().accepts(upgrade)) {
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        if (target.harvester().hasUpgrade(upgrade)) {
+        if (target.machine().upgrades().has(upgrade)) {
             UpgradeTarget.tell(cb, ctx, "alreadyInstalled", upgrade);
             ctx.getState().state = InteractionState.Failed;
             return;
@@ -52,12 +53,12 @@ public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
             ctx.getState().state = InteractionState.Failed;
             return;
         }
-        target.harvester().upgrades().install(upgrade);
+        target.machine().upgrades().install(upgrade);
         target.markNeedsSaving();
-        HarvesterVisual.request(world, pos);
+        MachineVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "installed", upgrade);
-        HyPedestalsPlugin.log("upgrade: %s installed at %d %d %d -> %s",
-                upgrade.displayName(), pos.x, pos.y, pos.z, target.harvester().upgrades());
+        HyPedestalsPlugin.log("upgrade: %s installed in %s at %d %d %d -> %s",
+                upgrade.displayName(), target.machine().machineName(), pos.x, pos.y, pos.z, target.machine().upgrades());
     }
 
     /** Same test as the vanilla {@code ModifyInventoryInteraction}: the interactor's {@link Player} game mode. */

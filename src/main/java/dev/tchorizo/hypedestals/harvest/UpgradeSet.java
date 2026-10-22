@@ -5,32 +5,51 @@ import java.util.List;
 import java.util.StringJoiner;
 
 /**
- * Upgrades installed in one Harvester: at most one per type, kept in installation order so
- * {@link #newest()} is the one to hand back first. Persisted as the item ids of {@link #toArray()}.
+ * Upgrades installed in one machine ({@link UpgradeMachine}): at most one per type, only types the
+ * machine accepts, kept in installation order so {@link #newest()} is the one to hand back first.
+ * Persisted as the item ids of {@link #toArray()}.
  */
 public final class UpgradeSet {
 
+    private final UpgradeMachine machine;
     private final List<UpgradeType> installed = new ArrayList<>(UpgradeType.values().length);
     private final List<String> ignored;
 
+    /** An empty Harvester set. */
     public UpgradeSet() {
-        this.ignored = List.of();
+        this(UpgradeMachine.HARVESTER);
     }
 
-    private UpgradeSet(List<String> ignored) {
+    public UpgradeSet(UpgradeMachine machine) {
+        this(machine, List.of());
+    }
+
+    private UpgradeSet(UpgradeMachine machine, List<String> ignored) {
+        this.machine = machine;
         this.ignored = ignored;
     }
 
-    /**
-     * Reads persisted ids in order. Unknown ids (e.g. from a newer version) and repeated types are
-     * dropped and reported by {@link #ignored()}; they disappear on the next save.
-     */
+    /** The machine this set belongs to. */
+    public UpgradeMachine machine() {
+        return machine;
+    }
+
+    /** Reads persisted ids of a Harvester, see {@link #parse(String[], UpgradeMachine)}. */
     public static UpgradeSet parse(String[] itemIds) {
+        return parse(itemIds, UpgradeMachine.HARVESTER);
+    }
+
+    /**
+     * Reads persisted ids in order. Unknown ids (e.g. from a newer version), upgrades the machine
+     * does not accept and repeated types are dropped and reported by {@link #ignored()}; they
+     * disappear on the next save.
+     */
+    public static UpgradeSet parse(String[] itemIds, UpgradeMachine machine) {
         if (itemIds == null || itemIds.length == 0) {
-            return new UpgradeSet();
+            return new UpgradeSet(machine);
         }
         List<String> skipped = new ArrayList<>(0);
-        UpgradeSet set = new UpgradeSet(skipped);
+        UpgradeSet set = new UpgradeSet(machine, skipped);
         for (String id : itemIds) {
             UpgradeType type = UpgradeType.fromItemId(id);
             if (type == null || !set.install(type)) {
@@ -53,9 +72,17 @@ public final class UpgradeSet {
         return installed.isEmpty();
     }
 
-    /** Adds {@code type} as the newest upgrade; {@code false} (no change) when already installed. */
+    /** Whether the machine takes {@code type} at all (installed or not). */
+    public boolean accepts(UpgradeType type) {
+        return machine.accepts(type);
+    }
+
+    /**
+     * Adds {@code type} as the newest upgrade; {@code false} (no change) when the machine does not
+     * accept it ({@link #accepts}) or it is already installed.
+     */
     public boolean install(UpgradeType type) {
-        if (installed.contains(type)) {
+        if (!machine.accepts(type) || installed.contains(type)) {
             return false;
         }
         installed.add(type);
@@ -72,6 +99,11 @@ public final class UpgradeSet {
         return installed.remove(type);
     }
 
+    /** Removes every upgrade. */
+    public void clear() {
+        installed.clear();
+    }
+
     /** Item ids in installation order; a fresh array each call. */
     public String[] toArray() {
         String[] ids = new String[installed.size()];
@@ -81,9 +113,9 @@ public final class UpgradeSet {
         return ids;
     }
 
-    /** Same upgrades in the same order; {@link #ignored()} is not carried over. */
+    /** Same machine, same upgrades in the same order; {@link #ignored()} is not carried over. */
     public UpgradeSet copy() {
-        UpgradeSet copy = new UpgradeSet();
+        UpgradeSet copy = new UpgradeSet(machine);
         copy.installed.addAll(installed);
         return copy;
     }

@@ -17,10 +17,27 @@ package dev.tchorizo.hypedestals.lumber;
  * @param budgetHit the cycle stopped at {@code Lumberjack.MaxBlocksPerCycle} blocks read; the next
  *     cycle goes on from there
  * @param nextIndex where the next cycle's area scan starts
+ * @param gridSpots grid points of the Planter upgrade that could take a sapling this cycle (0 without
+ *     the upgrade, with spacing 0, or when the grid has no point in the area)
+ * @param gridPlanted saplings the grid planted this cycle (the stump's replant is {@code replant})
  */
 public record LumberResult(int trees, int blocks, int items, Replant replant, String sapling,
                            int growing, int tooBig, int notTree, int unloaded, boolean containerFull,
-                           boolean budgetHit, int nextIndex) {
+                           boolean budgetHit, int nextIndex, int gridSpots, int gridPlanted) {
+
+    /** A result of the tree search; the grid has not run. */
+    public LumberResult(int trees, int blocks, int items, Replant replant, String sapling,
+                        int growing, int tooBig, int notTree, int unloaded, boolean containerFull,
+                        boolean budgetHit, int nextIndex) {
+        this(trees, blocks, items, replant, sapling, growing, tooBig, notTree, unloaded, containerFull,
+                budgetHit, nextIndex, 0, 0);
+    }
+
+    /** This result with the grid's outcome. */
+    public LumberResult withGrid(int spots, int planted) {
+        return new LumberResult(trees, blocks, items, replant, sapling, growing, tooBig, notTree, unloaded,
+                containerFull, budgetHit, nextIndex, spots, planted);
+    }
 
     public enum Replant {
         NONE("none"),
