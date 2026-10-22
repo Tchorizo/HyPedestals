@@ -29,6 +29,16 @@ final class MachineVisual {
     }
 
     /**
+     * Id of the machine's tier block at {@code pos} without the state suffix, e.g.
+     * {@code HyPedestals_Harvester_Iron}; it is also the id of the item that places it. {@code null}
+     * when the block is not loaded or has no type.
+     */
+    static String machineId(World world, Vector3i pos) {
+        BlockType type = blockAt(world.getChunkStore(), pos);
+        return type == null ? null : HytaleIds.baseBlockId(type.getId());
+    }
+
+    /**
      * Applies {@link #apply} after the current tick. {@code setBlockInteractionState} replaces the
      * block in the chunk store itself, not through a {@code CommandBuffer}; from inside a system
      * (the machine's tick) or an interaction that may end in "Store is currently processing".

@@ -57,6 +57,7 @@ public final class InstallUpgradeInteraction extends SimpleBlockInteraction {
         target.markNeedsSaving();
         MachineVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "installed", upgrade);
+        ShowUpgradesInteraction.show(world, cb, ctx, pos, target.machine());
         HyPedestalsPlugin.log("upgrade: %s installed in %s at %d %d %d -> %s",
                 upgrade.displayName(), target.machine().machineName(), pos.x, pos.y, pos.z, target.machine().upgrades());
     }

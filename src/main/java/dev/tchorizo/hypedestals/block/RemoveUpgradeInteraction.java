@@ -73,6 +73,7 @@ public final class RemoveUpgradeInteraction extends SimpleBlockInteraction {
         target.markNeedsSaving();
         MachineVisual.request(world, pos);
         UpgradeTarget.tell(cb, ctx, "removed", removed);
+        ShowUpgradesInteraction.show(world, cb, ctx, pos, target.machine());
         HyPedestalsPlugin.log("upgrade: %s removed from %s at %d %d %d -> %s",
                 removed.displayName(), target.machine().machineName(), pos.x, pos.y, pos.z, target.machine().upgrades());
     }

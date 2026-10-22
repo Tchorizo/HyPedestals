@@ -11,6 +11,8 @@ import com.hypixel.hytale.builtin.adventure.farming.config.stages.PrefabFarmingS
 import com.hypixel.hytale.component.spatial.SpatialResource;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.Color;
+import com.hypixel.hytale.protocol.FormattedMessage;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.particle.config.ParticleSystem;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
@@ -45,6 +47,7 @@ import dev.tchorizo.hypedestals.block.HytaleIds;
 import dev.tchorizo.hypedestals.block.HytaleSoilWorld;
 import dev.tchorizo.hypedestals.block.HytaleTrees;
 import dev.tchorizo.hypedestals.block.LumberjackComponent;
+import dev.tchorizo.hypedestals.block.ShowUpgradesInteraction;
 import dev.tchorizo.hypedestals.block.UpgradeHost;
 import dev.tchorizo.hypedestals.block.UpgradeParticles;
 import dev.tchorizo.hypedestals.config.Tier;
@@ -110,6 +113,7 @@ final class DevCommands extends AbstractAsyncCommand {
         addSubCommand(new SetBlockCommand());
         addSubCommand(new ContentsCommand());
         addSubCommand(new UpgradeCommand());
+        addSubCommand(new IndicatorCommand());
         addSubCommand(new StateCommand());
         addSubCommand(new FenceCommand());
         addSubCommand(new WaterCommand());
@@ -1525,6 +1529,59 @@ final class DevCommands extends AbstractAsyncCommand {
             return String.format(Locale.ROOT, "upgrade %s %s at %s (%s): changed=%b markedForSave=%b upgrades=%s accepted=%b",
                     add ? "add" : "remove", type.displayName(), at, machine.machineName(), changed, marked,
                     upgrades, accepted);
+        }
+    }
+
+    /**
+     * {@code indicator <x y z>}: builds the toast the Harvester's/Lumberjack's {@code Use} shows when its
+     * storage opens (without sending it: the console has no client) and describes it: each line's
+     * translation key, color and params, and whether the machine's item icon was found. Proves the
+     * {@code Message} and {@code ItemWithAllMetadata} construction on the server.
+     */
+    private static final class IndicatorCommand extends HyPedestalsCommand.PositionCommand {
+        IndicatorCommand() {
+            super("indicator", "Describe the upgrade indicator toast of the Harvester or Lumberjack at a position");
+        }
+
+        @Override
+        int loadFlags() {
+            return super.loadFlags() | GetChunkFlags.NO_GENERATE;
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i pos = position(context);
+            return runAt(context, world -> HyPedestalsCommand.reply(context, "%s", describe(world, pos)), pos);
+        }
+
+        private static String describe(World world, Vector3i pos) {
+            String at = HyPedestalsCommand.format(pos);
+            Ref<ChunkStore> ref = BlockModule.getBlockEntity(world, pos.x, pos.y, pos.z);
+            UpgradeHost machine = ref == null ? null : UpgradeHost.of(world.getChunkStore().getStore(), ref);
+            if (machine == null) {
+                return "indicator: no Harvester or Lumberjack at " + at;
+            }
+            ShowUpgradesInteraction.Toast toast = ShowUpgradesInteraction.toast(world, pos, machine);
+            StringBuilder out = new StringBuilder(String.format(Locale.ROOT,
+                    "indicator at %s (%s %s): upgrades=%s icon=%b title=%s list=", at, machine.machineName(),
+                    toast.machineId(), machine.upgrades(), toast.icon() != null, line(toast.title())));
+            for (Message part : toast.list().getChildren()) {
+                out.append('[').append(line(part)).append(']');
+            }
+            return out.toString();
+        }
+
+        private static String line(Message message) {
+            FormattedMessage formatted = message.getFormattedMessage();
+            StringBuilder out = new StringBuilder(String.valueOf(formatted.messageId != null ? formatted.messageId : formatted.rawText));
+            if (formatted.color != null) {
+                out.append(' ').append(formatted.color);
+            }
+            if (formatted.messageParams != null) {
+                formatted.messageParams.forEach((name, value) ->
+                        out.append(' ').append(name).append('=').append(value.messageId != null ? value.messageId : value.rawText));
+            }
+            return out.toString();
         }
     }
 

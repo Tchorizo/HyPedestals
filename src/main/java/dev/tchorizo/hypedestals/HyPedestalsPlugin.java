@@ -14,6 +14,7 @@ import dev.tchorizo.hypedestals.block.LumberjackComponent;
 import dev.tchorizo.hypedestals.block.LumberjackRemovalSystem;
 import dev.tchorizo.hypedestals.block.LumberjackSystem;
 import dev.tchorizo.hypedestals.block.RemoveUpgradeInteraction;
+import dev.tchorizo.hypedestals.block.ShowUpgradesInteraction;
 import dev.tchorizo.hypedestals.command.HyPedestalsCommand;
 import dev.tchorizo.hypedestals.config.HyPedestalsConfig;
 import dev.tchorizo.hypedestals.config.ModSettings;
@@ -80,7 +81,8 @@ public final class HyPedestalsPlugin extends JavaPlugin {
         // Interaction types referenced by our Server/Item/Interactions JSON (upgrade item, Harvester Use).
         getCodecRegistry(Interaction.CODEC)
                 .register(InstallUpgradeInteraction.TYPE_ID, InstallUpgradeInteraction.class, InstallUpgradeInteraction.CODEC)
-                .register(RemoveUpgradeInteraction.TYPE_ID, RemoveUpgradeInteraction.class, RemoveUpgradeInteraction.CODEC);
+                .register(RemoveUpgradeInteraction.TYPE_ID, RemoveUpgradeInteraction.class, RemoveUpgradeInteraction.CODEC)
+                .register(ShowUpgradesInteraction.TYPE_ID, ShowUpgradesInteraction.class, ShowUpgradesInteraction.CODEC);
         boolean dev = System.getProperty(HyPedestalsCommand.DEV_PROPERTY) != null;
         getCommandRegistry().registerCommand(new HyPedestalsCommand(dev));
         log("setup (dev commands %s); config %s: %s", dev ? "on" : "off", configFile(), settings().describe());

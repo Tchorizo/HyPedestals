@@ -88,7 +88,8 @@ class HytaleIdsTest {
                 assertTrue(lang.contains("\n" + key + " = "), locale + " misses " + key);
             }
         }
-        for (String key : new String[] {"installed", "alreadyInstalled", "removed", "none"}) {
+        for (String key : new String[] {"installed", "alreadyInstalled", "removed", "none", "indicator.title",
+                "indicator.installed", "indicator.missing"}) {
             assertTrue(lang.contains("\nupgrade." + key + " = "), locale + " misses upgrade." + key);
         }
     }
@@ -102,6 +103,11 @@ class HytaleIdsTest {
         assertTrue(use.contains("\"Crouching\": true"), use);
         assertTrue(use.contains("\"Type\": \"HyPedestalsRemoveUpgrade\""), use);
         assertTrue(use.contains("\"Type\": \"OpenContainer\""), use);
+        assertTrue(use.contains("\"Type\": \"HyPedestalsShowUpgrades\""), use);
+        assertTrue(use.indexOf("HyPedestalsShowUpgrades") < use.indexOf("\"OpenContainer\""),
+                "the indicator runs before the container opens: " + use);
+        assertTrue(use.indexOf("\"Failed\"") < use.indexOf("HyPedestalsShowUpgrades"),
+                "only the not-crouching branch shows the indicator: " + use);
         assertTrue(resource(ROOT_INTERACTIONS + "HyPedestals_Upgrade_Install.json")
                 .contains("\"HyPedestals_Upgrade_Install\""));
         assertTrue(resource(ROOT_INTERACTIONS + "HyPedestals_Harvester_Use.json")

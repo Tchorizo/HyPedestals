@@ -58,3 +58,6 @@ upgrade.installed = {upgrade} instalado.
 upgrade.alreadyInstalled = Esta máquina já tem o {upgrade}.
 upgrade.removed = {upgrade} removido.
 upgrade.none = Esta máquina não tem upgrades.
+upgrade.indicator.title = {machine}: upgrades
+upgrade.indicator.installed = [x] {upgrade}
+upgrade.indicator.missing = [ ] {upgrade}
