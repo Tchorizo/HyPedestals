@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **Young crops that never grow again.** A crop that lost its farming data (what a world crash or a failed tick right after a harvest left behind in the 0.2.2 era: a Stage 1 plant that stays Stage 1 forever, `harvested=0` in `/hypedestals inspect`) is now revived by the Harvester: every cycle, a crop in its area that is not in its final stage, has no farming data (live or stored away) and sits in a ticking chunk gets new farming data in the stage it shows and grows again. `inspect` shows the total as `revived=<n>`. Ripe crops and crops in chunks that are not ticking are not touched.
+- A Harvester with the Planter Upgrade failed every cycle (`planter … failed: NullPointerException`, and with it the export to the adjacent container and `/hypedestals inspect`) while its storage held a soil item of another mod (e.g. LifeCrops soil, a block with farming data but no growth stages), which a harvest of that mod's crops can drop. Such items are now simply not seeds.
 
 ## 0.3.2 — 2026-10-21
 

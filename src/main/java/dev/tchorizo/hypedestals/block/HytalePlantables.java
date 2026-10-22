@@ -302,7 +302,7 @@ public final class HytalePlantables {
 
     private static boolean isCrop(String blockId) {
         FarmingData farming = farming(blockId);
-        return farming != null && !hasPrefabStage(farming);
+        return farming != null && farming.getStages() != null && !hasPrefabStage(farming);
     }
 
     private static boolean isTree(String blockId) {
@@ -315,7 +315,11 @@ public final class HytalePlantables {
         return type == null ? null : type.getFarming();
     }
 
+    /** Soil blocks of other mods ({@code Farming} with a {@code SoilConfig} and no {@code Stages}) have no stages at all. */
     private static boolean hasPrefabStage(FarmingData farming) {
+        if (farming.getStages() == null) {
+            return false;
+        }
         for (FarmingStageData[] stages : farming.getStages().values()) {
             for (FarmingStageData stage : stages) {
                 if (stage instanceof PrefabFarmingStageData) {
