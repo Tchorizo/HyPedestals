@@ -45,6 +45,7 @@ final class DevChunkCommands {
         parent.addSubCommand(new ChunkStateCommand());
         parent.addSubCommand(new ParkCommand());
         parent.addSubCommand(new UnparkCommand());
+        parent.addSubCommand(new UnfarmCommand());
     }
 
     private static ComponentType<ChunkStore, NonTicking<ChunkStore>> nonTicking() {
@@ -194,6 +195,46 @@ final class DevChunkCommands {
                 }
                 world.getChunkStore().getStore().tryRemoveComponent(section, nonTicking());
                 HyPedestalsCommand.reply(context, "unpark at %s: ticking", HyPedestalsCommand.format(p));
+            });
+        }
+    }
+
+    /**
+     * {@code unfarm <x y z>}: removes the live {@code FarmingBlock} entity of a crop and leaves the
+     * block, the state a failed tick after a harvest leaves behind (a young plant that never grows;
+     * Task 44). The Harvester's revival pass gives it an entity back.
+     */
+    private static final class UnfarmCommand extends HyPedestalsCommand.PositionCommand {
+        UnfarmCommand() {
+            super("unfarm", "Remove the FarmingBlock entity of the crop at a position, keeping the block");
+        }
+
+        @Override
+        protected CompletableFuture<Void> executeAsync(CommandContext context) {
+            Vector3i p = position(context);
+            return onSection(context, p, -1, (world, section) -> {
+                if (section == null) {
+                    HyPedestalsCommand.reply(context, "unfarm at %s: section not loaded", HyPedestalsCommand.format(p));
+                    return;
+                }
+                Store<ChunkStore> store = world.getChunkStore().getStore();
+                Ref<ChunkStore> ref = BlockModule.getBlockEntity(store, section, p.x, p.y, p.z);
+                boolean farming = ref != null && store.getComponent(ref, FarmingBlock.getComponentType()) != null;
+                if (farming) {
+                    store.removeEntity(ref, com.hypixel.hytale.component.RemoveReason.REMOVE);
+                } else if (ref == null) {
+                    // A section that is not ticking keeps its block entities as parked holders.
+                    BlockComponentSection components = store.getComponent(section, BlockComponentSection.getComponentType());
+                    int idx = ChunkUtil.indexBlock(p.x, p.y, p.z);
+                    Holder<ChunkStore> holder = components == null ? null : components.getBlockHolder(idx);
+                    if (holder != null && holder.getComponent(FarmingBlock.getComponentType()) != null) {
+                        components.removeBlockHolder(idx);
+                        farming = true;
+                    }
+                }
+                BlockType block = BlockType.getAssetMap().getAsset(new SectionReader(world.getChunkStore()).getBlock(p.x, p.y, p.z));
+                HyPedestalsCommand.reply(context, "unfarm at %s: removed=%b block=%s", HyPedestalsCommand.format(p), farming,
+                        block == null ? "null" : block.getId());
             });
         }
     }

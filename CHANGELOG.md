@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Requires Hytale 0.7.4** (was 0.7.2); the plugin is built against the 0.7.4 server API and `manifest.json` now declares `ServerVersion` `>=0.7.4 <0.8.0`. The farming, block, container and interaction API the mod uses is unchanged between the two versions.
 - The Lumberjack's crouch + Use now removes its last upgrade (plain Use still opens the storage), and a sapling's space that reaches into a chunk that is not loaded counts as occupied.
 
+### Fixed
+
+- **Young crops that never grow again.** A crop that lost its farming data (what a world crash or a failed tick right after a harvest left behind in the 0.2.2 era: a Stage 1 plant that stays Stage 1 forever, `harvested=0` in `/hypedestals inspect`) is now revived by the Harvester: every cycle, a crop in its area that is not in its final stage, has no farming data (live or stored away) and sits in a ticking chunk gets new farming data in the stage it shows and grows again. `inspect` shows the total as `revived=<n>`. Ripe crops and crops in chunks that are not ticking are not touched.
+
 ## 0.3.2 — 2026-10-21
 
 ### Fixed

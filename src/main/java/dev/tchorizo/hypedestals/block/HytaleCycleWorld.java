@@ -154,7 +154,7 @@ final class HytaleCycleWorld implements CycleWorld {
     }
 
     /** Finds farming metadata on a state variant or its base asset. */
-    private static FarmingData farmingData(BlockType block, String baseId) {
+    static FarmingData farmingData(BlockType block, String baseId) {
         FarmingData farming = block.getFarming();
         if (farming != null) {
             return farming;

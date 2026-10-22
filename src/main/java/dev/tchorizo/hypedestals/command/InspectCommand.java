@@ -75,14 +75,14 @@ final class InspectCommand extends HyPedestalsCommand.PositionCommand {
         ItemContainerBlock containerBlock = store.getComponent(ref, ItemContainerBlock.getComponentType());
         CycleResult last = harvester.lastResult();
         CycleStats stats = harvester.stats();
-        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs upgrades=%s soil: %s%s%s"
+        return String.format(Locale.ROOT, "tier=%d radius=%d interval=%.1fs next=%.1fs scan=%d/%d slots=%s last: %s burst=%.1fs revived=%d upgrades=%s soil: %s%s%s"
                         + " perf: last=%dus p50=%dus p95=%dus max=%dus (n=%d)",
                 harvester.tier(), harvester.radius(), harvester.intervalSeconds(), harvester.secondsToNextCycle(),
                 harvester.scanIndex(), HarvestArea.size(harvester.radius()),
                 containerBlock == null ? "missing" : slots(containerBlock.getItemContainer()),
                 last == null ? "none" : String.format(Locale.ROOT, "harvested=%d collected=%d containerFull=%s exported=%s",
                         last.harvested(), last.collected(), full(last), export(harvester.lastExport())),
-                harvester.burstSecondsLeft(), harvester.upgrades(), soil(harvester),
+                harvester.burstSecondsLeft(), harvester.revivedTotal(), harvester.upgrades(), soil(harvester),
                 harvester.hasUpgrade(UpgradeType.FERTILIZER) ? " fertilizer=" + fertilizer(containerBlock) : "",
                 harvester.hasUpgrade(UpgradeType.PLANTER) ? " planter: " + planter(harvester, containerBlock) : "",
                 stats.lastCycleMicros(), stats.p50(), stats.p95(), stats.max(), stats.cycles());

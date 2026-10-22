@@ -216,6 +216,9 @@ public final class HarvesterSystem extends EntityTickingSystem<ChunkStore> {
             ParticleUtil.spawnParticleEffect(HARVEST_PARTICLES,
                     new Vector3d(pos.x + 0.5, pos.y, pos.z + 0.5), world.getEntityStore().getStore());
         }
+        // Young crops that lost their FarmingBlock (a failed tick after a harvest) never grow again:
+        // give them the entity back, outside this tick (the chunk store refuses addEntity while a system runs).
+        HytaleReviver.request(world, new BlockPos(pos.x, pos.y, pos.z), settings.radius());
         // Planter: replant after the harvest, outside this tick (setBlock on the chunk store).
         // Runs on the cycle timer, also with the container full (seeds come out of it).
         if (harvester.hasUpgrade(UpgradeType.PLANTER)) {

@@ -118,6 +118,10 @@ public final class HarvesterComponent implements Component<ChunkStore>, UpgradeH
     int seedsPlantedTotal;
     /** Saplings planted since the load. */
     int saplingsPlantedTotal;
+    /** Crops given a new {@code FarmingBlock} by the last revival pass ({@code HytaleReviver}). */
+    int lastRevived;
+    /** Crops revived since the load. */
+    int revivedTotal;
     /**
      * Seconds left of the post-harvest collect burst ({@code CollectBurst}): while positive,
      * {@code HarvesterSystem} collects drops on every tick between cycles. {@code 0} after a load.
@@ -233,6 +237,11 @@ public final class HarvesterComponent implements Component<ChunkStore>, UpgradeH
     /** Saplings planted since the load. */
     public int saplingsPlantedTotal() {
         return saplingsPlantedTotal;
+    }
+
+    /** Crops given a new {@code FarmingBlock} since the load (the revival pass, see {@code HytaleReviver}). */
+    public int revivedTotal() {
+        return revivedTotal;
     }
 
     /** Seconds left of the post-harvest collect burst; {@code 0} when none is running. */
