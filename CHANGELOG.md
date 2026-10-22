@@ -3,6 +3,17 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- The **Lumberjack takes the Planter Upgrade** (only that one: Watering and Fertilizer do not fit it). Install with right-click, remove with crouch + Use (F), the upgrade drops when the Lumberjack is broken and survives chunk unloads and restarts, as on the Harvester; the block shows amber rings. With it, every cycle — after the cut and the stump's replanting — the Lumberjack plants the saplings in its storage (lowest slot first) on a grid in its own area, with the same rules as the Harvester's Planter (soil that holds saplings, no tilled soil within 3 blocks, the spot and the space around and above it free, grass tufts cleared first, chunks that are not ticking left alone). Seeds in a Lumberjack are ignored. `/hypedestals inspect` shows `upgrades=[Planter]` and `planter: planted=<n> total=<n> spots=<n>`.
+- `Lumberjack.SaplingSpacing` (0 or 2–16, 4 by default; 0 = only the stump is replanted) in the config file, the settings window and `config set Lumberjack SaplingSpacing`. The grid is measured from the Lumberjack: a Copper Lumberjack (radius 3) has grid points only with a spacing of 3 or less (`inspect` shows `spots=0` otherwise).
+
+### Changed
+
+- The Lumberjack's crouch + Use now removes its last upgrade (plain Use still opens the storage), and a sapling's space that reaches into a chunk that is not loaded counts as occupied.
+
 ## 0.3.2 — 2026-10-21
 
 ### Fixed
